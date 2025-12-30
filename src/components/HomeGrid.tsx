@@ -89,7 +89,7 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         {/* Email confirmation success message */}
         {showConfirmedMessage && (
           <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center justify-between">
-            <span>✓ Email confirmed! You're all set.</span>
+            <span>✓ Email confirmed! You&apos;re all set.</span>
             <button
               onClick={() => setShowConfirmedMessage(false)}
               className="text-green-700 hover:text-green-900 ml-4"
