@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import ItemDetail from '@/components/ItemDetail'
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export default async function ItemPage({
   params,
 }: {
