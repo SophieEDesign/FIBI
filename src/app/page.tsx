@@ -11,15 +11,35 @@ export default async function HomePage({
   searchParams: Promise<{ code?: string; confirmed?: string }>
 }) {
   try {
-    const params = await searchParams
+    // Safely await searchParams - handle potential errors
+    let params: { code?: string; confirmed?: string } = {}
+    try {
+      params = await searchParams
+    } catch (searchParamsError) {
+      // If searchParams fails, use empty object
+      console.warn('Error reading searchParams:', searchParamsError)
+      params = {}
+    }
+
     const code = params?.code
 
     // If there's a code parameter, redirect to auth callback
     if (code) {
-      redirect(`/auth/callback?code=${code}`)
+      redirect(`/auth/callback?code=${encodeURIComponent(code)}`)
     }
 
-    const supabase = await createClient()
+    // Safely create Supabase client
+    let supabase
+    try {
+      supabase = await createClient()
+    } catch (clientError) {
+      console.error('Failed to create Supabase client:', clientError)
+      redirect('/login')
+    }
+
+    if (!supabase) {
+      redirect('/login')
+    }
     
     const {
       data: { user },
