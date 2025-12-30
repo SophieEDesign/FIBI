@@ -13,11 +13,14 @@ export async function updateSession(request: NextRequest) {
   ]
   
   // Check if it's a public file, /share route, or starts with /icon or /api
+  // Also check for manifest.json route handler
   if (
     publicFiles.includes(pathname) ||
     pathname === '/share' ||
+    pathname === '/manifest.json' ||
     pathname.startsWith('/icon') ||
-    pathname.startsWith('/api/')
+    pathname.startsWith('/api/') ||
+    pathname.startsWith('/manifest')
   ) {
     // Return immediately without any Supabase operations
     const response = NextResponse.next({

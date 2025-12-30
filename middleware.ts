@@ -10,7 +10,7 @@ export const config = {
     /*
      * Match all request paths except:
      * - login (login page)
-     * - manifest.json (PWA manifest)
+     * - manifest.json (PWA manifest - served via route handler)
      * - icon (all icon paths)
      * - favicon.ico (favicon)
      * - share (share target route) - CRITICAL for Android Share
@@ -18,7 +18,7 @@ export const config = {
      * - _next/static and _next/image (Next.js internals)
      * - Static assets (images, fonts, etc.)
      */
-    '/((?!login|manifest\\.json|icon|favicon\\.ico|share|api|_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|eot|ico)$).*)',
+    '/((?!login|manifest|icon|favicon\\.ico|share|api|_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|eot|ico|json)$).*)',
   ],
 }
 
