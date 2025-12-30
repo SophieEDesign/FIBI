@@ -65,6 +65,8 @@ export default function AddItemForm() {
   useEffect(() => {
     const urlParam = searchParams.get('url')
     if (urlParam) {
+      // Clear any existing errors when prefilling from share
+      setError(null)
       setUrl(urlParam)
       handleUrlChange(urlParam)
     }

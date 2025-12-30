@@ -27,10 +27,17 @@ export default function LoginClient() {
   // Check for error or success messages from URL params
   useEffect(() => {
     const errorParam = searchParams.get('error')
-    if (errorParam === 'confirmation_failed') {
-      setError('Email confirmation failed. Please try signing up again or contact support.')
+    const messageParam = searchParams.get('message')
+    
+    // Only set error if we're done checking auth to prevent flashing
+    if (!checkingAuth) {
+      if (errorParam === 'confirmation_failed') {
+        setError('Email confirmation failed. Please try signing up again or contact support.')
+      } else if (messageParam === 'confirmed') {
+        setSuccessMessage('Your email has been confirmed! You can now log in.')
+      }
     }
-  }, [searchParams])
+  }, [searchParams, checkingAuth])
 
   // Check if user is already authenticated and redirect
   useEffect(() => {
@@ -41,9 +48,14 @@ export default function LoginClient() {
       return
     }
     
+    let isMounted = true
+    
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase!.auth.getUser()
+        
+        if (!isMounted) return
+        
         // "Auth session missing" is expected when user is not logged in - not an error
         if (error && !error.message.includes('session missing')) {
           console.error('Auth check error:', error)
@@ -55,6 +67,8 @@ export default function LoginClient() {
           setCheckingAuth(false)
         }
       } catch (err: any) {
+        if (!isMounted) return
+        
         // Ignore "session missing" errors - they're expected for logged-out users
         if (err?.message && !err.message.includes('session missing')) {
           console.error('Error checking auth:', err)
@@ -63,14 +77,24 @@ export default function LoginClient() {
       }
     }
     
-    // Add timeout to prevent infinite loading
+    // Add timeout to prevent infinite loading - reduced to 2 seconds
     const timeout = setTimeout(() => {
-      setCheckingAuth(false)
-    }, 5000)
+      if (isMounted) {
+        console.warn('Auth check timeout - stopping loading')
+        setCheckingAuth(false)
+      }
+    }, 2000)
     
-    checkUser().finally(() => {
+    checkUser()
+      .finally(() => {
+        clearTimeout(timeout)
+      })
+    
+    // Cleanup function
+    return () => {
+      isMounted = false
       clearTimeout(timeout)
-    })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

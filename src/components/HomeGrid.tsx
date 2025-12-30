@@ -36,6 +36,7 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         console.error('Error loading items:', error)
         // If it's an auth error, redirect to login
         if (error.message.includes('JWT') || error.message.includes('auth')) {
+          setLoading(false) // Set loading to false before redirect
           router.push('/login')
           return
         }
