@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  // CRITICAL: Allow public static files without any auth checks
+  // CRITICAL: Allow public static files and API routes without any auth checks
   const pathname = request.nextUrl.pathname
   const publicFiles = [
     '/manifest.json',
@@ -11,7 +11,9 @@ export async function updateSession(request: NextRequest) {
     '/favicon.ico',
   ]
   
-  if (publicFiles.includes(pathname)) {
+  // Also allow route handlers (they start with /api or are in app directory)
+  // Route handlers bypass middleware, but this is a safety check
+  if (publicFiles.includes(pathname) || pathname.startsWith('/api/')) {
     return NextResponse.next({
       request,
     })

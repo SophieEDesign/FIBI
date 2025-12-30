@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 
+// Force dynamic rendering to ensure this route handler is always executed
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // This route handler ensures manifest.json is always accessible without auth
 // Route handlers bypass middleware, so this will always work
 export async function GET() {
