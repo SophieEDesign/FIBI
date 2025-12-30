@@ -2,7 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  // CRITICAL: Allow public static files and API routes without any auth checks
+  // CRITICAL: Allow public static files, icons, and /share route without any auth checks
+  // This MUST be the first check - before any Supabase operations
   const pathname = request.nextUrl.pathname
   const publicFiles = [
     '/manifest.json',
@@ -11,12 +12,23 @@ export async function updateSession(request: NextRequest) {
     '/favicon.ico',
   ]
   
-  // Also allow route handlers (they start with /api or are in app directory)
-  // Route handlers bypass middleware, but this is a safety check
-  if (publicFiles.includes(pathname) || pathname.startsWith('/api/')) {
-    return NextResponse.next({
+  // Allow /share route (share target)
+  const publicRoutes = ['/share']
+  
+  // Check if it's a public file, public route, or starts with /icon or /api
+  if (
+    publicFiles.includes(pathname) ||
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith('/icon') ||
+    pathname.startsWith('/api/')
+  ) {
+    // Return immediately without any Supabase operations
+    const response = NextResponse.next({
       request,
     })
+    // Ensure no auth headers are added
+    response.headers.delete('authorization')
+    return response
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
