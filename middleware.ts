@@ -13,7 +13,7 @@ export const config = {
      * - manifest.json (PWA manifest)
      * - icon (all icon paths)
      * - favicon.ico (favicon)
-     * - share (share target route)
+     * - share (share target route) - CRITICAL for Android Share
      * - api (API routes)
      * - _next/static and _next/image (Next.js internals)
      * - Static assets (images, fonts, etc.)
