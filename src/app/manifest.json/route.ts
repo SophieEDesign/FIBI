@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 // This route handler ensures manifest.json is always accessible without auth
-// Route handlers bypass middleware, so this will always work
-export async function GET() {
+// Route handlers bypass middleware automatically, but we also exclude it in middleware matcher
+export async function GET(request: Request) {
   const manifest = {
     name: "Fibi - Save Your Travel Places",
     short_name: "Fibi",
