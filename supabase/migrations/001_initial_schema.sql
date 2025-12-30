@@ -24,6 +24,12 @@ CREATE INDEX IF NOT EXISTS idx_saved_items_created_at ON saved_items(created_at 
 -- Enable Row Level Security
 ALTER TABLE saved_items ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (for idempotency)
+DROP POLICY IF EXISTS "Users can view their own saved items" ON saved_items;
+DROP POLICY IF EXISTS "Users can insert their own saved items" ON saved_items;
+DROP POLICY IF EXISTS "Users can update their own saved items" ON saved_items;
+DROP POLICY IF EXISTS "Users can delete their own saved items" ON saved_items;
+
 -- RLS Policy: Users can only view their own saved items
 CREATE POLICY "Users can view their own saved items"
   ON saved_items
@@ -57,6 +63,9 @@ BEGIN
   RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+-- Drop trigger if it exists (for idempotency)
+DROP TRIGGER IF EXISTS update_saved_items_updated_at ON saved_items;
 
 -- Trigger to automatically update updated_at
 CREATE TRIGGER update_saved_items_updated_at
