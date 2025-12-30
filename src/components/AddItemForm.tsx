@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { detectPlatform } from '@/lib/utils'
 import { CATEGORIES, STATUSES } from '@/types/database'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 export default function AddItemForm() {
@@ -21,6 +21,7 @@ export default function AddItemForm() {
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleUrlChange = async (newUrl: string) => {
     setUrl(newUrl)
@@ -59,6 +60,16 @@ export default function AddItemForm() {
       setFetchingMetadata(false)
     }
   }
+
+  // Read URL from query parameters (for share target)
+  useEffect(() => {
+    const urlParam = searchParams.get('url')
+    if (urlParam) {
+      setUrl(urlParam)
+      handleUrlChange(urlParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

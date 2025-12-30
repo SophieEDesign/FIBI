@@ -1,0 +1,12 @@
+PWA Icons Required
+
+For the PWA to work properly, you need to create two icon files:
+
+1. icon-192.png (192x192 pixels)
+2. icon-512.png (512x512 pixels)
+
+These should be placed in the /public directory.
+
+You can create these using any image editor or use an online PWA icon generator.
+Make sure the icons represent the Fibi app brand.
+
