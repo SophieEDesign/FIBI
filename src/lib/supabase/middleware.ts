@@ -52,12 +52,22 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect unauthenticated users to login (except for login, API routes, and auth callbacks)
+  // Allow public routes without authentication
+  const publicRoutes = [
+    '/login',
+    '/api',
+    '/auth/callback',
+    '/share', // Share target route - just redirects, no auth needed
+  ]
+  
+  const isPublicRoute = publicRoutes.some(route => 
+    request.nextUrl.pathname.startsWith(route)
+  )
+
+  // Redirect unauthenticated users to login (except for public routes)
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/api') &&
-    !request.nextUrl.pathname.startsWith('/auth/callback')
+    !isPublicRoute
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

@@ -44,10 +44,9 @@ export default function LoginClient() {
     const checkUser = async () => {
       try {
         const { data: { user }, error } = await supabase!.auth.getUser()
-        if (error) {
+        // "Auth session missing" is expected when user is not logged in - not an error
+        if (error && !error.message.includes('session missing')) {
           console.error('Auth check error:', error)
-          setCheckingAuth(false)
-          return
         }
         if (user) {
           router.push('/')
@@ -55,8 +54,11 @@ export default function LoginClient() {
         } else {
           setCheckingAuth(false)
         }
-      } catch (err) {
-        console.error('Error checking auth:', err)
+      } catch (err: any) {
+        // Ignore "session missing" errors - they're expected for logged-out users
+        if (err?.message && !err.message.includes('session missing')) {
+          console.error('Error checking auth:', err)
+        }
         setCheckingAuth(false)
       }
     }
