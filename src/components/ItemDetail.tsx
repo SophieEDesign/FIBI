@@ -30,6 +30,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
 
   useEffect(() => {
     loadItem()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId])
 
   const loadItem = async () => {

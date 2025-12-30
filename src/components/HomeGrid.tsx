@@ -17,6 +17,7 @@ export default function HomeGrid() {
 
   useEffect(() => {
     loadItems()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadItems = async () => {
