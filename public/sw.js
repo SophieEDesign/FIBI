@@ -1,9 +1,7 @@
-const CACHE_NAME = 'fibi-v1'
+const CACHE_NAME = 'fibi-v2'
 const urlsToCache = [
-  '/',
-  '/add',
-  '/login',
-  '/manifest.json'
+  '/manifest.json',
+  '/icon.svg'
 ]
 
 // Install event - cache resources
@@ -38,6 +36,14 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url)
+  
+  // CRITICAL: Don't intercept navigation requests (HTML pages) - let them go through normally
+  // This prevents service worker from interfering with redirects and auth flows
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    return
+  }
+  
   // Don't intercept requests with redirect mode that's not 'follow'
   if (event.request.redirect !== 'follow') {
     return
@@ -48,7 +54,24 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Don't cache redirect responses
+  // Skip API routes, auth routes, and service worker itself
+  if (
+    url.pathname.startsWith('/api') || 
+    url.pathname.startsWith('/auth') ||
+    url.pathname === '/sw.js' ||
+    url.pathname === '/manifest.json'
+  ) {
+    return
+  }
+
+  // Only cache static assets (images, CSS, JS, fonts, etc.)
+  if (
+    !url.pathname.match(/\.(jpg|jpeg|png|gif|svg|css|js|woff|woff2|ttf|eot|ico)$/i)
+  ) {
+    return
+  }
+
+  // Cache static assets only
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
@@ -63,7 +86,7 @@ self.addEventListener('fetch', (event) => {
             return networkResponse
           }
 
-          // Only cache successful GET requests
+          // Only cache successful GET requests for static assets
           if (networkResponse.status === 200 && networkResponse.type === 'basic') {
             const responseToCache = networkResponse.clone()
             caches.open(CACHE_NAME).then((cache) => {
@@ -77,28 +100,19 @@ self.addEventListener('fetch', (event) => {
 
           return networkResponse
         }).catch((error) => {
-          // If fetch fails, return offline page if available for document requests
-          if (event.request.destination === 'document') {
-            return caches.match('/').catch(() => {
-              // If cache match also fails, return a basic error response
-              return new Response('Offline', { status: 503 })
-            })
-          }
-          throw error
+          // If fetch fails, try to return from cache
+          return caches.match(event.request).catch(() => {
+            // If cache match also fails, return network error
+            throw error
+          })
         })
       })
       .catch(() => {
         // If cache match fails, try network
         return fetch(event.request).catch(() => {
-          // If both fail, return offline page if available
-          if (event.request.destination === 'document') {
-            return caches.match('/').catch(() => {
-              return new Response('Offline', { status: 503 })
-            })
-          }
+          // If both fail, return error response
           return new Response('Network error', { status: 503 })
         })
       })
   )
 })
-

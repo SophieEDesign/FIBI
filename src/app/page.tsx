@@ -22,9 +22,11 @@ export default async function HomePage({
   
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser()
 
-  if (!user) {
+  // If auth check fails or no user, redirect to login
+  if (authError || !user) {
     redirect('/login')
   }
 
