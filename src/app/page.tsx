@@ -10,26 +10,32 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ code?: string; confirmed?: string }>
 }) {
-  const params = await searchParams
-  const code = params?.code
+  try {
+    const params = await searchParams
+    const code = params?.code
 
-  // If there's a code parameter, redirect to auth callback
-  if (code) {
-    redirect(`/auth/callback?code=${code}`)
-  }
+    // If there's a code parameter, redirect to auth callback
+    if (code) {
+      redirect(`/auth/callback?code=${code}`)
+    }
 
-  const supabase = await createClient()
-  
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+    const supabase = await createClient()
+    
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-  // If auth check fails or no user, redirect to login
-  if (authError || !user) {
+    // If auth check fails or no user, redirect to login
+    if (authError || !user) {
+      redirect('/login')
+    }
+
+    return <HomeGrid confirmed={params?.confirmed === 'true'} />
+  } catch (error) {
+    // If there's any error, redirect to login
+    console.error('Home page error:', error)
     redirect('/login')
   }
-
-  return <HomeGrid confirmed={params?.confirmed === 'true'} />
 }
 
