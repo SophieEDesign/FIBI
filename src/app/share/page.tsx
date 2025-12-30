@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-export default function SharePage({
+export default async function SharePage({
   searchParams,
 }: {
   searchParams: Promise<{ url?: string }>
