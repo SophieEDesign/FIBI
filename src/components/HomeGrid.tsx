@@ -7,11 +7,16 @@ import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
-export default function HomeGrid() {
+interface HomeGridProps {
+  confirmed?: boolean
+}
+
+export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -81,6 +86,19 @@ export default function HomeGrid() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Email confirmation success message */}
+        {showConfirmedMessage && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <span>✓ Email confirmed! You're all set.</span>
+            <button
+              onClick={() => setShowConfirmedMessage(false)}
+              className="text-green-700 hover:text-green-900 ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="mb-8">
           <div className="flex flex-wrap gap-2 items-center">

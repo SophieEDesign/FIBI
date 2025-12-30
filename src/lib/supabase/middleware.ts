@@ -42,11 +42,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Redirect unauthenticated users to login (except for login and API routes)
+  // Redirect unauthenticated users to login (except for login, API routes, and auth callbacks)
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/api')
+    !request.nextUrl.pathname.startsWith('/api') &&
+    !request.nextUrl.pathname.startsWith('/auth/callback')
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
