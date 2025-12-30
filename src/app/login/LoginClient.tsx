@@ -39,7 +39,7 @@ export default function LoginClient() {
     }
   }, [searchParams, checkingAuth])
 
-  // Check if user is already authenticated and redirect
+  // Check if user is already authenticated - middleware handles redirects, so just check for display
   useEffect(() => {
     // If Supabase client creation failed, show error and stop loading
     if (!supabase) {
@@ -60,12 +60,11 @@ export default function LoginClient() {
         if (error && !error.message.includes('session missing')) {
           console.error('Auth check error:', error)
         }
-        if (user) {
-          router.push('/')
-          router.refresh()
-        } else {
-          setCheckingAuth(false)
-        }
+        
+        // Don't redirect here - let middleware handle it to avoid loops
+        // If user exists, middleware will redirect them away from /login
+        // Just stop the loading spinner
+        setCheckingAuth(false)
       } catch (err: any) {
         if (!isMounted) return
         
