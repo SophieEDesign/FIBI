@@ -11,16 +11,15 @@ export default async function ItemPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  // TEMPORARILY DISABLED FOR TESTING - Skip auth checks
-  // const supabase = await createClient()
+  const supabase = await createClient()
   
-  // const {
-  //   data: { user },
-  // } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // if (!user) {
-  //   redirect('/login')
-  // }
+  if (!user) {
+    redirect('/login')
+  }
 
   return <ItemDetail itemId={id} />
 }

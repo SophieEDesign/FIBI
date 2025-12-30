@@ -90,16 +90,15 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith(route)
   )
 
-  // TEMPORARILY DISABLED FOR TESTING - Allow unauthenticated users to access all routes
   // Redirect unauthenticated users to login (except for public routes)
-  // if (
-  //   !user &&
-  //   !isPublicRoute
-  // ) {
-  //   const url = request.nextUrl.clone()
-  //   url.pathname = '/login'
-  //   return NextResponse.redirect(url)
-  // }
+  if (
+    !user &&
+    !isPublicRoute
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is. If you're
   // creating a new response object with NextResponse.next() make sure to:
