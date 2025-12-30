@@ -14,7 +14,15 @@ export default function LoginClient() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
+  
+  // Safely create Supabase client
+  let supabase: ReturnType<typeof createClient> | null = null
+  try {
+    supabase = createClient()
+  } catch (err: any) {
+    // If client creation fails (missing env vars), we'll handle it in useEffect
+    console.error('Failed to create Supabase client:', err)
+  }
 
   // Check for error or success messages from URL params
   useEffect(() => {
@@ -26,21 +34,52 @@ export default function LoginClient() {
 
   // Check if user is already authenticated and redirect
   useEffect(() => {
+    // If Supabase client creation failed, show error and stop loading
+    if (!supabase) {
+      setCheckingAuth(false)
+      setError('Configuration error: Missing Supabase credentials. Please check your environment variables.')
+      return
+    }
+    
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        router.push('/')
-        router.refresh()
-      } else {
+      try {
+        const { data: { user }, error } = await supabase!.auth.getUser()
+        if (error) {
+          console.error('Auth check error:', error)
+          setCheckingAuth(false)
+          return
+        }
+        if (user) {
+          router.push('/')
+          router.refresh()
+        } else {
+          setCheckingAuth(false)
+        }
+      } catch (err) {
+        console.error('Error checking auth:', err)
         setCheckingAuth(false)
       }
     }
-    checkUser()
+    
+    // Add timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      setCheckingAuth(false)
+    }, 5000)
+    
+    checkUser().finally(() => {
+      clearTimeout(timeout)
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!supabase) {
+      setError('Configuration error: Supabase client not available')
+      return
+    }
+    
     setLoading(true)
     setError(null)
 

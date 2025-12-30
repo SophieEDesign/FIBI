@@ -32,7 +32,14 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error loading items:', error)
+        // If it's an auth error, redirect to login
+        if (error.message.includes('JWT') || error.message.includes('auth')) {
+          router.push('/login')
+          return
+        }
+      }
       setItems(data || [])
     } catch (error) {
       console.error('Error loading items:', error)
