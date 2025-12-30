@@ -12,13 +12,10 @@ export async function updateSession(request: NextRequest) {
     '/favicon.ico',
   ]
   
-  // Allow /share route (share target)
-  const publicRoutes = ['/share']
-  
-  // Check if it's a public file, public route, or starts with /icon or /api
+  // Check if it's a public file, /share route, or starts with /icon or /api
   if (
     publicFiles.includes(pathname) ||
-    publicRoutes.includes(pathname) ||
+    pathname === '/share' ||
     pathname.startsWith('/icon') ||
     pathname.startsWith('/api/')
   ) {
