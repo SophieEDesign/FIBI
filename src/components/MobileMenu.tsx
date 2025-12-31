@@ -41,15 +41,23 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
   }, [isOpen])
 
   const handleInstall = async () => {
+    setIsOpen(false)
+    
     if (hasPrompt) {
-      const accepted = await promptInstall()
-      if (accepted) {
-        setIsOpen(false)
+      try {
+        const accepted = await promptInstall()
+        if (!accepted) {
+          // User dismissed the prompt, show help as fallback
+          setShowInstallHelp(true)
+        }
+      } catch (error) {
+        console.error('Error triggering install:', error)
+        // Show help if prompt fails
+        setShowInstallHelp(true)
       }
     } else {
-      // Show help modal if prompt is not available
+      // Show help modal with device-specific instructions
       setShowInstallHelp(true)
-      setIsOpen(false)
     }
   }
 
@@ -146,11 +154,28 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
             <p className="text-sm text-gray-600 mb-4">
               To install FiBi on your phone:
             </p>
-            <ol className="text-sm text-gray-700 space-y-2 mb-4 list-decimal list-inside">
-              <li>Open your browser menu (⋮)</li>
-              <li>Tap &quot;Install app&quot; or &quot;Add to Home screen&quot;</li>
-              <li>Follow the prompts to install</li>
-            </ol>
+            <div className="text-sm text-gray-700 space-y-3 mb-4">
+              <div>
+                <p className="font-medium mb-1">Android (Chrome):</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Tap the menu (⋮) in the top right</li>
+                  <li>Look for &quot;Add to Home screen&quot; or &quot;Install app&quot;</li>
+                  <li>If you see &quot;Add shortcut&quot;, that&apos;s also the install option</li>
+                  <li>Tap it and follow the prompts</li>
+                </ol>
+                <p className="text-xs text-gray-500 mt-2 italic">
+                  Note: &quot;Add to Home screen&quot; installs FiBi as an app
+                </p>
+              </div>
+              <div>
+                <p className="font-medium mb-1">iPhone (Safari):</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Tap the Share button (□↑) at the bottom</li>
+                  <li>Scroll down and tap &quot;Add to Home Screen&quot;</li>
+                  <li>Tap &quot;Add&quot; to confirm</li>
+                </ol>
+              </div>
+            </div>
             <button
               onClick={() => setShowInstallHelp(false)}
               className="w-full bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
