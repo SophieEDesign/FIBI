@@ -272,14 +272,60 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         {/* Grid */}
         {filteredItems.length === 0 ? (
           isAuthenticated === false ? (
-            <div className="text-center py-16">
-              <p className="text-gray-600 mb-4">Sign in to save your travel places</p>
-              <Link
-                href="/login"
-                className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                Sign in
-              </Link>
+            <div className="max-w-2xl mx-auto py-16 px-4">
+              <div className="bg-white rounded-2xl border border-gray-200 p-8 md:p-12 text-center">
+                <div className="mb-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
+                  <p className="text-gray-600 mb-8">
+                    Share a TikTok/Instagram/website link to Fibi, or paste a link to save it.
+                  </p>
+                </div>
+
+                <div className="space-y-4 mb-8 text-left max-w-md mx-auto">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
+                      1
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Find a place online</p>
+                      <p className="text-sm text-gray-600">Discover somewhere you&apos;d like to visit on TikTok, Instagram, or any website</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
+                      2
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Share to Fibi (or paste the link)</p>
+                      <p className="text-sm text-gray-600">Use the share button or copy the link and add it to Fibi</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
+                      3
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Add city/country + a quick status</p>
+                      <p className="text-sm text-gray-600">Organise your saved places with location and status (Want, Dream, Maybe, Been)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Link
+                  href="/login"
+                  className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-4"
+                >
+                  Sign in to get started
+                </Link>
+                <p className="text-sm text-gray-500">
+                  Tip: Installing Fibi makes sharing one tap faster.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="max-w-2xl mx-auto py-16 px-4">
