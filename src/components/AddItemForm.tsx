@@ -21,30 +21,30 @@ export default function AddItemForm() {
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const authCheckedRef = useRef(false)
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Check auth state and redirect to login if not authenticated
+  // Check auth state and redirect to login if not authenticated (only once on mount)
   useEffect(() => {
+    // Only check auth once
+    if (authCheckedRef.current) return
+    authCheckedRef.current = true
+    
     const checkAuth = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser()
       
       if (!user) {
-        // Build redirect URL preserving all query params and any entered URL
+        // Build redirect URL preserving all query params (e.g., from share target)
         const params = new URLSearchParams()
         
-        // Preserve existing query params (e.g., from share target)
+        // Preserve existing query params
         searchParams.forEach((value, key) => {
           params.set(key, value)
         })
-        
-        // If user has entered a URL in the form, preserve it
-        if (url.trim()) {
-          params.set('url', url.trim())
-        }
         
         // Build the redirect URL
         const redirectPath = params.toString() 
@@ -58,7 +58,7 @@ export default function AddItemForm() {
       setIsAuthenticated(true)
     }
     checkAuth()
-  }, [supabase, router, searchParams, url])
+  }, [supabase, router, searchParams])
 
   const handleUrlChange = async (newUrl: string) => {
     setUrl(newUrl)
@@ -101,7 +101,7 @@ export default function AddItemForm() {
   // Read URL from query parameters (for share target or after login redirect)
   useEffect(() => {
     // Only run this if we're authenticated (to avoid conflicts with auth check)
-    if (isAuthenticated === null) return
+    if (isAuthenticated !== true) return
     
     const urlParam = searchParams.get('url')
     if (urlParam && urlParam !== url) {
