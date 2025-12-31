@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { detectPlatform } from '@/lib/utils'
+import { detectPlatform, uploadScreenshot, getHostname } from '@/lib/utils'
 import { CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -13,15 +13,18 @@ export default function AddItemForm() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [thumbnailUrl, setThumbnailUrl] = useState('')
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
   const [locationCountry, setLocationCountry] = useState('')
   const [locationCity, setLocationCity] = useState('')
   const [category, setCategory] = useState('')
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const authCheckedRef = useRef(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -67,6 +70,7 @@ export default function AddItemForm() {
       setTitle('')
       setDescription('')
       setThumbnailUrl('')
+      setScreenshotUrl(null)
       return
     }
 
@@ -188,6 +192,7 @@ export default function AddItemForm() {
           title: finalTitle.trim() || null,
           description: finalDescription.trim() || null,
           thumbnail_url: finalThumbnailUrl.trim() || null,
+          screenshot_url: screenshotUrl,
           location_country: locationCountry.trim() || null,
           location_city: locationCity.trim() || null,
           category: category || null,
@@ -205,6 +210,56 @@ export default function AddItemForm() {
       setLoading(false)
     }
   }
+
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingScreenshot(true)
+    setError(null)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setError('You must be logged in to upload screenshots')
+        return
+      }
+
+      const uploadedUrl = await uploadScreenshot(file, user.id, null, supabase)
+
+      if (!uploadedUrl) {
+        setError('Failed to upload screenshot. Please try again.')
+        return
+      }
+
+      setScreenshotUrl(uploadedUrl)
+      // Clear OG thumbnail when user uploads their own screenshot
+      setThumbnailUrl('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload screenshot')
+    } finally {
+      setUploadingScreenshot(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleRemoveScreenshot = () => {
+    setScreenshotUrl(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // Determine preview image URL (screenshot > OG > placeholder)
+  const previewImageUrl = screenshotUrl || thumbnailUrl || null
+  const hasPreview = !!previewImageUrl
+  const isUserScreenshot = !!screenshotUrl
 
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
@@ -277,6 +332,81 @@ export default function AddItemForm() {
               {fetchingMetadata && (
                 <p className="mt-1 text-sm text-gray-500">Fetching metadata...</p>
               )}
+            </div>
+
+            {/* Preview area */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Preview
+              </label>
+              <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden relative border border-gray-200">
+                {hasPreview ? (
+                  <>
+                    <img
+                      src={previewImageUrl}
+                      alt={title || 'Preview'}
+                      className="w-full h-full object-cover"
+                    />
+                    {isUserScreenshot && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 text-white text-xs rounded">
+                        Your screenshot
+                      </div>
+                    )}
+                    {screenshotUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveScreenshot}
+                        className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded hover:bg-black/90 transition-colors"
+                        aria-label="Remove screenshot"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-gray-400 text-4xl mb-2">
+                        {url ? '🔗' : '📷'}
+                      </div>
+                      <p className="text-sm text-gray-500">No preview available</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleScreenshotUpload}
+                  className="hidden"
+                  id="screenshot-upload"
+                />
+                <label
+                  htmlFor="screenshot-upload"
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  {uploadingScreenshot ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {screenshotUrl ? 'Replace screenshot' : 'Add your own screenshot'}
+                    </>
+                  )}
+                </label>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

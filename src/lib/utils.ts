@@ -18,3 +18,57 @@ export function getHostname(url: string): string {
   }
 }
 
+/**
+ * Upload a screenshot image to Supabase Storage
+ * @param file - The image file to upload
+ * @param userId - The user's ID
+ * @param itemId - The item's ID (optional, for existing items)
+ * @param supabase - Supabase client instance
+ * @returns Public URL of the uploaded image, or null if upload fails
+ */
+export async function uploadScreenshot(
+  file: File,
+  userId: string,
+  itemId: string | null,
+  supabase: ReturnType<typeof import('@/lib/supabase/client').createClient>
+): Promise<string | null> {
+  try {
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Please use JPG, PNG, or WebP.')
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      throw new Error('File size too large. Maximum size is 5MB.')
+    }
+
+    // Generate file path: screenshots/{userId}/{itemId or timestamp}.{ext}
+    const fileExt = file.name.split('.').pop() || 'jpg'
+    const fileName = itemId || `temp-${Date.now()}`
+    const filePath = `${userId}/${fileName}.${fileExt}`
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('screenshots')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      })
+
+    if (error) throw error
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('screenshots')
+      .getPublicUrl(filePath)
+
+    return urlData.publicUrl
+  } catch (error: any) {
+    console.error('Error uploading screenshot:', error)
+    return null
+  }
+}
+

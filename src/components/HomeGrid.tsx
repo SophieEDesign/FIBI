@@ -288,7 +288,10 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => {
-              const hasImage = !!item.thumbnail_url
+              // Preview priority: screenshot_url > thumbnail_url > placeholder
+              const previewImageUrl = item.screenshot_url || item.thumbnail_url || null
+              const hasImage = !!previewImageUrl
+              const isUserScreenshot = !!item.screenshot_url
               const displayTitle = item.title || getHostname(item.url)
               
               // Platform badge styling
@@ -333,11 +336,11 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                     {hasImage ? (
                       <>
                         <img
-                          src={item.thumbnail_url!}
+                          src={previewImageUrl}
                           alt={displayTitle}
                           className="w-full h-full object-cover"
                           loading="lazy"
-                          referrerPolicy="no-referrer"
+                          referrerPolicy={isUserScreenshot ? undefined : "no-referrer"}
                           onError={(e) => {
                             // Fallback to placeholder on error
                             const target = e.target as HTMLImageElement
@@ -346,6 +349,11 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                             if (placeholder) placeholder.style.display = 'flex'
                           }}
                         />
+                        {isUserScreenshot && (
+                          <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
+                            Your screenshot
+                          </div>
+                        )}
                         <div className="hidden w-full h-full items-center justify-center bg-gray-50">
                           <div className="text-center">
                             <div className="text-gray-400 text-3xl mb-2">

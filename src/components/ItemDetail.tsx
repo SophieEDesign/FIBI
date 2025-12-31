@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getHostname } from '@/lib/utils'
+import { getHostname, uploadScreenshot } from '@/lib/utils'
 
 interface ItemDetailProps {
   itemId: string
@@ -16,18 +16,23 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditingLocation, setIsEditingLocation] = useState(false)
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
   
-  // Form state
+  // Editable fields (always editable)
   const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('')
+  const [status, setStatus] = useState('')
+  const [notes, setNotes] = useState('')
+  
+  // Location fields (edit mode only)
   const [description, setDescription] = useState('')
   const [locationCountry, setLocationCountry] = useState('')
   const [locationCity, setLocationCity] = useState('')
-  const [category, setCategory] = useState('')
-  const [status, setStatus] = useState('')
 
   const supabase = createClient()
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadItem()
@@ -52,6 +57,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setLocationCity(data.location_city || '')
         setCategory(data.category || '')
         setStatus(data.status || '')
+        setNotes(data.notes || '')
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load item')
@@ -60,7 +66,130 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     }
   }
 
-  const handleSave = async () => {
+  // Save a single field to Supabase
+  const saveField = async (fieldName: string, value: string | null) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('saved_items')
+        .update({ [fieldName]: value })
+        .eq('id', itemId)
+
+      if (updateError) throw updateError
+
+      // Update local item state optimistically
+      if (item) {
+        setItem({ ...item, [fieldName]: value })
+      }
+    } catch (err: any) {
+      setError(err.message || `Failed to save ${fieldName}`)
+      // Reload to get correct state
+      loadItem()
+    }
+  }
+
+  // Handle title save on blur
+  const handleTitleBlur = async () => {
+    const trimmedTitle = title.trim() || null
+    if (trimmedTitle !== (item?.title || null)) {
+      await saveField('title', trimmedTitle)
+    }
+  }
+
+  // Handle category change
+  const handleCategoryChange = async (newCategory: string) => {
+    setCategory(newCategory)
+    const value = newCategory || null
+    await saveField('category', value)
+  }
+
+  // Handle status change
+  const handleStatusChange = async (newStatus: string) => {
+    setStatus(newStatus)
+    const value = newStatus || null
+    await saveField('status', value)
+  }
+
+  // Handle notes save on blur
+  const handleNotesBlur = async () => {
+    const trimmedNotes = notes.trim() || null
+    if (trimmedNotes !== (item?.notes || null)) {
+      await saveField('notes', trimmedNotes)
+    }
+  }
+
+  // Handle screenshot upload
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !item) return
+
+    setUploadingScreenshot(true)
+    setError(null)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setError('You must be logged in to upload screenshots')
+        return
+      }
+
+      const uploadedUrl = await uploadScreenshot(file, user.id, item.id, supabase)
+
+      if (!uploadedUrl) {
+        setError('Failed to upload screenshot. Please try again.')
+        return
+      }
+
+      // Save screenshot URL to database
+      await saveField('screenshot_url', uploadedUrl)
+    } catch (err: any) {
+      setError(err.message || 'Failed to upload screenshot')
+    } finally {
+      setUploadingScreenshot(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Handle screenshot removal
+  const handleRemoveScreenshot = async () => {
+    if (!item || !item.screenshot_url) return
+
+    if (!confirm('Remove your screenshot? The preview will revert to the original image or placeholder.')) {
+      return
+    }
+
+    try {
+      // Extract path from public URL
+      // URL format: https://[project].supabase.co/storage/v1/object/public/screenshots/userId/filename
+      const urlParts = item.screenshot_url.split('/screenshots/')
+      if (urlParts.length > 1) {
+        const screenshotPath = urlParts[1] // userId/filename
+        
+        // Delete from storage
+        const { error: deleteError } = await supabase.storage
+          .from('screenshots')
+          .remove([screenshotPath])
+
+        if (deleteError) {
+          console.error('Error deleting screenshot from storage:', deleteError)
+          // Continue anyway to remove from database
+        }
+      }
+
+      // Remove from database
+      await saveField('screenshot_url', null)
+    } catch (err: any) {
+      setError(err.message || 'Failed to remove screenshot')
+    }
+  }
+
+  // Save location fields (when in edit mode)
+  const handleSaveLocation = async () => {
     setSaving(true)
     setError(null)
 
@@ -68,18 +197,15 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       const { error: updateError } = await supabase
         .from('saved_items')
         .update({
-          title: title.trim() || null,
           description: description.trim() || null,
           location_country: locationCountry.trim() || null,
           location_city: locationCity.trim() || null,
-          category: category || null,
-          status: status || null,
         })
         .eq('id', itemId)
 
       if (updateError) throw updateError
 
-      setIsEditing(false)
+      setIsEditingLocation(false)
       loadItem()
     } catch (err: any) {
       setError(err.message || 'Failed to save changes')
@@ -149,41 +275,57 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {/* Preview area */}
           <div className="aspect-video bg-gray-100 relative overflow-hidden">
-            {item.thumbnail_url ? (
-              <>
-                <img
-                  src={item.thumbnail_url}
-                  alt={item.title || getHostname(item.url)}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    // Fallback to placeholder on error
-                    const target = e.target as HTMLImageElement
-                    target.style.display = 'none'
-                    const placeholder = target.nextElementSibling as HTMLElement
-                    if (placeholder) placeholder.style.display = 'flex'
-                  }}
-                />
-                <div className="hidden w-full h-full items-center justify-center bg-gray-50">
-                  <div className="text-center">
-                    <div className="text-gray-400 text-5xl mb-3">
-                      {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+            {/* Preview priority: screenshot_url > thumbnail_url > placeholder */}
+            {(() => {
+              const previewImageUrl = item.screenshot_url || item.thumbnail_url || null
+              const hasImage = !!previewImageUrl
+              const isUserScreenshot = !!item.screenshot_url
+
+              if (hasImage) {
+                return (
+                  <>
+                    <img
+                      src={previewImageUrl}
+                      alt={title || item.title || getHostname(item.url)}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      referrerPolicy={isUserScreenshot ? undefined : "no-referrer"}
+                      onError={(e) => {
+                        // Fallback to placeholder on error
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const placeholder = target.nextElementSibling as HTMLElement
+                        if (placeholder) placeholder.style.display = 'flex'
+                      }}
+                    />
+                    {isUserScreenshot && (
+                      <div className="absolute top-4 left-4 px-2 py-1 bg-black/70 text-white text-xs rounded">
+                        Your screenshot
+                      </div>
+                    )}
+                    <div className="hidden w-full h-full items-center justify-center bg-gray-50">
+                      <div className="text-center">
+                        <div className="text-gray-400 text-5xl mb-3">
+                          {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                        </div>
+                        <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                  </>
+                )
+              } else {
+                return (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                    <div className="text-center">
+                      <div className="text-gray-400 text-5xl mb-3">
+                        {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                      </div>
+                      <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                    </div>
                   </div>
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                <div className="text-center">
-                  <div className="text-gray-400 text-5xl mb-3">
-                    {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
-                  </div>
-                  <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
-                </div>
-              </div>
-            )}
+                )
+              }
+            })()}
             
             {/* Platform badge - top right */}
             <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-lg text-sm font-medium ${
@@ -194,6 +336,32 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             }`}>
               {item.platform}
             </div>
+
+            {/* Screenshot management buttons */}
+            <div className="absolute bottom-4 right-4 flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleScreenshotUpload}
+                className="hidden"
+                id="screenshot-upload-detail"
+              />
+              <label
+                htmlFor="screenshot-upload-detail"
+                className="px-3 py-1.5 bg-black/70 text-white text-sm rounded hover:bg-black/90 transition-colors cursor-pointer"
+              >
+                {uploadingScreenshot ? 'Uploading...' : item.screenshot_url ? 'Replace' : 'Add screenshot'}
+              </label>
+              {item.screenshot_url && (
+                <button
+                  onClick={handleRemoveScreenshot}
+                  className="px-3 py-1.5 bg-red-600/90 text-white text-sm rounded hover:bg-red-600 transition-colors"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="p-8">
@@ -203,44 +371,80 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               </div>
             )}
 
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex-1">
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full text-2xl font-bold text-gray-900 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                    placeholder="Title"
-                  />
-                ) : (
-                  <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                    {item.title || 'Untitled'}
-                  </h1>
-                )}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {item.category && (
-                    <span className="text-sm bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">
-                      {item.category}
-                    </span>
-                  )}
-                  {item.status && (
-                    <span className={`text-sm px-2.5 py-1 rounded-full ${
-                      item.status === 'Want' ? 'bg-blue-100 text-blue-700' :
-                      item.status === 'Dream' ? 'bg-purple-100 text-purple-700' :
-                      item.status === 'Maybe' ? 'bg-yellow-100 text-yellow-700' :
-                      item.status === 'Been' ? 'bg-green-100 text-green-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {item.status}
-                    </span>
-                  )}
+            <div className="mb-6">
+              {/* Title - always editable */}
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  onBlur={handleTitleBlur}
+                  className="w-full text-2xl font-bold text-gray-900 px-0 py-2 border-0 border-b-2 border-transparent focus:border-gray-300 focus:outline-none transition-colors"
+                  placeholder="Add a title..."
+                  required
+                />
+              </div>
+
+              {/* Category and Status - always editable */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+                  <select
+                    value={category}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-full bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
+                  >
+                    <option value="">Select category...</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    className={`px-3 py-1.5 text-sm border rounded-full bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors ${
+                      status === 'Want' ? 'border-blue-300' :
+                      status === 'Dream' ? 'border-purple-300' :
+                      status === 'Maybe' ? 'border-yellow-300' :
+                      status === 'Been' ? 'border-green-300' :
+                      'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select status...</option>
+                    {STATUSES.map((stat) => (
+                      <option key={stat} value={stat}>
+                        {stat}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
 
             <div className="space-y-6">
-              {isEditing ? (
+              {/* Notes - always editable */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  onBlur={handleNotesBlur}
+                  rows={4}
+                  placeholder="Why did you save this?"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                />
+              </div>
+
+              {/* Location fields - edit mode */}
+              {isEditingLocation ? (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -279,44 +483,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                         placeholder="e.g. United Kingdom"
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                       />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Category
-                      </label>
-                      <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      >
-                        <option value="">Select...</option>
-                        {CATEGORIES.map((cat) => (
-                          <option key={cat} value={cat}>
-                            {cat}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
-                      </label>
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      >
-                        <option value="">Select...</option>
-                        {STATUSES.map((stat) => (
-                          <option key={stat} value={stat}>
-                            {stat}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   </div>
                 </>
@@ -359,18 +525,18 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             </div>
 
             <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
-              {isEditing ? (
+              {isEditingLocation ? (
                 <>
                   <button
-                    onClick={handleSave}
+                    onClick={handleSaveLocation}
                     disabled={saving}
                     className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? 'Saving...' : 'Save Location'}
                   </button>
                   <button
                     onClick={() => {
-                      setIsEditing(false)
+                      setIsEditingLocation(false)
                       loadItem()
                     }}
                     className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -381,10 +547,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               ) : (
                 <>
                   <button
-                    onClick={() => setIsEditing(true)}
-                    className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                    onClick={() => setIsEditingLocation(true)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    Edit
+                    Edit Location
                   </button>
                   <button
                     onClick={handleDelete}

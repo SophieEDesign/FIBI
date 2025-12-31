@@ -6,10 +6,12 @@ export interface SavedItem {
   title: string | null
   description: string | null
   thumbnail_url: string | null
+  screenshot_url: string | null
   location_country: string | null
   location_city: string | null
   category: string | null
   status: string | null
+  notes: string | null
   created_at: string
   updated_at: string
 }
