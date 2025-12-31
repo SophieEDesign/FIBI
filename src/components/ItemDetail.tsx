@@ -22,7 +22,11 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   // Editable fields (always editable)
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
+  const [customCategory, setCustomCategory] = useState('')
+  const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
   const [status, setStatus] = useState('')
+  const [customStatus, setCustomStatus] = useState('')
+  const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [notes, setNotes] = useState('')
   
   // Location fields (edit mode only)
@@ -55,8 +59,27 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setDescription(data.description || '')
         setLocationCountry(data.location_country || '')
         setLocationCity(data.location_city || '')
-        setCategory(data.category || '')
-        setStatus(data.status || '')
+        // Check if category/status is a custom one (not in predefined lists)
+        const isCustomCategory = data.category && !CATEGORIES.includes(data.category as any)
+        const isCustomStatus = data.status && !STATUSES.includes(data.status as any)
+        if (isCustomCategory) {
+          setCustomCategory(data.category)
+          setShowCustomCategoryInput(true)
+          setCategory('')
+        } else {
+          setCategory(data.category || '')
+          setCustomCategory('')
+          setShowCustomCategoryInput(false)
+        }
+        if (isCustomStatus) {
+          setCustomStatus(data.status)
+          setShowCustomStatusInput(true)
+          setStatus('')
+        } else {
+          setStatus(data.status || '')
+          setCustomStatus('')
+          setShowCustomStatusInput(false)
+        }
         setNotes(data.notes || '')
       }
     } catch (err: any) {
@@ -194,12 +217,22 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     setError(null)
 
     try {
+      // Use custom category/status if provided, otherwise use selected one
+      const finalCategory = showCustomCategoryInput && customCategory.trim() 
+        ? customCategory.trim() 
+        : category || null
+      const finalStatus = showCustomStatusInput && customStatus.trim() 
+        ? customStatus.trim() 
+        : status || null
+
       const { error: updateError } = await supabase
         .from('saved_items')
         .update({
           description: description.trim() || null,
           location_country: locationCountry.trim() || null,
           location_city: locationCity.trim() || null,
+          category: finalCategory,
+          status: finalStatus,
         })
         .eq('id', itemId)
 
@@ -347,14 +380,17 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 className="hidden"
                 id="screenshot-upload-detail"
               />
-              <label
-                htmlFor="screenshot-upload-detail"
-                className="px-3 py-1.5 bg-black/70 text-white text-sm rounded hover:bg-black/90 transition-colors cursor-pointer"
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingScreenshot}
+                className="px-3 py-1.5 bg-black/70 text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploadingScreenshot ? 'Uploading...' : item.screenshot_url ? 'Replace' : 'Add screenshot'}
-              </label>
+              </button>
               {item.screenshot_url && (
                 <button
+                  type="button"
                   onClick={handleRemoveScreenshot}
                   className="px-3 py-1.5 bg-red-600/90 text-white text-sm rounded hover:bg-red-600 transition-colors"
                 >
@@ -485,6 +521,112 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       />
                     </div>
                   </div>
+
+                  {/* Category */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {CATEGORIES.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setCategory(category === cat ? '' : cat)
+                            setShowCustomCategoryInput(false)
+                            setCustomCategory('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            category === cat && !showCustomCategoryInput
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomCategoryInput(!showCustomCategoryInput)
+                          if (!showCustomCategoryInput) {
+                            setCategory('')
+                            setCustomCategory('')
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          showCustomCategoryInput
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        + Custom
+                      </button>
+                    </div>
+                    {showCustomCategoryInput && (
+                      <input
+                        type="text"
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        placeholder="Enter custom category..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {STATUSES.map((stat) => (
+                        <button
+                          key={stat}
+                          type="button"
+                          onClick={() => {
+                            setStatus(status === stat ? '' : stat)
+                            setShowCustomStatusInput(false)
+                            setCustomStatus('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            status === stat && !showCustomStatusInput
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {stat}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomStatusInput(!showCustomStatusInput)
+                          if (!showCustomStatusInput) {
+                            setStatus('')
+                            setCustomStatus('')
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          showCustomStatusInput
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        + Custom
+                      </button>
+                    </div>
+                    {showCustomStatusInput && (
+                      <input
+                        type="text"
+                        value={customStatus}
+                        onChange={(e) => setCustomStatus(e.target.value)}
+                        placeholder="Enter custom status..."
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -532,7 +674,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     disabled={saving}
                     className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {saving ? 'Saving...' : 'Save Location'}
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                   <button
                     onClick={() => {
@@ -542,6 +684,12 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="px-6 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors ml-auto"
+                  >
+                    Delete
                   </button>
                 </>
               ) : (

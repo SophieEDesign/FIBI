@@ -19,6 +19,7 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
+  const [showInstructions, setShowInstructions] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -156,6 +157,58 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
             >
               ✕
             </button>
+          </div>
+        )}
+
+        {/* Instructions - collapsible */}
+        {isAuthenticated && filteredItems.length > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowInstructions(!showInstructions)}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <svg 
+                className={`w-4 h-4 transition-transform ${showInstructions ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+              {showInstructions ? 'Hide instructions' : 'How to use Fibi'}
+            </button>
+            {showInstructions && (
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick guide</h3>
+                <div className="space-y-3 text-sm text-gray-700">
+                  <div className="flex items-start gap-3">
+                    <span className="font-medium text-gray-900">1.</span>
+                    <p>Click <strong>&quot;Add Place&quot;</strong> to save a link from TikTok, Instagram, or any website</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="font-medium text-gray-900">2.</span>
+                    <p>Fibi automatically fetches the title and preview image, or you can add your own screenshot</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="font-medium text-gray-900">3.</span>
+                    <p>Add location, category, and status to organise your saved places</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="font-medium text-gray-900">4.</span>
+                    <p>Click any card to view details, edit, or open the original link</p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <span className="font-medium text-gray-900">5.</span>
+                    <p>Use the filters above to find places by category or status</p>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-blue-200">
+                  <p className="text-xs text-gray-600">
+                    <strong>Tip:</strong> Install Fibi as a PWA to share links directly from your phone&apos;s share menu.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

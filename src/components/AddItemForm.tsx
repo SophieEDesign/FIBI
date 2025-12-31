@@ -435,9 +435,11 @@ export default function AddItemForm() {
                   className="hidden"
                   id="screenshot-upload"
                 />
-                <label
-                  htmlFor="screenshot-upload"
-                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingScreenshot}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {uploadingScreenshot ? (
                     <>
@@ -455,7 +457,7 @@ export default function AddItemForm() {
                       {screenshotUrl ? 'Replace screenshot' : 'Add your own screenshot'}
                     </>
                   )}
-                </label>
+                </button>
               </div>
             </div>
 
