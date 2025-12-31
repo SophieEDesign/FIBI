@@ -97,7 +97,8 @@ export default function GooglePlacesInput({
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
     if (!apiKey) {
-      console.warn('Google Maps API key not found. Location search will not work.')
+      console.warn('Google Maps API key not found. Location search will not work. Manual entry is still available.')
+      // Still allow manual entry even without API key
       return
     }
 
@@ -114,6 +115,10 @@ export default function GooglePlacesInput({
       existingScript.addEventListener('load', () => {
         setIsGoogleLoaded(true)
       })
+      // Also check if it's already loaded (in case event already fired)
+      if (window.google?.maps?.places) {
+        setIsGoogleLoaded(true)
+      }
       return
     }
 
@@ -124,6 +129,9 @@ export default function GooglePlacesInput({
     script.defer = true
     script.onload = () => {
       setIsGoogleLoaded(true)
+    }
+    script.onerror = () => {
+      console.error('Failed to load Google Maps script')
     }
     document.head.appendChild(script)
 
@@ -243,13 +251,16 @@ export default function GooglePlacesInput({
           value={value}
           onChange={handleInputChange}
           placeholder={placeholder}
-          disabled={disabled || !isGoogleLoaded}
+          disabled={disabled}
           className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent ${
-            disabled || !isGoogleLoaded ? 'bg-gray-100 cursor-not-allowed' : ''
+            disabled ? 'bg-gray-100 cursor-not-allowed' : ''
           } ${className}`}
         />
-        {!isGoogleLoaded && (
+        {!isGoogleLoaded && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
           <p className="mt-1 text-xs text-gray-500">Loading location search...</p>
+        )}
+        {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
+          <p className="mt-1 text-xs text-gray-500">Google Maps API key not configured. Manual entry available below.</p>
         )}
       </div>
 
