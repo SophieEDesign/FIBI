@@ -14,6 +14,7 @@ interface HomeGridProps {
 export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
@@ -27,6 +28,20 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
 
   const loadItems = async () => {
     try {
+      // Check if user is authenticated first
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      setIsAuthenticated(!!user)
+
+      // If not authenticated, show empty state (don't try to load items)
+      if (!user) {
+        setItems([])
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('saved_items')
         .select('*')
@@ -34,16 +49,18 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
 
       if (error) {
         console.error('Error loading items:', error)
-        // If it's an auth error, redirect to login
+        // If it's an auth error, just show empty state
         if (error.message.includes('JWT') || error.message.includes('auth')) {
-          setLoading(false) // Set loading to false before redirect
-          router.push('/login')
-          return
+          setItems([])
+          setIsAuthenticated(false)
         }
+      } else {
+        setItems(data || [])
       }
-      setItems(data || [])
     } catch (error) {
       console.error('Error loading items:', error)
+      setItems([])
+      setIsAuthenticated(false)
     } finally {
       setLoading(false)
     }
@@ -167,13 +184,26 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         {/* Grid */}
         {filteredItems.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-600 mb-4">No saved places yet.</p>
-            <Link
-              href="/add"
-              className="text-gray-900 font-medium hover:underline"
-            >
-              Add your first place →
-            </Link>
+            <p className="text-gray-600 mb-4">
+              {isAuthenticated === false
+                ? 'Sign in to save your travel places'
+                : 'No saved places yet.'}
+            </p>
+            {isAuthenticated === false ? (
+              <Link
+                href="/login"
+                className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                Sign in
+              </Link>
+            ) : (
+              <Link
+                href="/add"
+                className="text-gray-900 font-medium hover:underline"
+              >
+                Add your first place →
+              </Link>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

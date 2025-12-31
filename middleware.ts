@@ -6,10 +6,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    // Exclude public routes and static assets
-    // manifest.json is served via route handler, so exclude it from middleware
-    '/((?!login|share|share-target|manifest|icon|favicon.ico|api|_next).*)',
-  ],
+  matcher: [],
 }
 

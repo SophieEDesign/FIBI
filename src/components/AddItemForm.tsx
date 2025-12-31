@@ -110,12 +110,15 @@ export default function AddItemForm() {
       // Detect platform
       const platform = detectPlatform(url)
       
+      // Check auth - redirect to login if not authenticated
       const {
         data: { user },
       } = await supabase.auth.getUser()
 
       if (!user) {
-        throw new Error('Not authenticated')
+        // Redirect to login with return URL
+        router.push(`/login?redirect=${encodeURIComponent('/add')}`)
+        return
       }
 
       // Insert into saved_items
