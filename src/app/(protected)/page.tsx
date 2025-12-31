@@ -1,9 +1,18 @@
 import { redirect } from 'next/navigation'
 import HomeGrid from '@/components/HomeGrid'
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
+/**
+ * Home Page
+ * 
+ * WHY ServiceWorkerRegistration is here:
+ * - Home page is a safe, stable page (no immediate redirects)
+ * - Registers SW after page loads, avoiding auth redirect race conditions
+ * - NOT in RootLayout to prevent SW registration on every request
+ */
 export default async function HomePage({
   searchParams,
 }: {
@@ -27,7 +36,12 @@ export default async function HomePage({
       redirect(`/auth/callback?code=${encodeURIComponent(code)}`)
     }
 
-    return <HomeGrid confirmed={params?.confirmed === 'true'} />
+    return (
+      <>
+        <HomeGrid confirmed={params?.confirmed === 'true'} />
+        <ServiceWorkerRegistration />
+      </>
+    )
   } catch (error) {
     // If there's any error, redirect to login
     console.error('Home page error:', error)

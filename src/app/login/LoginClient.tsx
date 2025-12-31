@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -9,6 +9,7 @@ export default function LoginClient() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [emailStatus, setEmailStatus] = useState<'unknown' | 'exists' | 'new'>('unknown')
   const [error, setError] = useState<string | null>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -97,6 +98,13 @@ export default function LoginClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Clear email status when email changes
+  useEffect(() => {
+    if (!email || !email.includes('@')) {
+      setEmailStatus('unknown')
+    }
+  }, [email])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -107,9 +115,18 @@ export default function LoginClient() {
     
     setLoading(true)
     setError(null)
+    setSuccessMessage(null)
 
     try {
       if (isSignUp) {
+        // Check if email already exists before signing up
+        if (emailStatus === 'exists') {
+          setError('An account with this email already exists. Please sign in instead.')
+          setIsSignUp(false)
+          setLoading(false)
+          return
+        }
+
         const { error, data } = await supabase.auth.signUp({
           email,
           password,
@@ -117,26 +134,57 @@ export default function LoginClient() {
             emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         })
-        if (error) throw error
+        
+        if (error) {
+          // If email already exists, switch to login
+          if (error.message.includes('already registered') || 
+              error.message.includes('already exists') ||
+              error.message.includes('User already registered')) {
+            setError('An account with this email already exists. Please sign in instead.')
+            setIsSignUp(false)
+            setEmailStatus('exists')
+            return
+          }
+          throw error
+        }
         
         // Show success message about email confirmation
-        setError(null)
         setSuccessMessage('Please check your email to confirm your account before signing in.')
         setIsSignUp(false) // Switch to login view
-        setEmail('') // Clear email field
         setPassword('') // Clear password field
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
+        
         if (error) {
           // Check if error is due to unconfirmed email
           if (error.message.includes('email') && error.message.includes('confirm')) {
             throw new Error('Please check your email and confirm your account before signing in.')
           }
+          
+          // Check if user doesn't exist - try to be helpful
+          if (error.message.includes('Invalid login credentials') || 
+              error.message.includes('Invalid email or password')) {
+            // Suggest they might need to sign up instead
+            setError('Invalid email or password. If you don\'t have an account, please sign up instead.')
+            // Don't auto-switch, but show the option
+            return
+          }
+          
+          // Check if email doesn't exist (some Supabase errors indicate this)
+          if (error.message.toLowerCase().includes('user not found') ||
+              error.message.toLowerCase().includes('does not exist')) {
+            setError('No account found with this email. Would you like to sign up instead?')
+            setIsSignUp(true)
+            setEmailStatus('new')
+            return
+          }
+          
           throw error
         }
+        
         router.push('/')
         router.refresh()
       }
@@ -197,6 +245,21 @@ export default function LoginClient() {
             </button>
           </div>
 
+          {/* Email status indicator - shown after we detect status from errors */}
+          {email && email.includes('@') && emailStatus !== 'unknown' && (
+            <div className={`text-sm px-3 py-2 rounded-lg ${
+              emailStatus === 'exists'
+                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                : 'bg-green-50 text-green-700 border border-green-200'
+            }`}>
+              {emailStatus === 'exists' ? (
+                '✓ Account found. Please sign in.'
+              ) : (
+                '✓ New email. Ready to create your account.'
+              )}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {successMessage && (
               <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
@@ -213,15 +276,20 @@ export default function LoginClient() {
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                placeholder="you@example.com"
-              />
+              <div className="relative">
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    setError(null) // Clear error when typing
+                  }}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  placeholder="you@example.com"
+                />
+              </div>
             </div>
 
             <div>
