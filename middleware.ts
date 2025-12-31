@@ -1,24 +1,13 @@
-import { type NextRequest } from 'next/server'
-import { updateSession } from '@/lib/supabase/middleware'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request)
+export function middleware(req: NextRequest) {
+  return NextResponse.next()
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - login (login page)
-     * - manifest.json (PWA manifest - served via route handler)
-     * - icon (all icon paths)
-     * - favicon.ico (favicon)
-     * - share (share target route) - CRITICAL for Android Share
-     * - api (API routes)
-     * - _next/static and _next/image (Next.js internals)
-     * - Static assets (images, fonts, etc.)
-     */
-    '/((?!login|manifest|icon|favicon\\.ico|share|api|_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff|woff2|ttf|eot|ico|json)$).*)',
+    '/((?!login|share|share-target|manifest.json|icon|favicon.ico|api).*)',
   ],
 }
 
