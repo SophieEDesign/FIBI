@@ -58,7 +58,13 @@ export async function uploadScreenshot(
         upsert: true,
       })
 
-    if (error) throw error
+    if (error) {
+      // Provide helpful error message for missing bucket
+      if (error.message?.includes('Bucket not found') || error.message?.includes('not found')) {
+        throw new Error('Storage bucket "screenshots" not found. Please create it in your Supabase dashboard under Storage.')
+      }
+      throw error
+    }
 
     // Get public URL
     const { data: urlData } = supabase.storage
@@ -68,7 +74,11 @@ export async function uploadScreenshot(
     return urlData.publicUrl
   } catch (error: any) {
     console.error('Error uploading screenshot:', error)
-    return null
+    // Re-throw with helpful message for bucket errors
+    if (error.message?.includes('Bucket not found') || error.message?.includes('not found')) {
+      throw new Error('Storage bucket "screenshots" not found. Please create it in your Supabase dashboard under Storage.')
+    }
+    throw error
   }
 }
 

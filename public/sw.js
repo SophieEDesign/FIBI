@@ -22,30 +22,34 @@ const urlsToCache = [
 ]
 
 // Install event - cache resources
-self.addEventListener('install', async (event) => {
-  // Fetch version before installing
-  await getAppVersion()
-  
+self.addEventListener('install', (event) => {
+  // Use waitUntil to keep the event alive
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(urlsToCache)
-      })
-      .catch((err) => {
+    (async () => {
+      // Fetch version before installing
+      await getAppVersion()
+      
+      try {
+        const cache = await caches.open(CACHE_NAME)
+        await cache.addAll(urlsToCache)
+      } catch (err) {
         console.error('Cache install failed:', err)
-      })
+      }
+    })()
   )
   self.skipWaiting()
 })
 
 // Activate event - clean up old caches
-self.addEventListener('activate', async (event) => {
-  // Ensure we have the latest version
-  await getAppVersion()
-  
+self.addEventListener('activate', (event) => {
+  // Use waitUntil to keep the event alive
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    (async () => {
+      // Ensure we have the latest version
+      await getAppVersion()
+      
+      const cacheNames = await caches.keys()
+      await Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME && cacheName.startsWith('fibi-')) {
             console.log('Deleting old cache:', cacheName)
@@ -53,10 +57,9 @@ self.addEventListener('activate', async (event) => {
           }
         })
       )
-    }).then(() => {
       // Notify all clients that service worker is ready
-      return self.clients.claim()
-    })
+      await self.clients.claim()
+    })()
   )
 })
 

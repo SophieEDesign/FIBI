@@ -168,7 +168,13 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       // Save screenshot URL to database
       await saveField('screenshot_url', uploadedUrl)
     } catch (err: any) {
-      setError(err.message || 'Failed to upload screenshot')
+      // Check if it's a bucket error
+      const errorMessage = err?.message || 'Failed to upload screenshot'
+      if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found') || errorMessage.includes('Storage bucket')) {
+        setError('Storage bucket "screenshots" not found. Please create it in your Supabase dashboard under Storage.')
+      } else {
+        setError(errorMessage || 'Failed to upload screenshot. Please try again.')
+      }
     } finally {
       setUploadingScreenshot(false)
       // Reset file input

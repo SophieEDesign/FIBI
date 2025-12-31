@@ -134,24 +134,42 @@ export default function AddItemForm() {
 
     try {
       // Fetch metadata on submit if not already fetched
-      let finalTitle = title
-      let finalDescription = description
-      let finalThumbnailUrl = thumbnailUrl
+      let finalTitle = title.trim()
+      let finalDescription = description.trim()
+      let finalThumbnailUrl = thumbnailUrl.trim()
 
-      if (!finalTitle || !finalThumbnailUrl) {
+      // Only fetch metadata if we're missing title or thumbnail, and user hasn't manually entered them
+      // If user has entered a title manually, respect that and don't overwrite
+      const needsMetadata = (!finalTitle || !finalThumbnailUrl) && !fetchingMetadata
+      
+      if (needsMetadata) {
         try {
+          // Add timeout to prevent hanging
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+          
           const response = await fetch('/api/metadata', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: url.trim() }),
+            signal: controller.signal,
           })
-          const metadata = await response.json()
-          if (metadata.title && !finalTitle) finalTitle = metadata.title
-          if (metadata.description && !finalDescription) finalDescription = metadata.description
-          if (metadata.image && !finalThumbnailUrl) finalThumbnailUrl = metadata.image
-        } catch (err) {
+          
+          clearTimeout(timeoutId)
+          
+          if (response.ok) {
+            const metadata = await response.json()
+            // Only use metadata if user hasn't manually entered values
+            if (metadata.title && !finalTitle) finalTitle = metadata.title
+            if (metadata.description && !finalDescription) finalDescription = metadata.description
+            if (metadata.image && !finalThumbnailUrl) finalThumbnailUrl = metadata.image
+          }
+        } catch (err: any) {
           console.error('Error fetching metadata:', err)
-          // Continue even if metadata fetch fails
+          // Continue even if metadata fetch fails - user can save with what they have
+          if (err.name === 'AbortError') {
+            console.warn('Metadata fetch timed out, continuing with manual entry')
+          }
         }
       }
 
@@ -182,6 +200,7 @@ export default function AddItemForm() {
           ? `/add?${params.toString()}`
           : '/add'
         
+        setLoading(false)
         router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`)
         return
       }
@@ -201,9 +220,9 @@ export default function AddItemForm() {
           user_id: user.id,
           url: url.trim(),
           platform,
-          title: finalTitle.trim() || null,
-          description: finalDescription.trim() || null,
-          thumbnail_url: finalThumbnailUrl.trim() || null,
+          title: finalTitle || null,
+          description: finalDescription || null,
+          thumbnail_url: finalThumbnailUrl || null,
           screenshot_url: screenshotUrl,
           location_country: locationCountry.trim() || null,
           location_city: locationCity.trim() || null,
@@ -211,14 +230,18 @@ export default function AddItemForm() {
           status: finalStatus,
         })
 
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error('Database insert error:', insertError)
+        throw insertError
+      }
 
-      // Redirect to /
+      // Success - redirect to home page
+      setLoading(false)
       router.push('/')
       router.refresh()
     } catch (err: any) {
+      console.error('Error saving item:', err)
       setError(err.message || 'Failed to save item')
-    } finally {
       setLoading(false)
     }
   }
@@ -251,7 +274,13 @@ export default function AddItemForm() {
       // Clear OG thumbnail when user uploads their own screenshot
       setThumbnailUrl('')
     } catch (err: any) {
-      setError(err.message || 'Failed to upload screenshot')
+      // Check if it's a bucket error
+      const errorMessage = err?.message || 'Failed to upload screenshot'
+      if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found') || errorMessage.includes('Storage bucket')) {
+        setError('Storage bucket "screenshots" not found. Please create it in your Supabase dashboard under Storage.')
+      } else {
+        setError(errorMessage || 'Failed to upload screenshot. Please try again.')
+      }
     } finally {
       setUploadingScreenshot(false)
       // Reset file input
