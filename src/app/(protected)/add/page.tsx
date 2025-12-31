@@ -1,22 +1,11 @@
-import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
 import AddItemForm from '@/components/AddItemForm'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-export default async function AddPage() {
-  const supabase = await createClient()
-  
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect('/login')
-  }
-
+// Auth is handled by (protected)/layout.tsx
+export default function AddPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
       <AddItemForm />

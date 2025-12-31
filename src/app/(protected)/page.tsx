@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
 import HomeGrid from '@/components/HomeGrid'
 
 // Force dynamic rendering
@@ -26,29 +25,6 @@ export default async function HomePage({
     // If there's a code parameter, redirect to auth callback
     if (code) {
       redirect(`/auth/callback?code=${encodeURIComponent(code)}`)
-    }
-
-    // Safely create Supabase client
-    let supabase
-    try {
-      supabase = await createClient()
-    } catch (clientError) {
-      console.error('Failed to create Supabase client:', clientError)
-      redirect('/login')
-    }
-
-    if (!supabase) {
-      redirect('/login')
-    }
-    
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    // If auth check fails or no user, redirect to login
-    if (authError || !user) {
-      redirect('/login')
     }
 
     return <HomeGrid confirmed={params?.confirmed === 'true'} />

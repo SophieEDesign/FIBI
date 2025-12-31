@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
-  // CRITICAL: Allow public static files, icons, and /share route without any auth checks
+  // CRITICAL: Allow public static files, icons, and public routes without any auth checks
   // This MUST be the first check - before any Supabase operations
   const pathname = request.nextUrl.pathname
   const publicFiles = [
@@ -12,15 +12,19 @@ export async function updateSession(request: NextRequest) {
     '/favicon.ico',
   ]
   
-  // Check if it's a public file, /share route, or starts with /icon or /api
-  // Also check for manifest.json route handler
+  const publicRoutes = [
+    '/login',
+    '/share',
+    '/api',
+    '/auth',
+  ]
+  
+  // Check if it's a public file or public route
   if (
     publicFiles.includes(pathname) ||
-    pathname === '/share' ||
-    pathname === '/manifest.json' ||
+    publicRoutes.some(route => pathname.startsWith(route)) ||
     pathname.startsWith('/icon') ||
-    pathname.startsWith('/api/') ||
-    pathname.startsWith('/manifest')
+    pathname.startsWith('/_next')
   ) {
     // Return immediately without any Supabase operations
     const response = NextResponse.next({
@@ -75,31 +79,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Redirect authenticated users away from login page
-  if (user && request.nextUrl.pathname === '/login') {
+  if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/'
-    return NextResponse.redirect(url)
-  }
-
-  // Allow public routes without authentication
-  const publicRoutes = [
-    '/login',
-    '/api',
-    '/auth/callback',
-    '/share', // Share target route - just redirects, no auth needed
-  ]
-  
-  const isPublicRoute = publicRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-
-  // Redirect unauthenticated users to login (except for public routes)
-  if (
-    !user &&
-    !isPublicRoute
-  ) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
