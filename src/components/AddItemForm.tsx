@@ -17,7 +17,11 @@ export default function AddItemForm() {
   const [locationCountry, setLocationCountry] = useState('')
   const [locationCity, setLocationCity] = useState('')
   const [category, setCategory] = useState('')
+  const [customCategory, setCustomCategory] = useState('')
+  const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
   const [status, setStatus] = useState('')
+  const [customStatus, setCustomStatus] = useState('')
+  const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [loading, setLoading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
@@ -182,6 +186,14 @@ export default function AddItemForm() {
         return
       }
 
+      // Use custom category/status if provided, otherwise use selected one
+      const finalCategory = showCustomCategoryInput && customCategory.trim() 
+        ? customCategory.trim() 
+        : category || null
+      const finalStatus = showCustomStatusInput && customStatus.trim() 
+        ? customStatus.trim() 
+        : status || null
+
       // Insert into saved_items
       const { error: insertError } = await supabase
         .from('saved_items')
@@ -195,8 +207,8 @@ export default function AddItemForm() {
           screenshot_url: screenshotUrl,
           location_country: locationCountry.trim() || null,
           location_city: locationCity.trim() || null,
-          category: category || null,
-          status: status || null,
+          category: finalCategory,
+          status: finalStatus,
         })
 
       if (insertError) throw insertError
@@ -329,8 +341,46 @@ export default function AddItemForm() {
                 placeholder="https://..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
               />
-              {fetchingMetadata && (
+                {fetchingMetadata && (
                 <p className="mt-1 text-sm text-gray-500">Fetching metadata...</p>
+              )}
+            </div>
+
+            {/* Title - editable */}
+            <div>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter a title or leave blank to use metadata title"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+              />
+              {fetchingMetadata && !title && (
+                <p className="mt-1 text-xs text-gray-500">Title will be fetched from the URL if left blank</p>
+              )}
+            </div>
+
+            {/* Original post text / Description */}
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                Original Post Text
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                placeholder="Original post text from the link (will be fetched automatically if available)..."
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none ${
+                  description ? 'bg-gray-50' : 'bg-white'
+                }`}
+              />
+              {description && (
+                <p className="mt-1 text-xs text-gray-500">Fetched from the original post. You can edit this.</p>
               )}
             </div>
 
@@ -443,14 +493,18 @@ export default function AddItemForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-2">
                 {CATEGORIES.map((cat) => (
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => setCategory(category === cat ? '' : cat)}
+                    onClick={() => {
+                      setCategory(category === cat ? '' : cat)
+                      setShowCustomCategoryInput(false)
+                      setCustomCategory('')
+                    }}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      category === cat
+                      category === cat && !showCustomCategoryInput
                         ? 'bg-gray-900 text-white'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                     }`}
@@ -458,21 +512,51 @@ export default function AddItemForm() {
                     {cat}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomCategoryInput(!showCustomCategoryInput)
+                    if (!showCustomCategoryInput) {
+                      setCategory('')
+                      setCustomCategory('')
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    showCustomCategoryInput
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  + Custom
+                </button>
               </div>
+              {showCustomCategoryInput && (
+                <input
+                  type="text"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Enter custom category..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                />
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-2">
                 {STATUSES.map((stat) => (
                   <button
                     key={stat}
                     type="button"
-                    onClick={() => setStatus(status === stat ? '' : stat)}
+                    onClick={() => {
+                      setStatus(status === stat ? '' : stat)
+                      setShowCustomStatusInput(false)
+                      setCustomStatus('')
+                    }}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      status === stat
+                      status === stat && !showCustomStatusInput
                         ? 'bg-gray-900 text-white'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                     }`}
@@ -480,7 +564,33 @@ export default function AddItemForm() {
                     {stat}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomStatusInput(!showCustomStatusInput)
+                    if (!showCustomStatusInput) {
+                      setStatus('')
+                      setCustomStatus('')
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    showCustomStatusInput
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  + Custom
+                </button>
               </div>
+              {showCustomStatusInput && (
+                <input
+                  type="text"
+                  value={customStatus}
+                  onChange={(e) => setCustomStatus(e.target.value)}
+                  placeholder="Enter custom status..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                />
+              )}
             </div>
 
             <div className="flex gap-4 pt-4">

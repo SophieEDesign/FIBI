@@ -1,11 +1,31 @@
-const CACHE_NAME = 'fibi-v2'
+// Get version from API and set cache name
+let CACHE_NAME = 'fibi-v1'
+let APP_VERSION = '0.1.0'
+
+// Fetch version on service worker startup
+async function getAppVersion() {
+  try {
+    const response = await fetch('/api/version', { cache: 'no-store' })
+    const data = await response.json()
+    APP_VERSION = data.version || '0.1.0'
+    CACHE_NAME = `fibi-v${APP_VERSION.replace(/\./g, '-')}`
+    return APP_VERSION
+  } catch (error) {
+    console.error('Failed to fetch version:', error)
+    return APP_VERSION
+  }
+}
+
 const urlsToCache = [
   '/manifest.json',
   '/icon.svg'
 ]
 
 // Install event - cache resources
-self.addEventListener('install', (event) => {
+self.addEventListener('install', async (event) => {
+  // Fetch version before installing
+  await getAppVersion()
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -19,19 +39,46 @@ self.addEventListener('install', (event) => {
 })
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', async (event) => {
+  // Ensure we have the latest version
+  await getAppVersion()
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName.startsWith('fibi-')) {
+            console.log('Deleting old cache:', cacheName)
             return caches.delete(cacheName)
           }
         })
       )
+    }).then(() => {
+      // Notify all clients that service worker is ready
+      return self.clients.claim()
     })
   )
-  return self.clients.claim()
+})
+
+// Listen for messages from clients
+self.addEventListener('message', async (event) => {
+  if (event.data && event.data.type === 'CHECK_VERSION') {
+    // Fetch latest version from server
+    const latestVersion = await getAppVersion()
+    
+    // Send version back to client if port exists
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({
+        type: 'VERSION_RESPONSE',
+        version: latestVersion,
+        cacheName: CACHE_NAME
+      })
+    }
+  }
+  
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting()
+  }
 })
 
 // Fetch event - serve from cache, fallback to network
@@ -55,6 +102,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Skip API routes, auth routes, and service worker itself
+  // Always bypass cache for version endpoint to get latest version
   if (
     url.pathname.startsWith('/api') || 
     url.pathname.startsWith('/auth') ||
