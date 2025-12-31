@@ -53,8 +53,22 @@ export async function GET(request: NextRequest) {
   
   const url = extractUrl(params)
   
+  // Build query params, forwarding all available share data
+  const queryParams = new URLSearchParams()
   if (url) {
-    redirect(`/add?url=${encodeURIComponent(url)}`)
+    queryParams.set('url', url)
+  }
+  // Forward text if present (may contain caption/description)
+  if (params.text && params.text.trim()) {
+    queryParams.set('text', params.text.trim())
+  }
+  // Forward title if present
+  if (params.title && params.title.trim()) {
+    queryParams.set('title', params.title.trim())
+  }
+  
+  if (queryParams.toString()) {
+    redirect(`/add?${queryParams.toString()}`)
   }
   
   // If no URL found, redirect to add page anyway (user can paste manually)
@@ -73,8 +87,22 @@ export async function POST(request: NextRequest) {
     
     const url = extractUrl(params)
     
+    // Build query params, forwarding all available share data
+    const queryParams = new URLSearchParams()
     if (url) {
-      redirect(`/add?url=${encodeURIComponent(url)}`)
+      queryParams.set('url', url)
+    }
+    // Forward text if present (may contain caption/description)
+    if (params.text && params.text.trim()) {
+      queryParams.set('text', params.text.trim())
+    }
+    // Forward title if present
+    if (params.title && params.title.trim()) {
+      queryParams.set('title', params.title.trim())
+    }
+    
+    if (queryParams.toString()) {
+      redirect(`/add?${queryParams.toString()}`)
     }
     
     redirect('/add')

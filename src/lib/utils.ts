@@ -19,6 +19,146 @@ export function getHostname(url: string): string {
 }
 
 /**
+ * Clean Open Graph title by removing platform noise
+ * Removes common patterns like "TikTok", "Instagram", "Watch this video", etc.
+ */
+export function cleanOGTitle(title: string | null | undefined): string | null {
+  if (!title) return null
+  
+  let cleaned = title.trim()
+  
+  // Remove platform-specific prefixes/suffixes
+  const platformPatterns = [
+    /^TikTok\s*[-–—]\s*/i,
+    /^Instagram\s*[-–—]\s*/i,
+    /^YouTube\s*[-–—]\s*/i,
+    /\s*[-–—]\s*TikTok$/i,
+    /\s*[-–—]\s*Instagram$/i,
+    /\s*[-–—]\s*YouTube$/i,
+    /^Watch\s+this\s+video\s*[-–—:]\s*/i,
+    /^Watch\s*[-–—:]\s*/i,
+    /^Video\s*[-–—:]\s*/i,
+  ]
+  
+  platformPatterns.forEach(pattern => {
+    cleaned = cleaned.replace(pattern, '')
+  })
+  
+  // Remove extra whitespace
+  cleaned = cleaned.trim()
+  
+  return cleaned || null
+}
+
+/**
+ * Generate a fallback title from hostname
+ * e.g. "Place from tiktok.com"
+ */
+export function generateHostnameTitle(url: string): string {
+  try {
+    const hostname = getHostname(url)
+    return `Place from ${hostname}`
+  } catch {
+    return 'Place from unknown source'
+  }
+}
+
+/**
+ * Google Places API response types
+ */
+export interface GooglePlace {
+  place_id: string
+  name: string
+  formatted_address: string
+  geometry: {
+    location: {
+      lat: number
+      lng: number
+    }
+  }
+  address_components: Array<{
+    long_name: string
+    short_name: string
+    types: string[]
+  }>
+}
+
+export interface GooglePlacesSearchResult {
+  place: GooglePlace | null
+  city: string | null
+  country: string | null
+}
+
+/**
+ * Search Google Places API for a location by text query
+ * Returns place details if a confident match is found
+ */
+export async function searchGooglePlaces(
+  query: string,
+  apiKey?: string
+): Promise<GooglePlacesSearchResult> {
+  if (!apiKey || !query.trim()) {
+    return { place: null, city: null, country: null }
+  }
+
+  try {
+    // Use Google Places Text Search API
+    const response = await fetch(
+      `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${apiKey}`
+    )
+
+    if (!response.ok) {
+      console.warn('Google Places API request failed:', response.status)
+      return { place: null, city: null, country: null }
+    }
+
+    const data = await response.json()
+
+    // Only return if we have a confident result
+    if (data.status === 'OK' && data.results && data.results.length > 0) {
+      const firstResult = data.results[0]
+      
+      // Extract city and country from address components
+      let city: string | null = null
+      let country: string | null = null
+
+      if (firstResult.address_components) {
+        for (const component of firstResult.address_components) {
+          if (component.types.includes('locality') || component.types.includes('administrative_area_level_1')) {
+            city = component.long_name
+          }
+          if (component.types.includes('country')) {
+            country = component.long_name
+          }
+        }
+      }
+
+      return {
+        place: {
+          place_id: firstResult.place_id,
+          name: firstResult.name,
+          formatted_address: firstResult.formatted_address,
+          geometry: {
+            location: {
+              lat: firstResult.geometry.location.lat,
+              lng: firstResult.geometry.location.lng,
+            },
+          },
+          address_components: firstResult.address_components || [],
+        },
+        city,
+        country,
+      }
+    }
+
+    return { place: null, city: null, country: null }
+  } catch (error) {
+    console.warn('Error searching Google Places:', error)
+    return { place: null, city: null, country: null }
+  }
+}
+
+/**
  * Upload a screenshot image to Supabase Storage
  * @param file - The image file to upload
  * @param userId - The user's ID

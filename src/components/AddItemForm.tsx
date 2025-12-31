@@ -2,20 +2,36 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { detectPlatform, uploadScreenshot, getHostname } from '@/lib/utils'
+import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle } from '@/lib/utils'
 import { CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
+import GooglePlacesInput from '@/components/GooglePlacesInput'
 
 export default function AddItemForm() {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
+  const [notes, setNotes] = useState('')
   const [description, setDescription] = useState('')
   const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<{
+    place_name: string
+    place_id: string
+    latitude: number
+    longitude: number
+    formatted_address: string
+    city: string | null
+    country: string | null
+  } | null>(null)
+  const [locationSearchValue, setLocationSearchValue] = useState('')
   const [locationCountry, setLocationCountry] = useState('')
   const [locationCity, setLocationCity] = useState('')
+  const [placeName, setPlaceName] = useState('')
+  const [placeId, setPlaceId] = useState('')
+  const [latitude, setLatitude] = useState<number | null>(null)
+  const [longitude, setLongitude] = useState<number | null>(null)
   const [category, setCategory] = useState('')
   const [customCategory, setCustomCategory] = useState('')
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
@@ -27,6 +43,15 @@ export default function AddItemForm() {
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [isLocationSuggested, setIsLocationSuggested] = useState(false)
+  const [sharedTextImported, setSharedTextImported] = useState(false)
+  
+  // Track user edits to prevent overwriting
+  const userEditedTitle = useRef(false)
+  const userEditedNotes = useRef(false)
+  const metadataFetchedRef = useRef(false)
+  const initialLoadRef = useRef(false)
+  
   const authCheckedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
@@ -67,11 +92,173 @@ export default function AddItemForm() {
     checkAuth()
   }, [supabase, router, searchParams])
 
+  // Fetch metadata for a URL
+  const fetchMetadata = async (urlToFetch: string) => {
+    if (!urlToFetch.trim()) return null
+
+    // Validate URL format
+    try {
+      new URL(urlToFetch)
+    } catch {
+      return null
+    }
+
+    setFetchingMetadata(true)
+    try {
+      const response = await fetch('/api/metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToFetch }),
+      })
+
+      if (!response.ok) {
+        return null
+      }
+
+      const metadata = await response.json()
+      return metadata
+    } catch (err) {
+      console.error('Error fetching metadata:', err)
+      return null
+    } finally {
+      setFetchingMetadata(false)
+    }
+  }
+
+  // Search Google Places for location suggestions
+  const searchPlaces = async (query: string) => {
+    if (!query.trim()) return
+
+    try {
+      const response = await fetch('/api/places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim() }),
+      })
+
+      if (!response.ok) {
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.place && !locationCity && !locationCountry) {
+        // Only suggest if user hasn't already entered location
+        setPlaceName(data.place.name)
+        setPlaceId(data.place.place_id)
+        setLatitude(data.place.geometry.location.lat)
+        setLongitude(data.place.geometry.location.lng)
+        
+        if (data.city) setLocationCity(data.city)
+        if (data.country) setLocationCountry(data.country)
+        
+        setIsLocationSuggested(true)
+      }
+    } catch (err) {
+      console.warn('Error searching places:', err)
+      // Non-blocking - continue silently
+    }
+  }
+
+  // Initialize form from share parameters and fetch metadata
+  useEffect(() => {
+    if (isAuthenticated !== true || initialLoadRef.current) return
+    initialLoadRef.current = true
+
+    const urlParam = searchParams.get('url')
+    const textParam = searchParams.get('text')
+    const titleParam = searchParams.get('title')
+
+    // Set URL if present
+    if (urlParam) {
+      setUrl(urlParam)
+    }
+
+    // Handle shared text (pre-fill notes)
+    if (textParam && textParam.trim() && !userEditedNotes.current) {
+      // Check if text is actually a URL (should go to url field instead)
+      const urlMatch = textParam.match(/https?:\/\/[^\s]+/)
+      if (!urlMatch) {
+        setNotes(textParam.trim())
+        setSharedTextImported(true)
+      }
+    }
+
+    // Handle shared title (highest priority after user edits)
+    if (titleParam && titleParam.trim() && !userEditedTitle.current) {
+      setTitle(titleParam.trim())
+      userEditedTitle.current = true // Mark as set from share
+    }
+
+    // If we have a URL, fetch metadata immediately
+    if (urlParam) {
+      const initializeFromUrl = async () => {
+        const metadata = await fetchMetadata(urlParam)
+        metadataFetchedRef.current = true
+
+        let finalTitle = title // Start with current title (might be from shared title param)
+
+        if (metadata) {
+          // Apply metadata with priority order:
+          // 1. User-edited title (already set if titleParam exists)
+          // 2. Shared title (already set if titleParam exists)
+          // 3. Cleaned OG title
+          // 4. Hostname-based title
+
+          if (!userEditedTitle.current) {
+            // Try cleaned OG title
+            const cleanedTitle = cleanOGTitle(metadata.title)
+            if (cleanedTitle) {
+              finalTitle = cleanedTitle
+              setTitle(cleanedTitle)
+            } else {
+              // Fallback to hostname-based title
+              finalTitle = generateHostnameTitle(urlParam)
+              setTitle(finalTitle)
+            }
+          }
+
+          // Set description (OG description)
+          if (metadata.description && !description) {
+            setDescription(metadata.description)
+          }
+
+          // Set thumbnail (OG image)
+          if (metadata.image && !thumbnailUrl) {
+            setThumbnailUrl(metadata.image)
+          }
+        } else {
+          // No metadata available - ensure title is never empty
+          if (!userEditedTitle.current && !finalTitle) {
+            finalTitle = generateHostnameTitle(urlParam)
+            setTitle(finalTitle)
+          }
+        }
+
+        // After metadata is loaded and title is set, try Google Places search
+        if (finalTitle && finalTitle.trim() && urlParam) {
+          // Small delay to ensure title state is updated
+          setTimeout(() => {
+            searchPlaces(finalTitle)
+          }, 1000)
+        }
+      }
+
+      initializeFromUrl()
+    } else {
+      // No URL - metadata fetch will happen when URL is entered
+      metadataFetchedRef.current = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, searchParams])
+
+  // Handle URL changes (when user types)
   const handleUrlChange = async (newUrl: string) => {
     setUrl(newUrl)
     
     if (!newUrl.trim()) {
-      setTitle('')
+      if (!userEditedTitle.current) setTitle('')
+      if (!userEditedNotes.current) setNotes('')
       setDescription('')
       setThumbnailUrl('')
       setScreenshotUrl(null)
@@ -85,41 +272,61 @@ export default function AddItemForm() {
       return
     }
 
-    // Fetch metadata
-    setFetchingMetadata(true)
-    try {
-      const response = await fetch('/api/metadata', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: newUrl }),
-      })
+    // Only fetch metadata if user hasn't manually edited title
+    // and we haven't already fetched for this URL
+    if (!userEditedTitle.current && !metadataFetchedRef.current) {
+      const metadata = await fetchMetadata(newUrl)
+      metadataFetchedRef.current = true
 
-      const metadata = await response.json()
-      
-      if (metadata.title) setTitle(metadata.title)
-      if (metadata.description) setDescription(metadata.description)
-      if (metadata.image) setThumbnailUrl(metadata.image)
-    } catch (err) {
-      console.error('Error fetching metadata:', err)
-    } finally {
-      setFetchingMetadata(false)
+      let finalTitle = title // Start with current title
+
+      if (metadata) {
+        const cleanedTitle = cleanOGTitle(metadata.title)
+        if (cleanedTitle) {
+          finalTitle = cleanedTitle
+          setTitle(cleanedTitle)
+        } else {
+          finalTitle = generateHostnameTitle(newUrl)
+          setTitle(finalTitle)
+        }
+
+        if (metadata.description) setDescription(metadata.description)
+        if (metadata.image && !screenshotUrl) setThumbnailUrl(metadata.image)
+      } else {
+        // Ensure title is never empty
+        if (!finalTitle) {
+          finalTitle = generateHostnameTitle(newUrl)
+          setTitle(finalTitle)
+        }
+      }
+
+      // Try Google Places search after title is set
+      if (finalTitle && finalTitle.trim() && newUrl) {
+        setTimeout(() => {
+          searchPlaces(finalTitle)
+        }, 1000)
+      }
     }
   }
 
-  // Read URL from query parameters (for share target or after login redirect)
-  useEffect(() => {
-    // Only run this if we're authenticated (to avoid conflicts with auth check)
-    if (isAuthenticated !== true) return
+  // Track title edits
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle)
+    userEditedTitle.current = true
     
-    const urlParam = searchParams.get('url')
-    if (urlParam && urlParam !== url) {
-      // Clear any existing errors when prefilling from share or redirect
-      setError(null)
-      setUrl(urlParam)
-      handleUrlChange(urlParam)
+    // If title becomes usable, try Google Places search
+    if (newTitle.trim() && url) {
+      setTimeout(() => {
+        searchPlaces(newTitle.trim())
+      }, 1000) // Debounce
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, isAuthenticated])
+  }
+
+  // Track notes edits
+  const handleNotesChange = (newNotes: string) => {
+    setNotes(newNotes)
+    userEditedNotes.current = true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,44 +340,10 @@ export default function AddItemForm() {
     }
 
     try {
-      // Fetch metadata on submit if not already fetched
+      // Ensure title is never empty
       let finalTitle = title.trim()
-      let finalDescription = description.trim()
-      let finalThumbnailUrl = thumbnailUrl.trim()
-
-      // Only fetch metadata if we're missing title or thumbnail, and user hasn't manually entered them
-      // If user has entered a title manually, respect that and don't overwrite
-      const needsMetadata = (!finalTitle || !finalThumbnailUrl) && !fetchingMetadata
-      
-      if (needsMetadata) {
-        try {
-          // Add timeout to prevent hanging
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-          
-          const response = await fetch('/api/metadata', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: url.trim() }),
-            signal: controller.signal,
-          })
-          
-          clearTimeout(timeoutId)
-          
-          if (response.ok) {
-            const metadata = await response.json()
-            // Only use metadata if user hasn't manually entered values
-            if (metadata.title && !finalTitle) finalTitle = metadata.title
-            if (metadata.description && !finalDescription) finalDescription = metadata.description
-            if (metadata.image && !finalThumbnailUrl) finalThumbnailUrl = metadata.image
-          }
-        } catch (err: any) {
-          console.error('Error fetching metadata:', err)
-          // Continue even if metadata fetch fails - user can save with what they have
-          if (err.name === 'AbortError') {
-            console.warn('Metadata fetch timed out, continuing with manual entry')
-          }
-        }
+      if (!finalTitle) {
+        finalTitle = generateHostnameTitle(url)
       }
 
       // Detect platform
@@ -183,15 +356,10 @@ export default function AddItemForm() {
 
       if (!user) {
         // This shouldn't happen if auth check worked, but handle it just in case
-        // Preserve all form data in the redirect URL
         const params = new URLSearchParams()
-        
-        // Preserve existing query params
         searchParams.forEach((value, key) => {
           params.set(key, value)
         })
-        
-        // Preserve entered URL if any
         if (url.trim()) {
           params.set('url', url.trim())
         }
@@ -221,11 +389,30 @@ export default function AddItemForm() {
           url: url.trim(),
           platform,
           title: finalTitle || null,
-          description: finalDescription || null,
-          thumbnail_url: finalThumbnailUrl || null,
+          description: description.trim() || null,
+          notes: notes.trim() || null,
+          thumbnail_url: thumbnailUrl || null,
           screenshot_url: screenshotUrl,
-          location_country: locationCountry.trim() || null,
-          location_city: locationCity.trim() || null,
+          // Location data: use Google Place if selected, otherwise use manual entry
+          ...(selectedPlace
+            ? {
+                place_name: selectedPlace.place_name,
+                place_id: selectedPlace.place_id,
+                latitude: selectedPlace.latitude,
+                longitude: selectedPlace.longitude,
+                formatted_address: selectedPlace.formatted_address,
+                location_city: selectedPlace.city,
+                location_country: selectedPlace.country,
+              }
+            : {
+                place_name: null,
+                place_id: null,
+                latitude: null,
+                longitude: null,
+                formatted_address: null,
+                location_city: locationCity.trim() || null,
+                location_country: locationCountry.trim() || null,
+              }),
           category: finalCategory,
           status: finalStatus,
         })
@@ -271,10 +458,8 @@ export default function AddItemForm() {
       }
 
       setScreenshotUrl(uploadedUrl)
-      // Clear OG thumbnail when user uploads their own screenshot
-      setThumbnailUrl('')
+      // Screenshot always takes priority - don't clear OG thumbnail, just don't show it
     } catch (err: any) {
-      // Check if it's a bucket error
       const errorMessage = err?.message || 'Failed to upload screenshot'
       if (errorMessage.includes('Bucket not found') || errorMessage.includes('not found') || errorMessage.includes('Storage bucket')) {
         setError('Storage bucket "screenshots" not found. Please create it in your Supabase dashboard under Storage.')
@@ -283,7 +468,6 @@ export default function AddItemForm() {
       }
     } finally {
       setUploadingScreenshot(false)
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -297,10 +481,21 @@ export default function AddItemForm() {
     }
   }
 
+  const handleRemoveLocationSuggestion = () => {
+    setPlaceName('')
+    setPlaceId('')
+    setLatitude(null)
+    setLongitude(null)
+    setLocationCity('')
+    setLocationCountry('')
+    setIsLocationSuggested(false)
+  }
+
   // Determine preview image URL (screenshot > OG > placeholder)
   const previewImageUrl = screenshotUrl || thumbnailUrl || null
   const hasPreview = !!previewImageUrl
   const isUserScreenshot = !!screenshotUrl
+  const isOGImage = !!thumbnailUrl && !screenshotUrl
 
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
@@ -370,12 +565,12 @@ export default function AddItemForm() {
                 placeholder="https://..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
               />
-                {fetchingMetadata && (
+              {fetchingMetadata && (
                 <p className="mt-1 text-sm text-gray-500">Fetching metadata...</p>
               )}
             </div>
 
-            {/* Title - editable */}
+            {/* Title - editable, never empty */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
                 Title
@@ -384,12 +579,27 @@ export default function AddItemForm() {
                 id="title"
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter a title or leave blank to use metadata title"
+                onChange={(e) => handleTitleChange(e.target.value)}
+                placeholder="Enter a title"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
               />
-              {fetchingMetadata && !title && (
-                <p className="mt-1 text-xs text-gray-500">Title will be fetched from the URL if left blank</p>
+            </div>
+
+            {/* Notes - editable, pre-filled from shared text */}
+            <div>
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
+                Notes
+              </label>
+              <textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                rows={4}
+                placeholder="Add your own notes about this place..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+              />
+              {sharedTextImported && notes && (
+                <p className="mt-1 text-xs text-gray-500">Imported text</p>
               )}
             </div>
 
@@ -413,7 +623,7 @@ export default function AddItemForm() {
               )}
             </div>
 
-            {/* Preview area */}
+            {/* Preview area - screenshot-first strategy */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Preview
@@ -429,6 +639,11 @@ export default function AddItemForm() {
                     {isUserScreenshot && (
                       <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 text-white text-xs rounded">
                         Your screenshot
+                      </div>
+                    )}
+                    {isOGImage && (
+                      <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 text-white text-xs rounded">
+                        From link
                       </div>
                     )}
                     {screenshotUrl && (
@@ -455,7 +670,7 @@ export default function AddItemForm() {
                   </div>
                 )}
               </div>
-              <div className="mt-2">
+              <div className="mt-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -468,7 +683,7 @@ export default function AddItemForm() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingScreenshot}
-                  className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {uploadingScreenshot ? (
                     <>
@@ -483,42 +698,66 @@ export default function AddItemForm() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      {screenshotUrl ? 'Replace screenshot' : 'Add your own screenshot'}
+                      Add your own screenshot
                     </>
                   )}
                 </button>
+                <p className="mt-2 text-xs text-gray-500">
+                  Some apps don't share images. A screenshot helps you remember what this was.
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="location_city" className="block text-sm font-medium text-gray-700 mb-2">
-                  City
-                </label>
-                <input
-                  id="location_city"
-                  type="text"
-                  value={locationCity}
-                  onChange={(e) => setLocationCity(e.target.value)}
-                  placeholder="e.g. London"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="location_country" className="block text-sm font-medium text-gray-700 mb-2">
-                  Country
-                </label>
-                <input
-                  id="location_country"
-                  type="text"
-                  value={locationCountry}
-                  onChange={(e) => setLocationCountry(e.target.value)}
-                  placeholder="e.g. United Kingdom"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
-              </div>
-            </div>
+            {/* Location fields */}
+            <GooglePlacesInput
+              value={locationSearchValue}
+              onChange={(place) => {
+                setSelectedPlace(place)
+                if (place) {
+                  setLocationSearchValue(place.place_name)
+                  // Clear manual inputs when place is selected
+                  setLocationCity('')
+                  setLocationCountry('')
+                  // Clear old place state
+                  setPlaceName('')
+                  setPlaceId('')
+                  setLatitude(null)
+                  setLongitude(null)
+                  setIsLocationSuggested(false)
+                } else {
+                  setLocationSearchValue('')
+                }
+              }}
+              onManualCityChange={(city) => {
+                setLocationCity(city)
+                // Clear Google place data when manually entering
+                if (selectedPlace) {
+                  setSelectedPlace(null)
+                  setLocationSearchValue('')
+                }
+                setPlaceName('')
+                setPlaceId('')
+                setLatitude(null)
+                setLongitude(null)
+                setIsLocationSuggested(false)
+              }}
+              onManualCountryChange={(country) => {
+                setLocationCountry(country)
+                // Clear Google place data when manually entering
+                if (selectedPlace) {
+                  setSelectedPlace(null)
+                  setLocationSearchValue('')
+                }
+                setPlaceName('')
+                setPlaceId('')
+                setLatitude(null)
+                setLongitude(null)
+                setIsLocationSuggested(false)
+              }}
+              manualCity={locationCity}
+              manualCountry={locationCountry}
+              id="location-search"
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -645,4 +884,3 @@ export default function AddItemForm() {
     </div>
   )
 }
-

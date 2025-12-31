@@ -6,6 +6,7 @@ import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getHostname, uploadScreenshot } from '@/lib/utils'
+import GooglePlacesInput from '@/components/GooglePlacesInput'
 
 interface ItemDetailProps {
   itemId: string
@@ -31,6 +32,16 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   
   // Location fields (edit mode only)
   const [description, setDescription] = useState('')
+  const [selectedPlace, setSelectedPlace] = useState<{
+    place_name: string
+    place_id: string
+    latitude: number
+    longitude: number
+    formatted_address: string
+    city: string | null
+    country: string | null
+  } | null>(null)
+  const [locationSearchValue, setLocationSearchValue] = useState('')
   const [locationCountry, setLocationCountry] = useState('')
   const [locationCity, setLocationCity] = useState('')
 
@@ -59,6 +70,22 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setDescription(data.description || '')
         setLocationCountry(data.location_country || '')
         setLocationCity(data.location_city || '')
+        // Load Google Place data if available
+        if (data.place_name && data.place_id && data.latitude && data.longitude) {
+          setSelectedPlace({
+            place_name: data.place_name,
+            place_id: data.place_id,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            formatted_address: data.formatted_address || '',
+            city: data.location_city,
+            country: data.location_country,
+          })
+          setLocationSearchValue(data.place_name)
+        } else {
+          setSelectedPlace(null)
+          setLocationSearchValue('')
+        }
         // Check if category/status is a custom one (not in predefined lists)
         const isCustomCategory = data.category && !CATEGORIES.includes(data.category as any)
         const isCustomStatus = data.status && !STATUSES.includes(data.status as any)
@@ -231,12 +258,32 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         ? customStatus.trim() 
         : status || null
 
+      // Determine location data: use Google Place if selected, otherwise use manual entry
+      const locationData = selectedPlace
+        ? {
+            place_name: selectedPlace.place_name,
+            place_id: selectedPlace.place_id,
+            latitude: selectedPlace.latitude,
+            longitude: selectedPlace.longitude,
+            formatted_address: selectedPlace.formatted_address,
+            location_city: selectedPlace.city,
+            location_country: selectedPlace.country,
+          }
+        : {
+            place_name: null,
+            place_id: null,
+            latitude: null,
+            longitude: null,
+            formatted_address: null,
+            location_city: locationCity.trim() || null,
+            location_country: locationCountry.trim() || null,
+          }
+
       const { error: updateError } = await supabase
         .from('saved_items')
         .update({
           description: description.trim() || null,
-          location_country: locationCountry.trim() || null,
-          location_city: locationCity.trim() || null,
+          ...locationData,
           category: finalCategory,
           status: finalStatus,
         })
@@ -500,32 +547,54 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City
-                      </label>
-                      <input
-                        type="text"
-                        value={locationCity}
-                        onChange={(e) => setLocationCity(e.target.value)}
-                        placeholder="e.g. London"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Country
-                      </label>
-                      <input
-                        type="text"
-                        value={locationCountry}
-                        onChange={(e) => setLocationCountry(e.target.value)}
-                        placeholder="e.g. United Kingdom"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      />
-                    </div>
+                  <div>
+                    <GooglePlacesInput
+                      value={locationSearchValue}
+                      onChange={(place) => {
+                        setSelectedPlace(place)
+                        if (place) {
+                          setLocationSearchValue(place.place_name)
+                          // Clear manual inputs when place is selected
+                          setLocationCity('')
+                          setLocationCountry('')
+                        } else {
+                          setLocationSearchValue('')
+                        }
+                      }}
+                      onManualCityChange={(city) => {
+                        setLocationCity(city)
+                        // Clear Google place data when manually entering
+                        if (selectedPlace) {
+                          setSelectedPlace(null)
+                          setLocationSearchValue('')
+                        }
+                      }}
+                      onManualCountryChange={(country) => {
+                        setLocationCountry(country)
+                        // Clear Google place data when manually entering
+                        if (selectedPlace) {
+                          setSelectedPlace(null)
+                          setLocationSearchValue('')
+                        }
+                      }}
+                      manualCity={locationCity}
+                      manualCountry={locationCountry}
+                      id="location-search-edit"
+                    />
+                    {(selectedPlace || locationCity || locationCountry) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPlace(null)
+                          setLocationSearchValue('')
+                          setLocationCity('')
+                          setLocationCountry('')
+                        }}
+                        className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Remove location
+                      </button>
+                    )}
                   </div>
 
                   {/* Category */}
@@ -643,12 +712,20 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     </div>
                   )}
 
-                  {(item.location_city || item.location_country) && (
+                  {(item.location_city || item.location_country || item.place_name || item.formatted_address) && (
                     <div>
                       <h2 className="text-sm font-medium text-gray-700 mb-1">Location</h2>
-                      <p className="text-gray-900">
-                        {[item.location_city, item.location_country].filter(Boolean).join(', ')}
-                      </p>
+                      {item.place_name && (
+                        <p className="text-gray-900 font-medium mb-1">{item.place_name}</p>
+                      )}
+                      {item.formatted_address && (
+                        <p className="text-sm text-gray-600 mb-1">{item.formatted_address}</p>
+                      )}
+                      {(item.location_city || item.location_country) && (
+                        <p className="text-gray-900">
+                          {[item.location_city, item.location_country].filter(Boolean).join(', ')}
+                        </p>
+                      )}
                     </div>
                   )}
                 </>

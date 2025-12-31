@@ -9,6 +9,11 @@ export interface SavedItem {
   screenshot_url: string | null
   location_country: string | null
   location_city: string | null
+  place_name: string | null
+  place_id: string | null
+  latitude: number | null
+  longitude: number | null
+  formatted_address: string | null
   category: string | null
   status: string | null
   notes: string | null
