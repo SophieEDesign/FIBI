@@ -703,7 +703,7 @@ export default function AddItemForm() {
                   )}
                 </button>
                 <p className="mt-2 text-xs text-gray-500">
-                  Some apps don't share images. A screenshot helps you remember what this was.
+                  Some apps don&apos;t share images. A screenshot helps you remember what this was.
                 </p>
               </div>
             </div>
