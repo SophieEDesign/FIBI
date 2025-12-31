@@ -6,6 +6,7 @@ import { detectPlatform } from '@/lib/utils'
 import { CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import MobileMenu from '@/components/MobileMenu'
 
 export default function AddItemForm() {
   const [url, setUrl] = useState('')
@@ -19,9 +20,21 @@ export default function AddItemForm() {
   const [loading, setLoading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Check auth state
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setIsAuthenticated(!!user)
+    }
+    checkAuth()
+  }, [supabase])
 
   const handleUrlChange = async (newUrl: string) => {
     setUrl(newUrl)
@@ -116,8 +129,11 @@ export default function AddItemForm() {
       } = await supabase.auth.getUser()
 
       if (!user) {
-        // Redirect to login with return URL
-        router.push(`/login?redirect=${encodeURIComponent('/add')}`)
+        // Redirect to login with return URL including the current URL with query params
+        const currentUrl = searchParams.toString() 
+          ? `/add?${searchParams.toString()}`
+          : '/add'
+        router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`)
         return
       }
 
@@ -153,16 +169,30 @@ export default function AddItemForm() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between relative">
             <Link href="/" className="text-2xl font-bold text-gray-900">
               Fibi
             </Link>
-            <Link
-              href="/"
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-            >
-              Cancel
-            </Link>
+            <div className="flex items-center gap-4">
+              {/* Desktop cancel button */}
+              <Link
+                href="/"
+                className="hidden md:block text-gray-600 hover:text-gray-900 text-sm font-medium"
+              >
+                Cancel
+              </Link>
+              {/* Mobile menu */}
+              {isAuthenticated !== null && (
+                <MobileMenu
+                  isAuthenticated={isAuthenticated}
+                  onSignOut={async () => {
+                    await supabase.auth.signOut()
+                    router.push('/login')
+                    router.refresh()
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
       </header>

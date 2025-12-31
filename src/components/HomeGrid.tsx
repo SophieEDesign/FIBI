@@ -6,6 +6,7 @@ import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import MobileMenu from '@/components/MobileMenu'
 
 interface HomeGridProps {
   confirmed?: boolean
@@ -23,6 +24,23 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
 
   useEffect(() => {
     loadItems()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Listen for auth state changes (e.g., after login)
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        // Reload items when auth state changes
+        loadItems()
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -90,22 +108,39 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between relative">
             <h1 className="text-2xl font-bold text-gray-900">Fibi</h1>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/add"
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                Add Place
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Sign out
-              </button>
+            {/* Desktop buttons */}
+            <div className="hidden md:flex items-center gap-4">
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href="/add"
+                    className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                  >
+                    Add Place
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                >
+                  Sign in
+                </Link>
+              )}
             </div>
+            {/* Mobile menu */}
+            <MobileMenu
+              isAuthenticated={isAuthenticated === true}
+              onSignOut={handleSignOut}
+            />
           </div>
         </div>
       </header>

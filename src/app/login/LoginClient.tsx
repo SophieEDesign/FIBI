@@ -185,7 +185,13 @@ export default function LoginClient() {
           throw error
         }
         
-        router.push('/')
+        // Check for redirect parameter and preserve it
+        const redirectParam = searchParams.get('redirect')
+        if (redirectParam) {
+          router.push(redirectParam)
+        } else {
+          router.push('/')
+        }
         router.refresh()
       }
     } catch (err: any) {
