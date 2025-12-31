@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getHostname } from '@/lib/utils'
 
 interface ItemDetailProps {
   itemId: string
@@ -146,16 +147,54 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          {/* Thumbnail */}
-          {item.thumbnail_url && (
-            <div className="aspect-video bg-gray-100 relative overflow-hidden">
-              <img
-                src={item.thumbnail_url}
-                alt={item.title || 'Place'}
-                className="w-full h-full object-cover"
-              />
+          {/* Preview area */}
+          <div className="aspect-video bg-gray-100 relative overflow-hidden">
+            {item.thumbnail_url ? (
+              <>
+                <img
+                  src={item.thumbnail_url}
+                  alt={item.title || getHostname(item.url)}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    // Fallback to placeholder on error
+                    const target = e.target as HTMLImageElement
+                    target.style.display = 'none'
+                    const placeholder = target.nextElementSibling as HTMLElement
+                    if (placeholder) placeholder.style.display = 'flex'
+                  }}
+                />
+                <div className="hidden w-full h-full items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-gray-400 text-5xl mb-3">
+                      {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                    </div>
+                    <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                  <div className="text-gray-400 text-5xl mb-3">
+                    {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                  </div>
+                  <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Platform badge - top right */}
+            <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-lg text-sm font-medium ${
+              item.platform === 'TikTok' ? 'bg-black text-white' :
+              item.platform === 'Instagram' ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' :
+              item.platform === 'YouTube' ? 'bg-red-600 text-white' :
+              'bg-gray-700 text-white'
+            }`}>
+              {item.platform}
             </div>
-          )}
+          </div>
 
           <div className="p-8">
             {error && (
@@ -179,17 +218,20 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     {item.title || 'Untitled'}
                   </h1>
                 )}
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                    {item.platform}
-                  </span>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   {item.category && (
-                    <span className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                    <span className="text-sm bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full">
                       {item.category}
                     </span>
                   )}
                   {item.status && (
-                    <span className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                    <span className={`text-sm px-2.5 py-1 rounded-full ${
+                      item.status === 'Want' ? 'bg-blue-100 text-blue-700' :
+                      item.status === 'Dream' ? 'bg-purple-100 text-purple-700' :
+                      item.status === 'Maybe' ? 'bg-yellow-100 text-yellow-700' :
+                      item.status === 'Been' ? 'bg-green-100 text-green-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
                       {item.status}
                     </span>
                   )}
@@ -298,20 +340,25 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 </>
               )}
 
-              <div>
-                <h2 className="text-sm font-medium text-gray-700 mb-1">Original Link</h2>
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline break-all"
-                >
-                  {item.url}
-                </a>
-              </div>
             </div>
 
-            <div className="flex gap-4 mt-8 pt-6 border-t border-gray-200">
+            {/* Open original link button - prominent */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors w-full sm:w-auto justify-center"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                Open original link
+              </a>
+              <p className="text-xs text-gray-500 mt-2 break-all">{item.url}</p>
+            </div>
+
+            <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
               {isEditing ? (
                 <>
                   <button

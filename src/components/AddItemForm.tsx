@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { detectPlatform } from '@/lib/utils'
 import { CATEGORIES, STATUSES } from '@/types/database'
@@ -25,16 +25,40 @@ export default function AddItemForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Check auth state
+  // Check auth state and redirect to login if not authenticated
   useEffect(() => {
     const checkAuth = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      setIsAuthenticated(!!user)
+      
+      if (!user) {
+        // Build redirect URL preserving all query params and any entered URL
+        const params = new URLSearchParams()
+        
+        // Preserve existing query params (e.g., from share target)
+        searchParams.forEach((value, key) => {
+          params.set(key, value)
+        })
+        
+        // If user has entered a URL in the form, preserve it
+        if (url.trim()) {
+          params.set('url', url.trim())
+        }
+        
+        // Build the redirect URL
+        const redirectPath = params.toString() 
+          ? `/add?${params.toString()}`
+          : '/add'
+        
+        router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`)
+        return
+      }
+      
+      setIsAuthenticated(true)
     }
     checkAuth()
-  }, [supabase])
+  }, [supabase, router, searchParams, url])
 
   const handleUrlChange = async (newUrl: string) => {
     setUrl(newUrl)
@@ -74,17 +98,20 @@ export default function AddItemForm() {
     }
   }
 
-  // Read URL from query parameters (for share target)
+  // Read URL from query parameters (for share target or after login redirect)
   useEffect(() => {
+    // Only run this if we're authenticated (to avoid conflicts with auth check)
+    if (isAuthenticated === null) return
+    
     const urlParam = searchParams.get('url')
-    if (urlParam) {
-      // Clear any existing errors when prefilling from share
+    if (urlParam && urlParam !== url) {
+      // Clear any existing errors when prefilling from share or redirect
       setError(null)
       setUrl(urlParam)
       handleUrlChange(urlParam)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, isAuthenticated])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -123,17 +150,31 @@ export default function AddItemForm() {
       // Detect platform
       const platform = detectPlatform(url)
       
-      // Check auth - redirect to login if not authenticated
+      // Get user (should already be authenticated at this point)
       const {
         data: { user },
       } = await supabase.auth.getUser()
 
       if (!user) {
-        // Redirect to login with return URL including the current URL with query params
-        const currentUrl = searchParams.toString() 
-          ? `/add?${searchParams.toString()}`
+        // This shouldn't happen if auth check worked, but handle it just in case
+        // Preserve all form data in the redirect URL
+        const params = new URLSearchParams()
+        
+        // Preserve existing query params
+        searchParams.forEach((value, key) => {
+          params.set(key, value)
+        })
+        
+        // Preserve entered URL if any
+        if (url.trim()) {
+          params.set('url', url.trim())
+        }
+        
+        const redirectPath = params.toString() 
+          ? `/add?${params.toString()}`
           : '/add'
-        router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`)
+        
+        router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`)
         return
       }
 
@@ -165,6 +206,20 @@ export default function AddItemForm() {
     }
   }
 
+  // Show loading state while checking authentication
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    )
+  }
+
+  // Only render form if authenticated (if not authenticated, redirect will happen)
+  if (!isAuthenticated) {
+    return null
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
@@ -182,16 +237,14 @@ export default function AddItemForm() {
                 Cancel
               </Link>
               {/* Mobile menu */}
-              {isAuthenticated !== null && (
-                <MobileMenu
-                  isAuthenticated={isAuthenticated}
-                  onSignOut={async () => {
-                    await supabase.auth.signOut()
-                    router.push('/login')
-                    router.refresh()
-                  }}
-                />
-              )}
+              <MobileMenu
+                isAuthenticated={isAuthenticated}
+                onSignOut={async () => {
+                  await supabase.auth.signOut()
+                  router.push('/login')
+                  router.refresh()
+                }}
+              />
             </div>
           </div>
         </div>
