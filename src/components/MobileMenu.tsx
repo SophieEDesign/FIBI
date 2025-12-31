@@ -20,6 +20,16 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
   const [showInstallHelp, setShowInstallHelp] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const { isInstallable, isInstalled, isMobile, promptInstall, hasPrompt } = usePWAInstall()
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('MobileMenu - Install state:', {
+      isInstalled,
+      isInstallable,
+      hasPrompt,
+      isMobile,
+    })
+  }, [isInstalled, isInstallable, hasPrompt, isMobile])
 
   // Close menu when clicking outside
   useEffect(() => {

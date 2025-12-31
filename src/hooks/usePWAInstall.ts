@@ -57,14 +57,14 @@ export function usePWAInstall() {
       e.preventDefault()
       // Store the event for later use
       setInstallPrompt(e as BeforeInstallPromptEvent)
-      console.log('beforeinstallprompt event captured')
+      console.log('✅ beforeinstallprompt event captured - install prompt available')
     }
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    
-    // Also check if the event was already fired (sometimes it fires before listener is attached)
-    // Note: We can't check this directly, but we can log for debugging
-    console.log('PWA Install hook initialized - waiting for beforeinstallprompt event')
+    // Check if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      console.log('PWA Install hook initialized - waiting for beforeinstallprompt event')
+    }
 
     // Listen for app installed event
     window.addEventListener('appinstalled', () => {
