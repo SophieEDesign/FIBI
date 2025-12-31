@@ -84,20 +84,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// This is a public route - no auth checks, no guards, just redirects
-// Legacy page component (for GET requests via page.tsx)
-export default async function SharePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ url?: string; text?: string; title?: string }>
-}) {
-  const params = await searchParams
-  const url = extractUrl(params)
-  
-  if (url) {
-    redirect(`/add?url=${encodeURIComponent(url)}`)
-  }
-  
-  redirect('/add')
-}
-
