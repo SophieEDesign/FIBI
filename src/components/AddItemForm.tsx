@@ -171,7 +171,7 @@ export default function AddItemForm() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between relative">
             <Link href="/" className="text-2xl font-bold text-gray-900">
-              Fibi
+              FiBi
             </Link>
             <div className="flex items-center gap-4">
               {/* Desktop cancel button */}

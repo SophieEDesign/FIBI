@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fibi - Save Your Travel Places",
+  title: "FiBi - Save Your Travel Places",
   description: "Save travel places from social media before you lose them",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Fibi",
+    title: "FiBi",
   },
 };
 
@@ -35,7 +35,7 @@ export default function RootLayout({
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="Fibi" />
+        <meta name="apple-mobile-web-app-title" content="FiBi" />
       </head>
       <body>{children}</body>
     </html>

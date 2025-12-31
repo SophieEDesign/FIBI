@@ -19,7 +19,7 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
   const [isOpen, setIsOpen] = useState(false)
   const [showInstallHelp, setShowInstallHelp] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const { isInstallable, isMobile, promptInstall, hasPrompt } = usePWAInstall()
+  const { isInstallable, isInstalled, isMobile, promptInstall, hasPrompt } = usePWAInstall()
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -98,7 +98,7 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
               >
                 Add Place
               </Link>
-              {isInstallable && (
+              {!isInstalled && (
                 <button
                   onClick={handleInstall}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200"
@@ -125,7 +125,7 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
               >
                 Sign in
               </Link>
-              {isInstallable && (
+              {!isInstalled && (
                 <button
                   onClick={handleInstall}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200"
@@ -142,9 +142,9 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
       {showInstallHelp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Install Fibi</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Install FiBi</h3>
             <p className="text-sm text-gray-600 mb-4">
-              To install Fibi on your phone:
+              To install FiBi on your phone:
             </p>
             <ol className="text-sm text-gray-700 space-y-2 mb-4 list-decimal list-inside">
               <li>Open your browser menu (⋮)</li>

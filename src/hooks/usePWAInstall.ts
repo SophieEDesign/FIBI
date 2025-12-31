@@ -24,15 +24,20 @@ export function usePWAInstall() {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    // Detect mobile device
+    // Detect mobile device - check immediately on mount
     const checkMobile = () => {
+      if (typeof window === 'undefined') return false
       const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
         navigator.userAgent
       ) || window.matchMedia('(max-width: 768px)').matches
       setIsMobile(isMobileDevice)
+      return isMobileDevice
     }
     
-    checkMobile()
+    // Set initial state immediately
+    const initialMobile = checkMobile()
+    setIsMobile(initialMobile)
+    
     window.addEventListener('resize', checkMobile)
 
     // Detect if app is already installed

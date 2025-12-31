@@ -1,6 +1,6 @@
 {
-  "name": "Fibi",
-  "short_name": "Fibi",
+  "name": "FiBi",
+  "short_name": "FiBi",
   "description": "Save travel places from social media before you lose them",
   "start_url": "/?source=pwa",
   "scope": "/",
