@@ -183,23 +183,23 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                 <div className="space-y-3 text-sm text-gray-700">
                   <div className="flex items-start gap-3">
                     <span className="font-medium text-gray-900">1.</span>
-                    <p>Click <strong>&quot;Add Place&quot;</strong> to save a link from TikTok, Instagram, or any website</p>
+                    <p><strong>Install Fibi</strong> as an app to your device for one-tap sharing</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="font-medium text-gray-900">2.</span>
-                    <p>Fibi automatically fetches the title and preview image, or you can add your own screenshot</p>
+                    <p>Find a place on TikTok, Instagram, or any website and <strong>share the link to Fibi</strong></p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="font-medium text-gray-900">3.</span>
-                    <p>Add location, category, and status to organise your saved places</p>
+                    <p>Fibi automatically fetches the title and preview image, or you can add your own screenshot</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="font-medium text-gray-900">4.</span>
-                    <p>Click any card to view details, edit, or open the original link</p>
+                    <p>Add location, category, and status to organise your saved places</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="font-medium text-gray-900">5.</span>
-                    <p>Use the filters above to find places by category or status</p>
+                    <p>Click any card to view details, edit, or open the original link</p>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-blue-200">
@@ -282,7 +282,7 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
                   <p className="text-gray-600 mb-8">
-                    Share a TikTok/Instagram/website link to Fibi, or paste a link to save it.
+                    Install Fibi first, then share links from TikTok, Instagram, or any website.
                   </p>
                 </div>
 
@@ -292,8 +292,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                       1
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Find a place online</p>
-                      <p className="text-sm text-gray-600">Discover somewhere you&apos;d like to visit on TikTok, Instagram, or any website</p>
+                      <p className="font-medium text-gray-900">Install Fibi as an app</p>
+                      <p className="text-sm text-gray-600">Install Fibi to your device for one-tap sharing from any app</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -301,8 +301,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                       2
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Share to Fibi (or paste the link)</p>
-                      <p className="text-sm text-gray-600">Use the share button or copy the link and add it to Fibi</p>
+                      <p className="font-medium text-gray-900">Find a place and share to Fibi</p>
+                      <p className="text-sm text-gray-600">Discover somewhere on TikTok, Instagram, or any website, then share the link to Fibi</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -338,7 +338,7 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
                   <p className="text-gray-600 mb-8">
-                    Share a TikTok/Instagram/website link to Fibi, or paste a link to save it.
+                    Install Fibi first, then share links from TikTok, Instagram, or any website.
                   </p>
                 </div>
 
@@ -348,8 +348,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                       1
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Find a place online</p>
-                      <p className="text-sm text-gray-600">Discover somewhere you&apos;d like to visit on TikTok, Instagram, or any website</p>
+                      <p className="font-medium text-gray-900">Install Fibi as an app</p>
+                      <p className="text-sm text-gray-600">Install Fibi to your device for one-tap sharing from any app</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -357,8 +357,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
                       2
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">Share to Fibi (or paste the link)</p>
-                      <p className="text-sm text-gray-600">Use the share button or copy the link and add it to Fibi</p>
+                      <p className="font-medium text-gray-900">Find a place and share to Fibi</p>
+                      <p className="text-sm text-gray-600">Discover somewhere on TikTok, Instagram, or any website, then share the link to Fibi</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
