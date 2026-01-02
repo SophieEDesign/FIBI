@@ -24,6 +24,11 @@ export default function LoginClient() {
   } catch (err: any) {
     // If client creation fails (missing env vars), we'll handle it in useEffect
     console.error('Failed to create Supabase client:', err)
+    // Set error immediately if client creation fails
+    if (typeof window !== 'undefined') {
+      setError(`Configuration error: ${err.message || 'Missing Supabase credentials. Please check your environment variables.'}`)
+      setCheckingAuth(false)
+    }
   }
 
   // Check for error or success messages from URL params
@@ -196,7 +201,15 @@ export default function LoginClient() {
         router.refresh()
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred')
+      console.error('Login/Signup error:', err)
+      // Show more detailed error messages
+      const errorMessage = err.message || err.error?.message || 'An error occurred. Please try again.'
+      setError(errorMessage)
+      
+      // Log to console for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Full error details:', err)
+      }
     } finally {
       setLoading(false)
     }
