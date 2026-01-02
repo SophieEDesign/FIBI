@@ -57,32 +57,14 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Graphic Placeholder */}
+            {/* Hero Image */}
             <div className="relative">
-              <div className="aspect-[4/3] bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
-                <div className="text-center p-8">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                    <svg
-                      className="w-8 h-8 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </div>
-                  <p className="text-sm text-gray-400 font-medium">
-                    Hero illustration placeholder
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Replace with custom graphic
-                  </p>
-                </div>
+              <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-50">
+                <img
+                  src="/hero-image.png"
+                  alt="Travel places saved from social media"
+                  className="w-full h-full object-cover"
+                />
               </div>
             </div>
           </div>
@@ -97,27 +79,12 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
               {/* Step 1 */}
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-xs text-gray-400 font-medium">
-                      Icon placeholder
-                    </p>
-                  </div>
+                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/1.png"
+                    alt="Save it"
+                    className="w-full h-full object-contain p-2"
+                  />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Save it
@@ -129,27 +96,12 @@ export default function LandingPage() {
 
               {/* Step 2 */}
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-xs text-gray-400 font-medium">
-                      Icon placeholder
-                    </p>
-                  </div>
+                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/2.png"
+                    alt="Make it yours"
+                    className="w-full h-full object-contain p-2"
+                  />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Make it yours
@@ -161,27 +113,12 @@ export default function LandingPage() {
 
               {/* Step 3 */}
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-12 h-12 mx-auto mb-2 bg-gray-100 rounded flex items-center justify-center">
-                      <svg
-                        className="w-6 h-6 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-xs text-gray-400 font-medium">
-                      Icon placeholder
-                    </p>
-                  </div>
+                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                  <img
+                    src="/3.png"
+                    alt="Find it later"
+                    className="w-full h-full object-contain p-2"
+                  />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Find it later
@@ -198,32 +135,14 @@ export default function LandingPage() {
         <section className="py-16 lg:py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              {/* Graphic Placeholder */}
+              {/* Purpose Image */}
               <div className="order-2 lg:order-1">
-                <div className="aspect-[4/3] bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                      <svg
-                        className="w-8 h-8 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-gray-400 font-medium">
-                      Purpose illustration placeholder
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Replace with custom graphic
-                    </p>
-                  </div>
+                <div className="aspect-[4/3] rounded-lg overflow-hidden bg-white">
+                  <img
+                    src="/Fibi.world.png"
+                    alt="Journey from discovery to saved place"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
 
@@ -297,6 +216,25 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-sm text-gray-500">
+              © {new Date().getFullYear()} Fibi. Save places before you lose them.
+            </p>
+            <div className="flex items-center gap-6">
+              <Link
+                href="/login"
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Sign in
+              </Link>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }
