@@ -3,22 +3,25 @@
  * Checks for NEXT_PUBLIC_SITE_URL, VERCEL_URL, or falls back to window.location.origin
  */
 export function getSiteUrl(): string {
-  // Check for explicit site URL environment variable (highest priority)
-  if (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL
-  }
-  
-  // Check for Vercel URL (automatically set by Vercel)
-  if (typeof process !== 'undefined' && process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`
-  }
-  
-  // Client-side fallback
+  // Client-side: use window.location.origin (most reliable for browser context)
   if (typeof window !== 'undefined') {
     return window.location.origin
   }
   
-  // Server-side fallback (shouldn't happen, but just in case)
+  // Server-side: check environment variables
+  if (typeof process !== 'undefined') {
+    // Check for explicit site URL environment variable (highest priority)
+    if (process.env.NEXT_PUBLIC_SITE_URL) {
+      return process.env.NEXT_PUBLIC_SITE_URL
+    }
+    
+    // Check for Vercel URL (automatically set by Vercel)
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`
+    }
+  }
+  
+  // Fallback (shouldn't happen in normal operation)
   return 'http://localhost:3000'
 }
 

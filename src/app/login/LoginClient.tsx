@@ -133,15 +133,21 @@ export default function LoginClient() {
           return
         }
 
+        const siteUrl = getSiteUrl()
+        const redirectUrl = `${siteUrl}/auth/callback`
+        
+        console.log('Signing up with:', { email, redirectUrl })
+        
         const { error, data } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${getSiteUrl()}/auth/callback`,
+            emailRedirectTo: redirectUrl,
           },
         })
         
         if (error) {
+          console.error('Sign up error:', error)
           // If email already exists, switch to login
           if (error.message.includes('already registered') || 
               error.message.includes('already exists') ||
@@ -149,15 +155,25 @@ export default function LoginClient() {
             setError('An account with this email already exists. Please sign in instead.')
             setIsSignUp(false)
             setEmailStatus('exists')
+            setLoading(false)
             return
           }
-          throw error
+          // Show the actual error message
+          setError(error.message || 'Failed to sign up. Please try again.')
+          setLoading(false)
+          return
         }
         
-        // Show success message about email confirmation
-        setSuccessMessage('Please check your email to confirm your account before signing in.')
-        setIsSignUp(false) // Switch to login view
-        setPassword('') // Clear password field
+        // Check if sign up was successful
+        if (data?.user) {
+          // Show success message about email confirmation
+          setSuccessMessage('Please check your email to confirm your account before signing in.')
+          setIsSignUp(false) // Switch to login view
+          setPassword('') // Clear password field
+          setEmail('') // Clear email field too
+        } else {
+          setError('Sign up failed. Please try again.')
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
