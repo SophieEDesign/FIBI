@@ -1,12 +1,16 @@
 import { redirect } from 'next/navigation'
 import HomeGrid from '@/components/HomeGrid'
+import LandingPage from '@/components/LandingPage'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
+import { createClient } from '@/lib/supabase/server'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
 /**
  * Home Page
+ * 
+ * Shows LandingPage for unauthenticated users, HomeGrid for authenticated users.
  * 
  * WHY ServiceWorkerRegistration is here:
  * - Home page is a safe, stable page (no immediate redirects)
@@ -36,6 +40,18 @@ export default async function HomePage({
       redirect(`/auth/callback?code=${encodeURIComponent(code)}`)
     }
 
+    // Check if user is authenticated
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    // Show landing page for unauthenticated users
+    if (!user) {
+      return <LandingPage />
+    }
+
+    // Show home grid for authenticated users
     return (
       <>
         <HomeGrid confirmed={params?.confirmed === 'true'} />
@@ -43,9 +59,9 @@ export default async function HomePage({
       </>
     )
   } catch (error) {
-    // If there's any error, redirect to login
+    // If there's any error, show landing page (don't redirect to login)
     console.error('Home page error:', error)
-    redirect('/login')
+    return <LandingPage />
   }
 }
 

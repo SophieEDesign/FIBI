@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getSiteUrl } from '@/lib/utils'
 
 export default function LoginClient() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -131,7 +132,7 @@ export default function LoginClient() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: `${getSiteUrl()}/auth/callback`,
           },
         })
         
