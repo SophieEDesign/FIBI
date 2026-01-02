@@ -212,179 +212,164 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-8">
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-sm font-medium text-gray-700 mr-2">Category:</span>
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                selectedCategory === 'all'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              All
-            </button>
-            {CATEGORIES.map((category) => (
+        {/* Filters - only show when there are items */}
+        {filteredItems.length > 0 && (
+          <div className="mb-8">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm font-medium text-gray-700 mr-2">Category:</span>
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                onClick={() => setSelectedCategory('all')}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === category
+                  selectedCategory === 'all'
                     ? 'bg-gray-900 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                {category}
+                All
               </button>
-            ))}
-          </div>
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
 
-          <div className="flex flex-wrap gap-2 items-center mt-3">
-            <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
-            <button
-              onClick={() => setSelectedStatus('all')}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                selectedStatus === 'all'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              All
-            </button>
-            {STATUSES.map((status) => (
+            <div className="flex flex-wrap gap-2 items-center mt-3">
+              <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
               <button
-                key={status}
-                onClick={() => setSelectedStatus(status)}
+                onClick={() => setSelectedStatus('all')}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedStatus === status
+                  selectedStatus === 'all'
                     ? 'bg-gray-900 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                {status}
+                All
               </button>
-            ))}
+              {STATUSES.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setSelectedStatus(status)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedStatus === status
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Grid */}
-        {filteredItems.length === 0 ? (
-          isAuthenticated === false ? (
-            <div className="max-w-2xl mx-auto py-16 px-4">
-              <div className="bg-white rounded-2xl border border-gray-200 p-8 md:p-12 text-center">
-                <div className="mb-6">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
-                  <p className="text-gray-600 mb-8">
-                    Install Fibi first, then share links from TikTok, Instagram, or any website.
-                  </p>
-                </div>
+        {/* Empty state - only show when authenticated and no items */}
+        {isAuthenticated && filteredItems.length === 0 && (
+          <div className="max-w-3xl mx-auto">
+            {/* Intro section */}
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                Save places you don&apos;t want to forget
+              </h2>
+              <p className="text-lg text-gray-600">
+                From TikTok, Instagram, and the web — all in one calm place.
+              </p>
+            </div>
 
-                <div className="space-y-4 mb-8 text-left max-w-md mx-auto">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
-                      1
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Install Fibi as an app</p>
-                      <p className="text-sm text-gray-600">Install Fibi to your device for one-tap sharing from any app</p>
-                    </div>
+            {/* How it works */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-8 mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-6 text-center">
+                How it works
+              </h3>
+              <div className="space-y-6 max-w-2xl mx-auto">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                    1
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
-                      2
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Find a place and share to Fibi</p>
-                      <p className="text-sm text-gray-600">Discover somewhere on TikTok, Instagram, or any website, then share the link to Fibi</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
-                      3
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Add city/country + a quick status</p>
-                      <p className="text-sm text-gray-600">Organise your saved places with location and status (Want, Dream, Maybe, Been)</p>
-                    </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-gray-900 font-medium">Share a link to Fibi</p>
                   </div>
                 </div>
-
-                <Link
-                  href="/login"
-                  className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-4"
-                >
-                  Sign in to get started
-                </Link>
-                <p className="text-sm text-gray-500">
-                  Tip: Installing Fibi makes sharing one tap faster.
-                </p>
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                    2
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-gray-900 font-medium">Add a screenshot or note so you remember why</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                    3
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="text-gray-900 font-medium">Find it again later by location or category</p>
+                  </div>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="max-w-2xl mx-auto py-16 px-4">
-              <div className="bg-white rounded-2xl border border-gray-200 p-8 md:p-12 text-center">
-                <div className="mb-6">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                    </svg>
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
-                  <p className="text-gray-600 mb-8">
-                    Install Fibi first, then share links from TikTok, Instagram, or any website.
-                  </p>
-                </div>
 
-                <div className="space-y-4 mb-8 text-left max-w-md mx-auto">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
-                      1
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Install Fibi as an app</p>
-                      <p className="text-sm text-gray-600">Install Fibi to your device for one-tap sharing from any app</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
-                      2
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Find a place and share to Fibi</p>
-                      <p className="text-sm text-gray-600">Discover somewhere on TikTok, Instagram, or any website, then share the link to Fibi</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium mt-0.5">
-                      3
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Add city/country + a quick status</p>
-                      <p className="text-sm text-gray-600">Organise your saved places with location and status (Want, Dream, Maybe, Been)</p>
-                    </div>
-                  </div>
-                </div>
+            {/* Reassurance */}
+            <div className="text-center mb-8">
+              <p className="text-sm text-gray-600">
+                Some apps don&apos;t share previews — a screenshot keeps the context.
+              </p>
+            </div>
 
-                <Link
-                  href="/add"
-                  className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-4"
-                >
-                  Add your first place
-                </Link>
-                <p className="text-sm text-gray-500">
-                  Tip: Installing Fibi makes sharing one tap faster.
+            {/* Primary action */}
+            <div className="text-center">
+              <Link
+                href="/add"
+                className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-2"
+              >
+                Add your first place
+              </Link>
+              <p className="text-sm text-gray-500">
+                Or share a link from another app
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Not authenticated empty state */}
+        {isAuthenticated === false && (
+          <div className="max-w-2xl mx-auto py-16 px-4">
+            <div className="bg-white rounded-2xl border border-gray-200 p-8 md:p-12 text-center">
+              <div className="mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
+                <p className="text-gray-600 mb-8">
+                  Install Fibi first, then share links from TikTok, Instagram, or any website.
                 </p>
               </div>
+
+              <Link
+                href="/login"
+                className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-4"
+              >
+                Sign in to get started
+              </Link>
+              <p className="text-sm text-gray-500">
+                Tip: Installing Fibi makes sharing one tap faster.
+              </p>
             </div>
-          )
-        ) : (
+          </div>
+        )}
+
+        {/* Grid - only show when there are items */}
+        {filteredItems.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => {
               // Preview priority: screenshot_url > thumbnail_url > placeholder

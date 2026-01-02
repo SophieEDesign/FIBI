@@ -47,6 +47,10 @@ export default function AddItemForm() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [isLocationSuggested, setIsLocationSuggested] = useState(false)
   const [sharedTextImported, setSharedTextImported] = useState(false)
+  const [clipboardText, setClipboardText] = useState<string | null>(null)
+  const [showClipboardPrompt, setShowClipboardPrompt] = useState(false)
+  const [clipboardChecked, setClipboardChecked] = useState(false)
+  const [clipboardTextUsed, setClipboardTextUsed] = useState(false)
   
   // Track user edits to prevent overwriting
   const userEditedTitle = useRef(false)
@@ -225,6 +229,136 @@ export default function AddItemForm() {
       console.warn('Error searching places:', err)
       // Non-blocking - continue silently
     }
+  }
+
+  // Check clipboard content (requires user interaction or page focus)
+  const checkClipboard = async () => {
+    if (clipboardChecked) return
+    
+    // Check if clipboard API is available
+    if (!navigator.clipboard || !navigator.clipboard.readText) {
+      setClipboardChecked(true)
+      return
+    }
+
+    try {
+      // Try to read clipboard - this requires user interaction or page focus
+      const text = await navigator.clipboard.readText()
+      
+      if (text && text.trim() && text.trim().length > 0) {
+        // Don't use if it's just a URL (that should be in the URL field)
+        const urlMatch = text.trim().match(/^https?:\/\/[^\s]+$/)
+        if (!urlMatch && text.trim().length > 3) {
+          // Only show prompt if text is meaningful (more than 3 chars)
+          setClipboardText(text.trim())
+          setShowClipboardPrompt(true)
+        }
+      }
+    } catch (err: any) {
+      // Permission denied or clipboard empty - handle gracefully
+      // Don't show errors to user, just silently fail
+      if (err.name !== 'NotAllowedError' && err.name !== 'NotFoundError') {
+        // Only log unexpected errors in development
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Clipboard read failed:', err)
+        }
+      }
+    } finally {
+      setClipboardChecked(true)
+    }
+  }
+
+  // Check clipboard when page loads from a share or on focus
+  useEffect(() => {
+    if (isAuthenticated !== true || clipboardChecked) return
+    
+    const urlParam = searchParams.get('url')
+    
+    // Only check clipboard if we're coming from a share (has URL param)
+    if (urlParam) {
+      // Try to check clipboard on page focus (browser may allow this)
+      const handleFocus = () => {
+        checkClipboard()
+      }
+      
+      // Check on initial focus
+      if (document.hasFocus()) {
+        // Small delay to ensure page is fully loaded
+        setTimeout(() => {
+          checkClipboard()
+        }, 500)
+      } else {
+        // Wait for window focus
+        window.addEventListener('focus', handleFocus, { once: true })
+      }
+      
+      return () => {
+        window.removeEventListener('focus', handleFocus)
+      }
+    } else {
+      setClipboardChecked(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
+
+  // Handle clipboard text acceptance
+  const handleUseClipboardText = async () => {
+    if (!clipboardText) return
+
+    const trimmedText = clipboardText.trim()
+    setClipboardTextUsed(true)
+    
+    // Apply to Title if empty, otherwise to Notes
+    if (!title.trim() && !userEditedTitle.current) {
+      setTitle(trimmedText)
+      userEditedTitle.current = true
+    } else if (!userEditedNotes.current) {
+      setNotes(trimmedText)
+      userEditedNotes.current = true
+    }
+
+    // Try to use clipboard text for location search if no location is set
+    if (!selectedPlace && !locationCity && !locationCountry) {
+      try {
+        const response = await fetch('/api/places', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmedText }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.place) {
+            // Suggest location from clipboard text using Google Places format
+            const suggestedPlace = {
+              place_name: data.place.name,
+              place_id: data.place.place_id,
+              latitude: data.place.geometry.location.lat,
+              longitude: data.place.geometry.location.lng,
+              formatted_address: data.place.formatted_address || '',
+              city: data.city,
+              country: data.country,
+            }
+            
+            setSelectedPlace(suggestedPlace)
+            setLocationSearchValue(suggestedPlace.place_name)
+            setIsLocationSuggested(true)
+          }
+        }
+      } catch (err) {
+        // Non-blocking - continue silently
+        console.debug('Location search from clipboard failed:', err)
+      }
+    }
+
+    setShowClipboardPrompt(false)
+    setClipboardText(null)
+  }
+
+  // Handle clipboard text rejection
+  const handleIgnoreClipboardText = () => {
+    setShowClipboardPrompt(false)
+    setClipboardText(null)
   }
 
   // Initialize form from share parameters and fetch metadata
@@ -627,6 +761,34 @@ export default function AddItemForm() {
               </div>
             )}
 
+            {/* Clipboard prompt */}
+            {showClipboardPrompt && clipboardText && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-900 mb-2">
+                  Use copied text for this place?
+                </p>
+                <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+                  {clipboardText.length > 100 ? `${clipboardText.substring(0, 100)}...` : clipboardText}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUseClipboardText}
+                    className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Use text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleIgnoreClipboardText}
+                    className="px-4 py-2 bg-white text-gray-700 text-sm font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Ignore
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
                 URL <span className="text-red-500">*</span>
@@ -660,10 +822,13 @@ export default function AddItemForm() {
               />
             </div>
 
-            {/* Notes - editable, pre-filled from shared text */}
+            {/* Notes - editable, pre-filled from shared text or clipboard */}
             <div>
               <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
                 Notes
+                {notes && clipboardTextUsed && (
+                  <span className="ml-2 text-xs font-normal text-gray-500">(Copied text)</span>
+                )}
               </label>
               <textarea
                 id="notes"
@@ -778,7 +943,7 @@ export default function AddItemForm() {
                   )}
                 </button>
                 <p className="mt-2 text-xs text-gray-500">
-                  Some apps don&apos;t share images. A screenshot helps you remember what this was.
+                  Some apps don&apos;t share previews. A screenshot or copied text helps keep the context.
                 </p>
               </div>
             </div>

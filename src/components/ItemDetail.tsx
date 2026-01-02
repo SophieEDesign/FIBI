@@ -219,15 +219,65 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   // Handle category change
   const handleCategoryChange = async (newCategory: string) => {
     setCategory(newCategory)
+    setShowCustomCategoryInput(false)
+    setCustomCategory('')
+    
     const value = newCategory || null
+    
+    // Save custom option if it was used
+    if (newCategory && !CATEGORIES.includes(newCategory as any) && !userCustomCategories.includes(newCategory)) {
+      await saveCustomOption('category', newCategory)
+    }
+    
     await saveField('category', value)
   }
 
   // Handle status change
   const handleStatusChange = async (newStatus: string) => {
     setStatus(newStatus)
+    setShowCustomStatusInput(false)
+    setCustomStatus('')
+    
     const value = newStatus || null
+    
+    // Save custom option if it was used
+    if (newStatus && !STATUSES.includes(newStatus as any) && !userCustomStatuses.includes(newStatus)) {
+      await saveCustomOption('status', newStatus)
+    }
+    
     await saveField('status', value)
+  }
+  
+  // Handle custom category save
+  const handleCustomCategorySave = async () => {
+    if (!customCategory.trim()) return
+    
+    const finalCategory = customCategory.trim()
+    setCategory(finalCategory)
+    setShowCustomCategoryInput(false)
+    
+    // Save custom option
+    await saveCustomOption('category', finalCategory)
+    
+    // Save to item
+    await saveField('category', finalCategory)
+    setCustomCategory('')
+  }
+  
+  // Handle custom status save
+  const handleCustomStatusSave = async () => {
+    if (!customStatus.trim()) return
+    
+    const finalStatus = customStatus.trim()
+    setStatus(finalStatus)
+    setShowCustomStatusInput(false)
+    
+    // Save custom option
+    await saveCustomOption('status', finalStatus)
+    
+    // Save to item
+    await saveField('status', finalStatus)
+    setCustomStatus('')
   }
 
   // Handle notes save on blur
@@ -555,42 +605,171 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               </div>
 
               {/* Category and Status - always editable */}
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
-                  <select
-                    value={category}
-                    onChange={(e) => handleCategoryChange(e.target.value)}
-                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-full bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors"
-                  >
-                    <option value="">Select category...</option>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                     {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          handleCategoryChange(category === cat ? '' : cat)
+                          setShowCustomCategoryInput(false)
+                          setCustomCategory('')
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                          category === cat && !showCustomCategoryInput
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
                         {cat}
-                      </option>
+                      </button>
                     ))}
-                  </select>
+                    {userCustomCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => {
+                          handleCategoryChange(category === cat ? '' : cat)
+                          setShowCustomCategoryInput(false)
+                          setCustomCategory('')
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                          category === cat && !showCustomCategoryInput
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomCategoryInput(!showCustomCategoryInput)
+                        if (!showCustomCategoryInput) {
+                          setCategory('')
+                          setCustomCategory('')
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        showCustomCategoryInput
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      + Custom
+                    </button>
+                  </div>
+                  {showCustomCategoryInput && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleCustomCategorySave()
+                          }
+                        }}
+                        placeholder="Enter custom category..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCustomCategorySave}
+                        className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
                 </div>
+
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-                  <select
-                    value={status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    className={`px-3 py-1.5 text-sm border rounded-full bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-colors ${
-                      status === 'Want' ? 'border-blue-300' :
-                      status === 'Dream' ? 'border-purple-300' :
-                      status === 'Maybe' ? 'border-yellow-300' :
-                      status === 'Been' ? 'border-green-300' :
-                      'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Select status...</option>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                     {STATUSES.map((stat) => (
-                      <option key={stat} value={stat}>
+                      <button
+                        key={stat}
+                        type="button"
+                        onClick={() => {
+                          handleStatusChange(status === stat ? '' : stat)
+                          setShowCustomStatusInput(false)
+                          setCustomStatus('')
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                          status === stat && !showCustomStatusInput
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
                         {stat}
-                      </option>
+                      </button>
                     ))}
-                  </select>
+                    {userCustomStatuses.map((stat) => (
+                      <button
+                        key={stat}
+                        type="button"
+                        onClick={() => {
+                          handleStatusChange(status === stat ? '' : stat)
+                          setShowCustomStatusInput(false)
+                          setCustomStatus('')
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                          status === stat && !showCustomStatusInput
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                        }`}
+                      >
+                        {stat}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomStatusInput(!showCustomStatusInput)
+                        if (!showCustomStatusInput) {
+                          setStatus('')
+                          setCustomStatus('')
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        showCustomStatusInput
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      + Custom
+                    </button>
+                  </div>
+                  {showCustomStatusInput && (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={customStatus}
+                        onChange={(e) => setCustomStatus(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleCustomStatusSave()
+                          }
+                        }}
+                        placeholder="Enter custom status..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCustomStatusSave}
+                        className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
