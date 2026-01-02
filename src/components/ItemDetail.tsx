@@ -28,6 +28,8 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [status, setStatus] = useState('')
   const [customStatus, setCustomStatus] = useState('')
   const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
+  const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
+  const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   
   // Location fields (edit mode only)
@@ -51,8 +53,77 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
 
   useEffect(() => {
     loadItem()
+    loadUserCustomOptions()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId])
+
+  // Load user's custom categories and statuses
+  const loadUserCustomOptions = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { data: categories, error: catError } = await supabase
+        .from('user_custom_options')
+        .select('value')
+        .eq('user_id', user.id)
+        .eq('type', 'category')
+        .order('created_at', { ascending: false })
+
+      const { data: statuses, error: statusError } = await supabase
+        .from('user_custom_options')
+        .select('value')
+        .eq('user_id', user.id)
+        .eq('type', 'status')
+        .order('created_at', { ascending: false })
+
+      if (catError) console.error('Error loading custom categories:', catError)
+      if (statusError) console.error('Error loading custom statuses:', statusError)
+
+      if (categories) {
+        setUserCustomCategories(categories.map(c => c.value))
+      }
+      if (statuses) {
+        setUserCustomStatuses(statuses.map(s => s.value))
+      }
+    } catch (err) {
+      console.error('Error loading custom options:', err)
+    }
+  }
+
+  // Save custom option to database
+  const saveCustomOption = async (type: 'category' | 'status', value: string) => {
+    if (!value.trim()) return
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      // Insert custom option (ignore if already exists due to UNIQUE constraint)
+      const { error } = await supabase
+        .from('user_custom_options')
+        .insert({
+          user_id: user.id,
+          type,
+          value: value.trim(),
+        })
+
+      if (error && !error.message.includes('duplicate')) {
+        console.error('Error saving custom option:', error)
+      } else {
+        // Refresh the list
+        loadUserCustomOptions()
+      }
+    } catch (err) {
+      console.error('Error saving custom option:', err)
+    }
+  }
 
   const loadItem = async () => {
     try {
@@ -257,6 +328,14 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       const finalStatus = showCustomStatusInput && customStatus.trim() 
         ? customStatus.trim() 
         : status || null
+
+      // Save custom options if they were used
+      if (finalCategory && !CATEGORIES.includes(finalCategory as any)) {
+        await saveCustomOption('category', finalCategory)
+      }
+      if (finalStatus && !STATUSES.includes(finalStatus as any)) {
+        await saveCustomOption('status', finalStatus)
+      }
 
       // Determine location data: use Google Place if selected, otherwise use manual entry
       const locationData = selectedPlace
@@ -561,6 +640,9 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           setLocationSearchValue('')
                         }
                       }}
+                      onSearchValueChange={(value) => {
+                        setLocationSearchValue(value)
+                      }}
                       onManualCityChange={(city) => {
                         setLocationCity(city)
                         // Clear Google place data when manually entering
@@ -602,7 +684,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Category
                     </label>
-                    <div className="flex flex-wrap gap-2 mb-2">
+                    <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                       {CATEGORIES.map((cat) => (
                         <button
                           key={cat}
@@ -612,10 +694,28 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                             setShowCustomCategoryInput(false)
                             setCustomCategory('')
                           }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                             category === cat && !showCustomCategoryInput
                               ? 'bg-gray-900 text-white'
                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                      {userCustomCategories.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setCategory(category === cat ? '' : cat)
+                            setShowCustomCategoryInput(false)
+                            setCustomCategory('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                            category === cat && !showCustomCategoryInput
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                           }`}
                         >
                           {cat}
@@ -630,7 +730,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                             setCustomCategory('')
                           }
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                           showCustomCategoryInput
                             ? 'bg-gray-900 text-white'
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -655,7 +755,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Status
                     </label>
-                    <div className="flex flex-wrap gap-2 mb-2">
+                    <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                       {STATUSES.map((stat) => (
                         <button
                           key={stat}
@@ -665,10 +765,28 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                             setShowCustomStatusInput(false)
                             setCustomStatus('')
                           }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                             status === stat && !showCustomStatusInput
                               ? 'bg-gray-900 text-white'
                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {stat}
+                        </button>
+                      ))}
+                      {userCustomStatuses.map((stat) => (
+                        <button
+                          key={stat}
+                          type="button"
+                          onClick={() => {
+                            setStatus(status === stat ? '' : stat)
+                            setShowCustomStatusInput(false)
+                            setCustomStatus('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                            status === stat && !showCustomStatusInput
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                           }`}
                         >
                           {stat}
@@ -683,7 +801,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                             setCustomStatus('')
                           }
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                           showCustomStatusInput
                             ? 'bg-gray-900 text-white'
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'

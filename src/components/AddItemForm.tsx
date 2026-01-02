@@ -38,6 +38,8 @@ export default function AddItemForm() {
   const [status, setStatus] = useState('')
   const [customStatus, setCustomStatus] = useState('')
   const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
+  const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
+  const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
@@ -88,9 +90,74 @@ export default function AddItemForm() {
       }
       
       setIsAuthenticated(true)
+      
+      // Load user's custom options
+      loadUserCustomOptions(user.id)
     }
     checkAuth()
   }, [supabase, router, searchParams])
+
+  // Load user's custom categories and statuses
+  const loadUserCustomOptions = async (userId: string) => {
+    try {
+      const { data: categories, error: catError } = await supabase
+        .from('user_custom_options')
+        .select('value')
+        .eq('user_id', userId)
+        .eq('type', 'category')
+        .order('created_at', { ascending: false })
+
+      const { data: statuses, error: statusError } = await supabase
+        .from('user_custom_options')
+        .select('value')
+        .eq('user_id', userId)
+        .eq('type', 'status')
+        .order('created_at', { ascending: false })
+
+      if (catError) console.error('Error loading custom categories:', catError)
+      if (statusError) console.error('Error loading custom statuses:', statusError)
+
+      if (categories) {
+        setUserCustomCategories(categories.map(c => c.value))
+      }
+      if (statuses) {
+        setUserCustomStatuses(statuses.map(s => s.value))
+      }
+    } catch (err) {
+      console.error('Error loading custom options:', err)
+    }
+  }
+
+  // Save custom option to database
+  const saveCustomOption = async (type: 'category' | 'status', value: string) => {
+    if (!value.trim()) return
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      // Insert custom option (ignore if already exists due to UNIQUE constraint)
+      const { error } = await supabase
+        .from('user_custom_options')
+        .insert({
+          user_id: user.id,
+          type,
+          value: value.trim(),
+        })
+
+      if (error && !error.message.includes('duplicate')) {
+        console.error('Error saving custom option:', error)
+      } else {
+        // Refresh the list
+        loadUserCustomOptions(user.id)
+      }
+    } catch (err) {
+      console.error('Error saving custom option:', err)
+    }
+  }
 
   // Fetch metadata for a URL
   const fetchMetadata = async (urlToFetch: string) => {
@@ -380,6 +447,14 @@ export default function AddItemForm() {
       const finalStatus = showCustomStatusInput && customStatus.trim() 
         ? customStatus.trim() 
         : status || null
+
+      // Save custom options if they were used
+      if (finalCategory && !CATEGORIES.includes(finalCategory as any)) {
+        await saveCustomOption('category', finalCategory)
+      }
+      if (finalStatus && !STATUSES.includes(finalStatus as any)) {
+        await saveCustomOption('status', finalStatus)
+      }
 
       // Insert into saved_items
       const { error: insertError } = await supabase
@@ -728,6 +803,9 @@ export default function AddItemForm() {
                   setLocationSearchValue('')
                 }
               }}
+              onSearchValueChange={(value) => {
+                setLocationSearchValue(value)
+              }}
               onManualCityChange={(city) => {
                 setLocationCity(city)
                 // Clear Google place data when manually entering
@@ -763,7 +841,7 @@ export default function AddItemForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                 {CATEGORIES.map((cat) => (
                   <button
                     key={cat}
@@ -773,10 +851,28 @@ export default function AddItemForm() {
                       setShowCustomCategoryInput(false)
                       setCustomCategory('')
                     }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       category === cat && !showCustomCategoryInput
                         ? 'bg-gray-900 text-white'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+                {userCustomCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => {
+                      setCategory(category === cat ? '' : cat)
+                      setShowCustomCategoryInput(false)
+                      setCustomCategory('')
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                      category === cat && !showCustomCategoryInput
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                     }`}
                   >
                     {cat}
@@ -791,7 +887,7 @@ export default function AddItemForm() {
                       setCustomCategory('')
                     }
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     showCustomCategoryInput
                       ? 'bg-gray-900 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -815,7 +911,7 @@ export default function AddItemForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                 {STATUSES.map((stat) => (
                   <button
                     key={stat}
@@ -825,10 +921,28 @@ export default function AddItemForm() {
                       setShowCustomStatusInput(false)
                       setCustomStatus('')
                     }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       status === stat && !showCustomStatusInput
                         ? 'bg-gray-900 text-white'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {stat}
+                  </button>
+                ))}
+                {userCustomStatuses.map((stat) => (
+                  <button
+                    key={stat}
+                    type="button"
+                    onClick={() => {
+                      setStatus(status === stat ? '' : stat)
+                      setShowCustomStatusInput(false)
+                      setCustomStatus('')
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                      status === stat && !showCustomStatusInput
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                     }`}
                   >
                     {stat}
@@ -843,7 +957,7 @@ export default function AddItemForm() {
                       setCustomStatus('')
                     }
                   }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                     showCustomStatusInput
                       ? 'bg-gray-900 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'

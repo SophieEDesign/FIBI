@@ -15,6 +15,7 @@ interface GooglePlace {
 interface GooglePlacesInputProps {
   value: string
   onChange: (place: GooglePlace | null) => void
+  onSearchValueChange?: (value: string) => void
   onManualCityChange?: (city: string) => void
   onManualCountryChange?: (country: string) => void
   manualCity?: string
@@ -67,6 +68,7 @@ declare global {
 export default function GooglePlacesInput({
   value,
   onChange,
+  onSearchValueChange,
   onManualCityChange,
   onManualCountryChange,
   manualCity: propManualCity = '',
@@ -82,6 +84,7 @@ export default function GooglePlacesInput({
   const [hasSelectedPlace, setHasSelectedPlace] = useState(false)
   const [manualCity, setManualCity] = useState(propManualCity)
   const [manualCountry, setManualCountry] = useState(propManualCountry)
+  const [locationSearchValue, setLocationSearchValue] = useState(value)
 
   // Sync with props when they change
   useEffect(() => {
@@ -91,6 +94,16 @@ export default function GooglePlacesInput({
   useEffect(() => {
     setManualCountry(propManualCountry)
   }, [propManualCountry])
+
+  // Sync search value with prop only when it changes from parent (e.g., place selection)
+  // Don't override user typing
+  useEffect(() => {
+    // Only sync if the value prop changed and we don't have a selected place
+    // This prevents overriding user input while typing
+    if (!hasSelectedPlace && value !== locationSearchValue) {
+      setLocationSearchValue(value)
+    }
+  }, [value, hasSelectedPlace])
 
   // Load Google Maps script
   useEffect(() => {
@@ -188,6 +201,7 @@ export default function GooglePlacesInput({
       }
 
       setHasSelectedPlace(true)
+      setLocationSearchValue(googlePlace.place_name)
       setManualCity('')
       setManualCountry('')
       onChange(googlePlace)
@@ -203,15 +217,27 @@ export default function GooglePlacesInput({
   // Handle manual input (when user types without selecting)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value
+    
+    // Always update local state to allow typing
+    setLocationSearchValue(inputValue)
+    
+    // Notify parent of search value change
+    if (onSearchValueChange) {
+      onSearchValueChange(inputValue)
+    }
 
     // If user clears the input or changes it after selecting a place, reset
-    if (!inputValue || (hasSelectedPlace && inputValue !== value)) {
+    if (!inputValue) {
       setHasSelectedPlace(false)
       onChange(null)
       setManualCity('')
       setManualCountry('')
       if (onManualCityChange) onManualCityChange('')
       if (onManualCountryChange) onManualCountryChange('')
+    } else if (hasSelectedPlace) {
+      // User is typing after selecting a place - clear the selection
+      setHasSelectedPlace(false)
+      onChange(null)
     }
   }
 
@@ -248,7 +274,7 @@ export default function GooglePlacesInput({
           ref={inputRef}
           id={id || 'location-search'}
           type="text"
-          value={value}
+          value={locationSearchValue}
           onChange={handleInputChange}
           placeholder={placeholder}
           disabled={disabled}
