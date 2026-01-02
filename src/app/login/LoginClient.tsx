@@ -68,9 +68,18 @@ export default function LoginClient() {
           console.error('Auth check error:', error)
         }
         
-        // Don't redirect here - let middleware handle it to avoid loops
-        // If user exists, middleware will redirect them away from /login
-        // Just stop the loading spinner
+        // If user is already authenticated, redirect to home
+        if (user) {
+          const redirectParam = searchParams.get('redirect')
+          if (redirectParam) {
+            router.push(redirectParam)
+          } else {
+            router.push('/')
+          }
+          return
+        }
+        
+        // User is not authenticated, show login form
         setCheckingAuth(false)
       } catch (err: any) {
         if (!isMounted) return
@@ -102,7 +111,7 @@ export default function LoginClient() {
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [router, searchParams])
 
   // Clear email status when email changes
   useEffect(() => {
@@ -207,14 +216,16 @@ export default function LoginClient() {
           throw error
         }
         
+        // Wait a moment for session to propagate
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        
         // Check for redirect parameter and preserve it
         const redirectParam = searchParams.get('redirect')
         if (redirectParam) {
-          router.push(redirectParam)
+          window.location.href = redirectParam
         } else {
-          router.push('/')
+          window.location.href = '/'
         }
-        router.refresh()
       }
     } catch (err: any) {
       console.error('Login/Signup error:', err)

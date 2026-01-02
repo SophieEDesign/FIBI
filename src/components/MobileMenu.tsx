@@ -110,6 +110,13 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
           {isAuthenticated ? (
             <>
               <Link
+                href="/map"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Map
+              </Link>
+              <Link
                 href="/add"
                 onClick={() => setIsOpen(false)}
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
