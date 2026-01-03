@@ -1036,26 +1036,52 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     <button
                       type="button"
                       onClick={async () => {
-                        // CRITICAL: Clear ref FIRST (synchronously) so handleSaveLocation sees null
-                        selectedPlaceRef.current = null
+                        setSaving(true)
+                        setError(null)
                         
-                        // Then clear all state - this will trigger GooglePlacesInput to clear too
-                        setSelectedPlace(null)
-                        setLocationSearchValue('') // This will sync to GooglePlacesInput and clear the input
-                        setLocationCity('')
-                        setLocationCountry('')
-                        
-                        // Wait a moment for state to clear and propagate, then save
-                        // The ref is already null, so handleSaveLocation will save null values
-                        setTimeout(async () => {
-                          await handleSaveLocation()
-                          // After saving, ensure everything is cleared
-                          // loadItem() will be called by handleSaveLocation, which should show empty fields
-                        }, 200)
+                        try {
+                          // Directly clear all location fields in database
+                          const { error: updateError, data: updateData } = await supabase
+                            .from('saved_items')
+                            .update({
+                              place_name: null,
+                              place_id: null,
+                              latitude: null,
+                              longitude: null,
+                              formatted_address: null,
+                              location_city: null,
+                              location_country: null,
+                            })
+                            .eq('id', itemId)
+                            .select()
+
+                          if (updateError) {
+                            console.error('ItemDetail: Error removing location:', updateError)
+                            throw updateError
+                          }
+
+                          console.log('ItemDetail: Location removed successfully:', updateData?.[0])
+                          
+                          // Clear all state immediately after successful save
+                          selectedPlaceRef.current = null
+                          setSelectedPlace(null)
+                          setLocationSearchValue('')
+                          setLocationCity('')
+                          setLocationCountry('')
+                          
+                          // Reload item to reflect changes
+                          loadItem()
+                        } catch (err: any) {
+                          console.error('ItemDetail: Error removing location:', err)
+                          setError(err.message || 'Failed to remove location')
+                        } finally {
+                          setSaving(false)
+                        }
                       }}
-                      className="text-sm text-red-600 hover:text-red-800 font-medium"
+                      disabled={saving}
+                      className="text-sm text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
                     >
-                      Remove location
+                      {saving ? 'Removing...' : 'Remove location'}
                     </button>
                   </div>
                 )}
