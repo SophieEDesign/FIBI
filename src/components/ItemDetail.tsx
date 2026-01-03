@@ -22,10 +22,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   
   // Editable fields (always editable)
   const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const [customCategory, setCustomCategory] = useState('')
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
-  const [status, setStatus] = useState('')
+  const [statuses, setStatuses] = useState<string[]>([])
   const [customStatus, setCustomStatus] = useState('')
   const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
@@ -204,27 +204,35 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
           // If we have city/country but no coordinates, show them in manual fields only
           setLocationSearchValue('')
         }
-        // Check if category/status is a custom one (not in predefined lists)
-        const isCustomCategory = data.category && !CATEGORIES.includes(data.category as any)
-        const isCustomStatus = data.status && !STATUSES.includes(data.status as any)
-        if (isCustomCategory) {
-          setCustomCategory(data.category)
-          setShowCustomCategoryInput(true)
-          setCategory('')
-        } else {
-          setCategory(data.category || '')
-          setCustomCategory('')
-          setShowCustomCategoryInput(false)
+        // Parse categories and statuses (support both single values and arrays)
+        const parseCategories = (cat: string | null): string[] => {
+          if (!cat) return []
+          try {
+            const parsed = JSON.parse(cat)
+            if (Array.isArray(parsed)) return parsed
+            return [parsed]
+          } catch {
+            return [cat]
+          }
         }
-        if (isCustomStatus) {
-          setCustomStatus(data.status)
-          setShowCustomStatusInput(true)
-          setStatus('')
-        } else {
-          setStatus(data.status || '')
-          setCustomStatus('')
-          setShowCustomStatusInput(false)
+        
+        const parseStatuses = (stat: string | null): string[] => {
+          if (!stat) return []
+          try {
+            const parsed = JSON.parse(stat)
+            if (Array.isArray(parsed)) return parsed
+            return [parsed]
+          } catch {
+            return [stat]
+          }
         }
+        
+        setCategories(parseCategories(data.category))
+        setStatuses(parseStatuses(data.status))
+        setCustomCategory('')
+        setCustomStatus('')
+        setShowCustomCategoryInput(false)
+        setShowCustomStatusInput(false)
         setNotes(data.notes || '')
       }
     } catch (err: any) {
@@ -255,6 +263,18 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     }
   }
 
+  // Save categories array
+  const saveCategories = async (cats: string[]) => {
+    const value = cats.length > 0 ? JSON.stringify(cats) : null
+    await saveField('category', value)
+  }
+
+  // Save statuses array
+  const saveStatuses = async (stats: string[]) => {
+    const value = stats.length > 0 ? JSON.stringify(stats) : null
+    await saveField('status', value)
+  }
+
   // Handle title save on blur
   const handleTitleBlur = async () => {
     const trimmedTitle = title.trim() || null
@@ -263,36 +283,36 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     }
   }
 
-  // Handle category change
-  const handleCategoryChange = async (newCategory: string) => {
-    setCategory(newCategory)
-    setShowCustomCategoryInput(false)
-    setCustomCategory('')
+  // Handle category toggle (add/remove from array)
+  const handleCategoryToggle = async (category: string) => {
+    const newCategories = categories.includes(category)
+      ? categories.filter(c => c !== category)
+      : [...categories, category]
     
-    const value = newCategory || null
+    setCategories(newCategories)
     
     // Save custom option if it was used
-    if (newCategory && !CATEGORIES.includes(newCategory as any) && !userCustomCategories.includes(newCategory)) {
-      await saveCustomOption('category', newCategory)
+    if (category && !CATEGORIES.includes(category as any) && !userCustomCategories.includes(category)) {
+      await saveCustomOption('category', category)
     }
     
-    await saveField('category', value)
+    await saveCategories(newCategories)
   }
 
-  // Handle status change
-  const handleStatusChange = async (newStatus: string) => {
-    setStatus(newStatus)
-    setShowCustomStatusInput(false)
-    setCustomStatus('')
+  // Handle status toggle (add/remove from array)
+  const handleStatusToggle = async (status: string) => {
+    const newStatuses = statuses.includes(status)
+      ? statuses.filter(s => s !== status)
+      : [...statuses, status]
     
-    const value = newStatus || null
+    setStatuses(newStatuses)
     
     // Save custom option if it was used
-    if (newStatus && !STATUSES.includes(newStatus as any) && !userCustomStatuses.includes(newStatus)) {
-      await saveCustomOption('status', newStatus)
+    if (status && !STATUSES.includes(status as any) && !userCustomStatuses.includes(status)) {
+      await saveCustomOption('status', status)
     }
     
-    await saveField('status', value)
+    await saveStatuses(newStatuses)
   }
   
   // Handle custom category save
@@ -300,14 +320,15 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     if (!customCategory.trim()) return
     
     const finalCategory = customCategory.trim()
-    setCategory(finalCategory)
+    const newCategories = [...categories, finalCategory]
+    setCategories(newCategories)
     setShowCustomCategoryInput(false)
     
     // Save custom option
     await saveCustomOption('category', finalCategory)
     
     // Save to item
-    await saveField('category', finalCategory)
+    await saveCategories(newCategories)
     setCustomCategory('')
   }
   
@@ -316,14 +337,15 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     if (!customStatus.trim()) return
     
     const finalStatus = customStatus.trim()
-    setStatus(finalStatus)
+    const newStatuses = [...statuses, finalStatus]
+    setStatuses(newStatuses)
     setShowCustomStatusInput(false)
     
     // Save custom option
     await saveCustomOption('status', finalStatus)
     
     // Save to item
-    await saveField('status', finalStatus)
+    await saveStatuses(newStatuses)
     setCustomStatus('')
   }
 
@@ -716,48 +738,53 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                   <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                    {CATEGORIES.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          handleCategoryChange(category === cat ? '' : cat)
-                          setShowCustomCategoryInput(false)
-                          setCustomCategory('')
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                          category === cat && !showCustomCategoryInput
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                    {userCustomCategories.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => {
-                          handleCategoryChange(category === cat ? '' : cat)
-                          setShowCustomCategoryInput(false)
-                          setCustomCategory('')
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                          category === cat && !showCustomCategoryInput
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
+                    {CATEGORIES.map((cat) => {
+                      const isSelected = categories.includes(cat)
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            handleCategoryToggle(cat)
+                            setShowCustomCategoryInput(false)
+                            setCustomCategory('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    })}
+                    {userCustomCategories.map((cat) => {
+                      const isSelected = categories.includes(cat)
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            handleCategoryToggle(cat)
+                            setShowCustomCategoryInput(false)
+                            setCustomCategory('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    })}
                     <button
                       type="button"
                       onClick={() => {
                         setShowCustomCategoryInput(!showCustomCategoryInput)
                         if (!showCustomCategoryInput) {
-                          setCategory('')
                           setCustomCategory('')
                         }
                       }}
@@ -799,48 +826,53 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                   <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                    {STATUSES.map((stat) => (
-                      <button
-                        key={stat}
-                        type="button"
-                        onClick={() => {
-                          handleStatusChange(status === stat ? '' : stat)
-                          setShowCustomStatusInput(false)
-                          setCustomStatus('')
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                          status === stat && !showCustomStatusInput
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {stat}
-                      </button>
-                    ))}
-                    {userCustomStatuses.map((stat) => (
-                      <button
-                        key={stat}
-                        type="button"
-                        onClick={() => {
-                          handleStatusChange(status === stat ? '' : stat)
-                          setShowCustomStatusInput(false)
-                          setCustomStatus('')
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                          status === stat && !showCustomStatusInput
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                        }`}
-                      >
-                        {stat}
-                      </button>
-                    ))}
+                    {STATUSES.map((stat) => {
+                      const isSelected = statuses.includes(stat)
+                      return (
+                        <button
+                          key={stat}
+                          type="button"
+                          onClick={() => {
+                            handleStatusToggle(stat)
+                            setShowCustomStatusInput(false)
+                            setCustomStatus('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {stat}
+                        </button>
+                      )
+                    })}
+                    {userCustomStatuses.map((stat) => {
+                      const isSelected = statuses.includes(stat)
+                      return (
+                        <button
+                          key={stat}
+                          type="button"
+                          onClick={() => {
+                            handleStatusToggle(stat)
+                            setShowCustomStatusInput(false)
+                            setCustomStatus('')
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                          }`}
+                        >
+                          {stat}
+                        </button>
+                      )
+                    })}
                     <button
                       type="button"
                       onClick={() => {
                         setShowCustomStatusInput(!showCustomStatusInput)
                         if (!showCustomStatusInput) {
-                          setStatus('')
                           setCustomStatus('')
                         }
                       }}

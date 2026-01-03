@@ -16,8 +16,8 @@ interface HomeGridProps {
 export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
   const [showInstructions, setShowInstructions] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
@@ -115,13 +115,60 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     router.refresh()
   }
 
+  // Helper function to parse categories/statuses from item (supports both single string and array)
+  const parseItemCategories = (item: SavedItem): string[] => {
+    if (!item.category) return []
+    // If it's already an array, return it
+    if (Array.isArray(item.category)) return item.category
+    // If it's a JSON string, parse it
+    try {
+      const parsed = JSON.parse(item.category)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // Not JSON, treat as single value
+    }
+    // Single value
+    return [item.category]
+  }
+
+  const parseItemStatuses = (item: SavedItem): string[] => {
+    if (!item.status) return []
+    // If it's already an array, return it
+    if (Array.isArray(item.status)) return item.status
+    // If it's a JSON string, parse it
+    try {
+      const parsed = JSON.parse(item.status)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // Not JSON, treat as single value
+    }
+    // Single value
+    return [item.status]
+  }
+
   const filteredItems = items.filter((item) => {
-    if (selectedCategory !== 'all' && item.category !== selectedCategory) return false
-    if (selectedStatus !== 'all' && item.status !== selectedStatus) return false
+    // If no filters selected, show all
+    if (selectedCategories.length === 0 && selectedStatuses.length === 0) return true
+    
+    const itemCategories = parseItemCategories(item)
+    const itemStatuses = parseItemStatuses(item)
+    
+    // Check categories: item must have at least one of the selected categories
+    if (selectedCategories.length > 0) {
+      const hasMatchingCategory = selectedCategories.some(cat => itemCategories.includes(cat))
+      if (!hasMatchingCategory) return false
+    }
+    
+    // Check statuses: item must have at least one of the selected statuses
+    if (selectedStatuses.length > 0) {
+      const hasMatchingStatus = selectedStatuses.some(status => itemStatuses.includes(status))
+      if (!hasMatchingStatus) return false
+    }
+    
     return true
   })
 
-  const activeFiltersCount = (selectedCategory !== 'all' ? 1 : 0) + (selectedStatus !== 'all' ? 1 : 0)
+  const activeFiltersCount = selectedCategories.length + selectedStatuses.length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -254,81 +301,117 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm font-medium text-gray-700 mr-2">Category:</span>
               <button
-                onClick={() => setSelectedCategory('all')}
+                onClick={() => setSelectedCategories([])}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === 'all'
+                  selectedCategories.length === 0
                     ? 'bg-gray-900 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 All
               </button>
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    selectedCategory === category
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-              {userCustomCategories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    selectedCategory === category
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
+              {CATEGORIES.map((category) => {
+                const isSelected = selectedCategories.includes(category)
+                return (
+                  <button
+                    key={category}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedCategories(selectedCategories.filter(c => c !== category))
+                      } else {
+                        setSelectedCategories([...selectedCategories, category])
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                )
+              })}
+              {userCustomCategories.map((category) => {
+                const isSelected = selectedCategories.includes(category)
+                return (
+                  <button
+                    key={category}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedCategories(selectedCategories.filter(c => c !== category))
+                      } else {
+                        setSelectedCategories([...selectedCategories, category])
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                )
+              })}
             </div>
 
             <div className="flex flex-wrap gap-2 items-center mt-3">
               <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
               <button
-                onClick={() => setSelectedStatus('all')}
+                onClick={() => setSelectedStatuses([])}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedStatus === 'all'
+                  selectedStatuses.length === 0
                     ? 'bg-gray-900 text-white'
                     : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 All
               </button>
-              {STATUSES.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setSelectedStatus(status)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    selectedStatus === status
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
-              {userCustomStatuses.map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setSelectedStatus(status)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    selectedStatus === status
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
+              {STATUSES.map((status) => {
+                const isSelected = selectedStatuses.includes(status)
+                return (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                      } else {
+                        setSelectedStatuses([...selectedStatuses, status])
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              })}
+              {userCustomStatuses.map((status) => {
+                const isSelected = selectedStatuses.includes(status)
+                return (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                      } else {
+                        setSelectedStatuses([...selectedStatuses, status])
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -362,8 +445,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </p>
                 <button
                   onClick={() => {
-                    setSelectedCategory('all')
-                    setSelectedStatus('all')
+                    setSelectedCategories([])
+                    setSelectedStatuses([])
                   }}
                   className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
                 >
@@ -557,14 +640,22 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                         {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                       </p>
                     )}
-                    {/* Status pill */}
-                    {item.status && (
-                      <div className="mt-auto pt-2">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(item.status)}`}>
-                          {item.status}
-                        </span>
-                      </div>
-                    )}
+                    {/* Status pills - show multiple */}
+                    {(() => {
+                      const itemStatuses = parseItemStatuses(item)
+                      if (itemStatuses.length > 0) {
+                        return (
+                          <div className="mt-auto pt-2 flex flex-wrap gap-1.5">
+                            {itemStatuses.map((status, idx) => (
+                              <span key={idx} className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(status)}`}>
+                                {status}
+                              </span>
+                            ))}
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
                   </div>
                 </Link>
               )
@@ -612,41 +703,59 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Category</h3>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedCategory('all')}
+                    onClick={() => setSelectedCategories([])}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedCategory === 'all'
+                      selectedCategories.length === 0
                         ? 'bg-gray-900 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     All
                   </button>
-                  {CATEGORIES.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        selectedCategory === category
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                  {userCustomCategories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        selectedCategory === category
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
+                  {CATEGORIES.map((category) => {
+                    const isSelected = selectedCategories.includes(category)
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCategories(selectedCategories.filter(c => c !== category))
+                          } else {
+                            setSelectedCategories([...selectedCategories, category])
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    )
+                  })}
+                  {userCustomCategories.map((category) => {
+                    const isSelected = selectedCategories.includes(category)
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCategories(selectedCategories.filter(c => c !== category))
+                          } else {
+                            setSelectedCategories([...selectedCategories, category])
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -655,41 +764,59 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Status</h3>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedStatus('all')}
+                    onClick={() => setSelectedStatuses([])}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedStatus === 'all'
+                      selectedStatuses.length === 0
                         ? 'bg-gray-900 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     All
                   </button>
-                  {STATUSES.map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setSelectedStatus(status)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        selectedStatus === status
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                  {userCustomStatuses.map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => setSelectedStatus(status)}
-                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                        selectedStatus === status
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
+                  {STATUSES.map((status) => {
+                    const isSelected = selectedStatuses.includes(status)
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                          } else {
+                            setSelectedStatuses([...selectedStatuses, status])
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    )
+                  })}
+                  {userCustomStatuses.map((status) => {
+                    const isSelected = selectedStatuses.includes(status)
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                          } else {
+                            setSelectedStatuses([...selectedStatuses, status])
+                          }
+                        }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

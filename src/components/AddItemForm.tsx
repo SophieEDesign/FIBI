@@ -32,10 +32,10 @@ export default function AddItemForm() {
   const [placeId, setPlaceId] = useState('')
   const [latitude, setLatitude] = useState<number | null>(null)
   const [longitude, setLongitude] = useState<number | null>(null)
-  const [category, setCategory] = useState('')
+  const [categories, setCategories] = useState<string[]>([])
   const [customCategory, setCustomCategory] = useState('')
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
-  const [status, setStatus] = useState('')
+  const [statuses, setStatuses] = useState<string[]>([])
   const [customStatus, setCustomStatus] = useState('')
   const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
@@ -746,20 +746,32 @@ export default function AddItemForm() {
       }
 
       // Use custom category/status if provided, otherwise use selected one
-      const finalCategory = showCustomCategoryInput && customCategory.trim() 
-        ? customCategory.trim() 
-        : category || null
-      const finalStatus = showCustomStatusInput && customStatus.trim() 
-        ? customStatus.trim() 
-        : status || null
+      // Combine all categories and statuses (including custom ones)
+      const allCategories = [...categories]
+      if (showCustomCategoryInput && customCategory.trim()) {
+        allCategories.push(customCategory.trim())
+      }
+      
+      const allStatuses = [...statuses]
+      if (showCustomStatusInput && customStatus.trim()) {
+        allStatuses.push(customStatus.trim())
+      }
 
       // Save custom options if they were used
-      if (finalCategory && !CATEGORIES.includes(finalCategory as any)) {
-        await saveCustomOption('category', finalCategory)
-      }
-      if (finalStatus && !STATUSES.includes(finalStatus as any)) {
-        await saveCustomOption('status', finalStatus)
-      }
+      allCategories.forEach(cat => {
+        if (cat && !CATEGORIES.includes(cat as any) && !userCustomCategories.includes(cat)) {
+          saveCustomOption('category', cat)
+        }
+      })
+      allStatuses.forEach(stat => {
+        if (stat && !STATUSES.includes(stat as any) && !userCustomStatuses.includes(stat)) {
+          saveCustomOption('status', stat)
+        }
+      })
+
+      // Convert to JSON strings for storage
+      const finalCategory = allCategories.length > 0 ? JSON.stringify(allCategories) : null
+      const finalStatus = allStatuses.length > 0 ? JSON.stringify(allStatuses) : null
 
       // Prepare location data
       const locationData = selectedPlace
@@ -1209,48 +1221,61 @@ export default function AddItemForm() {
                 Category
               </label>
               <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      setCategory(category === cat ? '' : cat)
-                      setShowCustomCategoryInput(false)
-                      setCustomCategory('')
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      category === cat && !showCustomCategoryInput
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-                {userCustomCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => {
-                      setCategory(category === cat ? '' : cat)
-                      setShowCustomCategoryInput(false)
-                      setCustomCategory('')
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      category === cat && !showCustomCategoryInput
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {CATEGORIES.map((cat) => {
+                  const isSelected = categories.includes(cat)
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setCategories(categories.filter(c => c !== cat))
+                        } else {
+                          setCategories([...categories, cat])
+                        }
+                        setShowCustomCategoryInput(false)
+                        setCustomCategory('')
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  )
+                })}
+                {userCustomCategories.map((cat) => {
+                  const isSelected = categories.includes(cat)
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setCategories(categories.filter(c => c !== cat))
+                        } else {
+                          setCategories([...categories, cat])
+                        }
+                        setShowCustomCategoryInput(false)
+                        setCustomCategory('')
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  )
+                })}
                 <button
                   type="button"
                   onClick={() => {
                     setShowCustomCategoryInput(!showCustomCategoryInput)
                     if (!showCustomCategoryInput) {
-                      setCategory('')
                       setCustomCategory('')
                     }
                   }}
@@ -1264,13 +1289,38 @@ export default function AddItemForm() {
                 </button>
               </div>
               {showCustomCategoryInput && (
-                <input
-                  type="text"
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
-                  placeholder="Enter custom category..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (customCategory.trim()) {
+                          setCategories([...categories, customCategory.trim()])
+                          setCustomCategory('')
+                          setShowCustomCategoryInput(false)
+                        }
+                      }
+                    }}
+                    placeholder="Enter custom category..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customCategory.trim()) {
+                        setCategories([...categories, customCategory.trim()])
+                        setCustomCategory('')
+                        setShowCustomCategoryInput(false)
+                      }
+                    }}
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1279,48 +1329,61 @@ export default function AddItemForm() {
                 Status
               </label>
               <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                {STATUSES.map((stat) => (
-                  <button
-                    key={stat}
-                    type="button"
-                    onClick={() => {
-                      setStatus(status === stat ? '' : stat)
-                      setShowCustomStatusInput(false)
-                      setCustomStatus('')
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      status === stat && !showCustomStatusInput
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {stat}
-                  </button>
-                ))}
-                {userCustomStatuses.map((stat) => (
-                  <button
-                    key={stat}
-                    type="button"
-                    onClick={() => {
-                      setStatus(status === stat ? '' : stat)
-                      setShowCustomStatusInput(false)
-                      setCustomStatus('')
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                      status === stat && !showCustomStatusInput
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                    }`}
-                  >
-                    {stat}
-                  </button>
-                ))}
+                {STATUSES.map((stat) => {
+                  const isSelected = statuses.includes(stat)
+                  return (
+                    <button
+                      key={stat}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setStatuses(statuses.filter(s => s !== stat))
+                        } else {
+                          setStatuses([...statuses, stat])
+                        }
+                        setShowCustomStatusInput(false)
+                        setCustomStatus('')
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {stat}
+                    </button>
+                  )
+                })}
+                {userCustomStatuses.map((stat) => {
+                  const isSelected = statuses.includes(stat)
+                  return (
+                    <button
+                      key={stat}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setStatuses(statuses.filter(s => s !== stat))
+                        } else {
+                          setStatuses([...statuses, stat])
+                        }
+                        setShowCustomStatusInput(false)
+                        setCustomStatus('')
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {stat}
+                    </button>
+                  )
+                })}
                 <button
                   type="button"
                   onClick={() => {
                     setShowCustomStatusInput(!showCustomStatusInput)
                     if (!showCustomStatusInput) {
-                      setStatus('')
                       setCustomStatus('')
                     }
                   }}
@@ -1334,13 +1397,38 @@ export default function AddItemForm() {
                 </button>
               </div>
               {showCustomStatusInput && (
-                <input
-                  type="text"
-                  value={customStatus}
-                  onChange={(e) => setCustomStatus(e.target.value)}
-                  placeholder="Enter custom status..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customStatus}
+                    onChange={(e) => setCustomStatus(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (customStatus.trim()) {
+                          setStatuses([...statuses, customStatus.trim()])
+                          setCustomStatus('')
+                          setShowCustomStatusInput(false)
+                        }
+                      }
+                    }}
+                    placeholder="Enter custom status..."
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (customStatus.trim()) {
+                        setStatuses([...statuses, customStatus.trim()])
+                        setCustomStatus('')
+                        setShowCustomStatusInput(false)
+                      }
+                    }}
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
               )}
             </div>
 

@@ -132,8 +132,45 @@ export default function MapView() {
 
   // Initialize map (only once)
   useEffect(() => {
-    if (!isGoogleLoaded || !mapRef.current || mapInstanceRef.current) return
+    console.log('MapView: Map initialization effect running', { 
+      isGoogleLoaded, 
+      hasMapRef: !!mapRef.current, 
+      hasMapInstance: !!mapInstanceRef.current 
+    })
+    
+    if (!isGoogleLoaded) {
+      console.log('MapView: Google Maps not loaded yet')
+      return
+    }
+    
+    if (mapInstanceRef.current) {
+      console.log('MapView: Map instance already exists')
+      return
+    }
+    
+    // Wait for ref to be available (in case component hasn't fully rendered)
+    if (!mapRef.current) {
+      console.log('MapView: Map ref not available yet, waiting...')
+      // Use a small timeout to wait for ref to be set
+      const timeoutId = setTimeout(() => {
+        if (mapRef.current && !mapInstanceRef.current && isGoogleLoaded) {
+          console.log('MapView: Map ref now available, creating map')
+          createMapInstance()
+        }
+      }, 100)
+      return () => clearTimeout(timeoutId)
+    }
 
+    createMapInstance()
+  }, [isGoogleLoaded])
+
+  // Separate function to initialize the map
+  const createMapInstance = () => {
+    if (!mapRef.current || mapInstanceRef.current || !isGoogleLoaded) {
+      return
+    }
+
+    console.log('MapView: Creating map instance')
     // Calm, desaturated map style
     const mapStyle: Array<{
       featureType?: string
@@ -178,6 +215,7 @@ export default function MapView() {
     })
 
     mapInstanceRef.current = map
+    console.log('MapView: Map instance created successfully', { hasMap: !!mapInstanceRef.current })
 
     // Close preview when clicking on map
     const mapClickListener = map.addListener('click', () => {
@@ -188,7 +226,7 @@ export default function MapView() {
     return () => {
       window.google.maps.event.removeListener(mapClickListener)
     }
-  }, [isGoogleLoaded])
+  }
 
   // Update markers when items change
   useEffect(() => {
