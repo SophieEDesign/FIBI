@@ -130,7 +130,7 @@ export default function MapView() {
     fetchItems()
   }, [supabase, router])
 
-  // Initialize map (only once)
+  // Initialize map (only once) - use callback to ensure ref is set
   useEffect(() => {
     console.log('MapView: Map initialization effect running', { 
       isGoogleLoaded, 
@@ -148,17 +148,30 @@ export default function MapView() {
       return
     }
     
-    // Wait for ref to be available (in case component hasn't fully rendered)
+    // Wait for ref to be available (component needs to render first)
     if (!mapRef.current) {
       console.log('MapView: Map ref not available yet, waiting...')
-      // Use a small timeout to wait for ref to be set
-      const timeoutId = setTimeout(() => {
-        if (mapRef.current && !mapInstanceRef.current && isGoogleLoaded) {
-          console.log('MapView: Map ref now available, creating map')
-          createMapInstance()
-        }
-      }, 100)
-      return () => clearTimeout(timeoutId)
+      // Use requestAnimationFrame to wait for next render cycle
+      let timeoutId: NodeJS.Timeout | null = null
+      const rafId = requestAnimationFrame(() => {
+        // Then use a small timeout to ensure DOM is ready
+        timeoutId = setTimeout(() => {
+          if (mapRef.current && !mapInstanceRef.current && isGoogleLoaded) {
+            console.log('MapView: Map ref now available, creating map')
+            createMapInstance()
+          } else {
+            console.log('MapView: Still waiting for ref after timeout', {
+              hasRef: !!mapRef.current,
+              hasInstance: !!mapInstanceRef.current,
+              isGoogleLoaded
+            })
+          }
+        }, 200)
+      })
+      return () => {
+        cancelAnimationFrame(rafId)
+        if (timeoutId) clearTimeout(timeoutId)
+      }
     }
 
     createMapInstance()
@@ -167,6 +180,11 @@ export default function MapView() {
   // Separate function to initialize the map
   const createMapInstance = () => {
     if (!mapRef.current || mapInstanceRef.current || !isGoogleLoaded) {
+      console.log('MapView: Cannot create map instance', {
+        hasRef: !!mapRef.current,
+        hasInstance: !!mapInstanceRef.current,
+        isGoogleLoaded
+      })
       return
     }
 
@@ -375,25 +393,6 @@ export default function MapView() {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [selectedItem, previewPosition])
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading map...</div>
-      </div>
-    )
-  }
-
-  if (!isGoogleLoaded) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600 mb-2">Unable to load map</p>
-          <p className="text-sm text-gray-500">Google Maps API key may be missing</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="fixed inset-0 flex flex-col">
       {/* Simple header */}
@@ -409,6 +408,21 @@ export default function MapView() {
         </Link>
       </div>
       
+      {/* Loading state overlay */}
+      {(loading || !isGoogleLoaded) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-30">
+          <div className="text-center">
+            <p className="text-gray-600 mb-2">
+              {loading ? 'Loading map data...' : 'Loading Google Maps...'}
+            </p>
+            {!isGoogleLoaded && (
+              <p className="text-sm text-gray-500">Google Maps API key may be missing</p>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Map container - always render so ref is available */}
       <div ref={mapRef} className="flex-1 w-full" />
       
       {/* Preview Card */}

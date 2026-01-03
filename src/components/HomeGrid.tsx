@@ -178,7 +178,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           <div className="flex items-center justify-between">
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">FiBi</h1>
             
-            {/* Mobile: Add button in header */}
+            {/* Mobile: Add button and menu in header */}
             <div className="md:hidden flex items-center gap-2">
               {filteredItems.length > 0 && (
                 <button
@@ -199,6 +199,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               >
                 Add
               </Link>
+              <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
             </div>
 
             {/* Desktop buttons */}
