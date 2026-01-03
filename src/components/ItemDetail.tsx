@@ -17,7 +17,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isEditingLocation, setIsEditingLocation] = useState(false)
+  // Location is now always editable inline - no separate edit mode needed
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
   
   // Editable fields (always editable)
@@ -371,22 +371,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     setError(null)
 
     try {
-      // Use custom category/status if provided, otherwise use selected one
-      const finalCategory = showCustomCategoryInput && customCategory.trim() 
-        ? customCategory.trim() 
-        : category || null
-      const finalStatus = showCustomStatusInput && customStatus.trim() 
-        ? customStatus.trim() 
-        : status || null
-
-      // Save custom options if they were used
-      if (finalCategory && !CATEGORIES.includes(finalCategory as any)) {
-        await saveCustomOption('category', finalCategory)
-      }
-      if (finalStatus && !STATUSES.includes(finalStatus as any)) {
-        await saveCustomOption('status', finalStatus)
-      }
-
       // Determine location data: use Google Place if selected, otherwise use manual entry
       // If place is selected, use place data but allow manual city/country to override
       const locationData = selectedPlace
@@ -410,22 +394,54 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             location_country: locationCountry.trim() || null,
           }
 
-      const { error: updateError } = await supabase
+      console.log('ItemDetail: Saving location data:', {
+        hasSelectedPlace: !!selectedPlace,
+        selectedPlace: selectedPlace ? {
+          place_name: selectedPlace.place_name,
+          latitude: selectedPlace.latitude,
+          longitude: selectedPlace.longitude,
+          city: selectedPlace.city,
+          country: selectedPlace.country,
+        } : null,
+        locationData,
+        manualCity: locationCity,
+        manualCountry: locationCountry,
+      })
+
+      const updatePayload = {
+        description: description.trim() || null,
+        ...locationData,
+      }
+
+      console.log('ItemDetail: Update payload:', updatePayload)
+
+      const { error: updateError, data: updateData } = await supabase
         .from('saved_items')
-        .update({
-          description: description.trim() || null,
-          ...locationData,
-          category: finalCategory,
-          status: finalStatus,
-        })
+        .update(updatePayload)
         .eq('id', itemId)
+        .select()
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('ItemDetail: Update error:', updateError)
+        throw updateError
+      }
 
-      setIsEditingLocation(false)
+      console.log('ItemDetail: Location saved successfully:', updateData?.[0])
+      if (updateData?.[0]) {
+        console.log('ItemDetail: Saved location data:', {
+          latitude: updateData[0].latitude,
+          longitude: updateData[0].longitude,
+          place_name: updateData[0].place_name,
+          location_city: updateData[0].location_city,
+          location_country: updateData[0].location_country,
+        })
+      }
+
+      // Reload item to reflect changes
       loadItem()
     } catch (err: any) {
-      setError(err.message || 'Failed to save changes')
+      console.error('ItemDetail: Error saving location:', err)
+      setError(err.message || 'Failed to save location')
     } finally {
       setSaving(false)
     }
@@ -792,237 +808,87 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 />
               </div>
 
-              {/* Location fields - edit mode */}
-              {isEditingLocation ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                    />
-                  </div>
+              {/* Description - always editable */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={handleSaveLocation}
+                  rows={4}
+                  placeholder="Original post text..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                />
+              </div>
 
-                  <div>
-                    <GooglePlacesInput
-                      value={locationSearchValue}
-                      onChange={(place) => {
-                        setSelectedPlace(place)
-                        if (place) {
-                          setLocationSearchValue(place.place_name)
-                          // Update city and country from place data (user can override after)
-                          setLocationCity(place.city || '')
-                          setLocationCountry(place.country || '')
-                        } else {
-                          setLocationSearchValue('')
-                        }
+              {/* Location - always visible and editable inline */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location
+                </label>
+                <GooglePlacesInput
+                  value={locationSearchValue}
+                  onChange={(place) => {
+                    setSelectedPlace(place)
+                    if (place) {
+                      setLocationSearchValue(place.place_name)
+                      // Update city and country from place data (user can override after)
+                      setLocationCity(place.city || '')
+                      setLocationCountry(place.country || '')
+                      // Auto-save when place is selected
+                      setTimeout(() => handleSaveLocation(), 100)
+                    } else {
+                      setLocationSearchValue('')
+                    }
+                  }}
+                  onSearchValueChange={(value) => {
+                    setLocationSearchValue(value)
+                  }}
+                  onManualCityChange={(city) => {
+                    setLocationCity(city)
+                    // Allow manual override - don't clear selectedPlace
+                    // User can override city/country while keeping the place coordinates
+                  }}
+                  onManualCountryChange={(country) => {
+                    setLocationCountry(country)
+                    // Allow manual override - don't clear selectedPlace
+                    // User can override city/country while keeping the place coordinates
+                  }}
+                  onManualCityBlur={handleSaveLocation}
+                  onManualCountryBlur={handleSaveLocation}
+                  manualCity={locationCity}
+                  manualCountry={locationCountry}
+                  id="location-search-edit"
+                />
+                {(selectedPlace || locationCity || locationCountry) && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveLocation}
+                      disabled={saving}
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+                    >
+                      {saving ? 'Saving...' : 'Save location'}
+                    </button>
+                    <span className="text-gray-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlace(null)
+                        setLocationSearchValue('')
+                        setLocationCity('')
+                        setLocationCountry('')
+                        handleSaveLocation()
                       }}
-                      onSearchValueChange={(value) => {
-                        setLocationSearchValue(value)
-                      }}
-                      onManualCityChange={(city) => {
-                        setLocationCity(city)
-                        // Allow manual override - don't clear selectedPlace
-                        // User can override city/country while keeping the place coordinates
-                      }}
-                      onManualCountryChange={(country) => {
-                        setLocationCountry(country)
-                        // Allow manual override - don't clear selectedPlace
-                        // User can override city/country while keeping the place coordinates
-                      }}
-                      manualCity={locationCity}
-                      manualCountry={locationCountry}
-                      id="location-search-edit"
-                    />
-                    {(selectedPlace || locationCity || locationCountry) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPlace(null)
-                          setLocationSearchValue('')
-                          setLocationCity('')
-                          setLocationCountry('')
-                        }}
-                        className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
-                      >
-                        Remove location
-                      </button>
-                    )}
+                      className="text-sm text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Remove location
+                    </button>
                   </div>
-
-                  {/* Category */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category
-                    </label>
-                    <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                      {CATEGORIES.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => {
-                            setCategory(category === cat ? '' : cat)
-                            setShowCustomCategoryInput(false)
-                            setCustomCategory('')
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                            category === cat && !showCustomCategoryInput
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                      {userCustomCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => {
-                            setCategory(category === cat ? '' : cat)
-                            setShowCustomCategoryInput(false)
-                            setCustomCategory('')
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                            category === cat && !showCustomCategoryInput
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCustomCategoryInput(!showCustomCategoryInput)
-                          if (!showCustomCategoryInput) {
-                            setCategory('')
-                            setCustomCategory('')
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                          showCustomCategoryInput
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        + Custom
-                      </button>
-                    </div>
-                    {showCustomCategoryInput && (
-                      <input
-                        type="text"
-                        value={customCategory}
-                        onChange={(e) => setCustomCategory(e.target.value)}
-                        placeholder="Enter custom category..."
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      />
-                    )}
-                  </div>
-
-                  {/* Status */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                      {STATUSES.map((stat) => (
-                        <button
-                          key={stat}
-                          type="button"
-                          onClick={() => {
-                            setStatus(status === stat ? '' : stat)
-                            setShowCustomStatusInput(false)
-                            setCustomStatus('')
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                            status === stat && !showCustomStatusInput
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {stat}
-                        </button>
-                      ))}
-                      {userCustomStatuses.map((stat) => (
-                        <button
-                          key={stat}
-                          type="button"
-                          onClick={() => {
-                            setStatus(status === stat ? '' : stat)
-                            setShowCustomStatusInput(false)
-                            setCustomStatus('')
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                            status === stat && !showCustomStatusInput
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                          }`}
-                        >
-                          {stat}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCustomStatusInput(!showCustomStatusInput)
-                          if (!showCustomStatusInput) {
-                            setStatus('')
-                            setCustomStatus('')
-                          }
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                          showCustomStatusInput
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        + Custom
-                      </button>
-                    </div>
-                    {showCustomStatusInput && (
-                      <input
-                        type="text"
-                        value={customStatus}
-                        onChange={(e) => setCustomStatus(e.target.value)}
-                        placeholder="Enter custom status..."
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      />
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {item.description && (
-                    <div>
-                      <h2 className="text-sm font-medium text-gray-700 mb-1">Description</h2>
-                      <p className="text-gray-900">{item.description}</p>
-                    </div>
-                  )}
-
-                  {(item.location_city || item.location_country || item.place_name || item.formatted_address) && (
-                    <div>
-                      <h2 className="text-sm font-medium text-gray-700 mb-1">Location</h2>
-                      {item.place_name && (
-                        <p className="text-gray-900 font-medium mb-1">{item.place_name}</p>
-                      )}
-                      {item.formatted_address && (
-                        <p className="text-sm text-gray-600 mb-1">{item.formatted_address}</p>
-                      )}
-                      {(item.location_city || item.location_country) && (
-                        <p className="text-gray-900">
-                          {[item.location_city, item.location_country].filter(Boolean).join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
+                )}
+              </div>
 
             </div>
 
@@ -1043,47 +909,12 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             </div>
 
             <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
-              {isEditingLocation ? (
-                <>
-                  <button
-                    onClick={handleSaveLocation}
-                    disabled={saving}
-                    className="bg-gray-900 text-white px-6 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditingLocation(false)
-                      loadItem()
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-6 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors ml-auto"
-                  >
-                    Delete
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setIsEditingLocation(true)}
-                    className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Edit Location
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="px-6 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors"
-                  >
-                    Delete
-                  </button>
-                </>
-              )}
+              <button
+                onClick={handleDelete}
+                className="px-6 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>

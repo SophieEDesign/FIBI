@@ -18,6 +18,8 @@ interface GooglePlacesInputProps {
   onSearchValueChange?: (value: string) => void
   onManualCityChange?: (city: string) => void
   onManualCountryChange?: (country: string) => void
+  onManualCityBlur?: () => void
+  onManualCountryBlur?: () => void
   manualCity?: string
   manualCountry?: string
   placeholder?: string
@@ -34,6 +36,8 @@ export default function GooglePlacesInput({
   onSearchValueChange,
   onManualCityChange,
   onManualCountryChange,
+  onManualCityBlur,
+  onManualCountryBlur,
   manualCity: propManualCity = '',
   manualCountry: propManualCountry = '',
   placeholder = 'Search Google Maps for a place',
@@ -297,6 +301,9 @@ export default function GooglePlacesInput({
             type="text"
             value={manualCity}
             onChange={handleManualCityChange}
+            onBlur={() => {
+              if (onManualCityBlur) onManualCityBlur()
+            }}
             placeholder="e.g. London"
             disabled={disabled}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
@@ -312,6 +319,9 @@ export default function GooglePlacesInput({
             type="text"
             value={manualCountry}
             onChange={handleManualCountryChange}
+            onBlur={() => {
+              if (onManualCountryBlur) onManualCountryBlur()
+            }}
             placeholder="e.g. United Kingdom"
             disabled={disabled}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
