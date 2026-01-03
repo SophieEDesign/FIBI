@@ -111,7 +111,11 @@ export default function MapView() {
 
   // Initialize map
   useEffect(() => {
-    if (!isGoogleLoaded || !mapRef.current || items.length === 0) return
+    if (!isGoogleLoaded || !mapRef.current) return
+    
+    // Don't initialize if no items with locations
+    const itemsWithLocations = items.filter(item => item.latitude && item.longitude)
+    if (itemsWithLocations.length === 0) return
 
     // Calm, desaturated map style
     const mapStyle: Array<{
@@ -162,13 +166,21 @@ export default function MapView() {
     markersRef.current.forEach(({ marker }) => marker.setMap(null))
     markersRef.current = []
 
-    // Create markers for each item
+    // Create markers for each item (only those with valid coordinates)
     const bounds = new window.google.maps.LatLngBounds()
+    const itemsWithLocations = items.filter(item => item.latitude != null && item.longitude != null)
 
-    items.forEach((item) => {
-      if (!item.latitude || !item.longitude) return
+    itemsWithLocations.forEach((item) => {
+      // Double-check coordinates are valid numbers
+      const lat = typeof item.latitude === 'number' ? item.latitude : parseFloat(String(item.latitude))
+      const lng = typeof item.longitude === 'number' ? item.longitude : parseFloat(String(item.longitude))
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        console.warn('Invalid coordinates for item:', item.id, { latitude: item.latitude, longitude: item.longitude })
+        return
+      }
 
-      const position = new window.google.maps.LatLng(item.latitude, item.longitude)
+      const position = new window.google.maps.LatLng(lat, lng)
 
       // Create custom pin icon (soft, aesthetic)
       const pinIcon = {
@@ -213,7 +225,7 @@ export default function MapView() {
     })
 
     // Fit map to show all markers
-    if (items.length > 0) {
+    if (itemsWithLocations.length > 0) {
       map.fitBounds(bounds)
       // Add padding
       const padding = 50

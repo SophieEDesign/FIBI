@@ -1126,9 +1126,9 @@ export default function AddItemForm() {
                 setSelectedPlace(place)
                 if (place) {
                   setLocationSearchValue(place.place_name)
-                  // Clear manual inputs when place is selected
-                  setLocationCity('')
-                  setLocationCountry('')
+                  // Update city and country from place data (user can override after)
+                  setLocationCity(place.city || '')
+                  setLocationCountry(place.country || '')
                   // Clear old place state
                   setPlaceName('')
                   setPlaceId('')

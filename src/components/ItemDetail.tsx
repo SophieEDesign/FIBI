@@ -388,6 +388,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       }
 
       // Determine location data: use Google Place if selected, otherwise use manual entry
+      // If place is selected, use place data but allow manual city/country to override
       const locationData = selectedPlace
         ? {
             place_name: selectedPlace.place_name,
@@ -395,8 +396,9 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             latitude: selectedPlace.latitude,
             longitude: selectedPlace.longitude,
             formatted_address: selectedPlace.formatted_address,
-            location_city: selectedPlace.city,
-            location_country: selectedPlace.country,
+            // Use manual city/country if provided, otherwise use place data
+            location_city: locationCity.trim() || selectedPlace.city || null,
+            location_country: locationCountry.trim() || selectedPlace.country || null,
           }
         : {
             place_name: null,
@@ -812,9 +814,9 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                         setSelectedPlace(place)
                         if (place) {
                           setLocationSearchValue(place.place_name)
-                          // Clear manual inputs when place is selected
-                          setLocationCity('')
-                          setLocationCountry('')
+                          // Update city and country from place data (user can override after)
+                          setLocationCity(place.city || '')
+                          setLocationCountry(place.country || '')
                         } else {
                           setLocationSearchValue('')
                         }
