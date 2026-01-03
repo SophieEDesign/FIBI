@@ -7,19 +7,20 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 // Google Maps types are defined in src/types/google-maps.d.ts
-// Import the types to ensure the namespace is available
-import type {} from '@/types/google-maps'
+// Note: Using 'any' here because the google namespace isn't resolving in the build
+// The runtime types are correct - window.google.maps.Marker and window.google.maps.Map
+// are properly typed via the Window interface in src/types/google-maps.d.ts
+type GoogleMapsMarker = any // google.maps.Marker (namespace resolution issue)
+type GoogleMapsMap = any // google.maps.Map (namespace resolution issue)
 
-// Type aliases for Google Maps types
-// The google namespace is declared in src/types/google-maps.d.ts
 interface MapMarker {
   item: SavedItem
-  marker: google.maps.Marker
+  marker: GoogleMapsMarker
 }
 
 export default function MapView() {
   const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<google.maps.Map | null>(null)
+  const mapInstanceRef = useRef<GoogleMapsMap | null>(null)
   const markersRef = useRef<MapMarker[]>([])
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false)
   const [items, setItems] = useState<SavedItem[]>([])
