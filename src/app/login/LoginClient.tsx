@@ -46,20 +46,23 @@ export default function LoginClient() {
     }
   }, [searchParams, checkingAuth])
 
-  // Check if user is already authenticated - middleware handles redirects, so just check for display
+  // Check if user is already authenticated
   useEffect(() => {
-    // If Supabase client creation failed, show error and stop loading
-    if (!supabase) {
-      setCheckingAuth(false)
-      setError('Configuration error: Missing Supabase credentials. Please check your environment variables.')
-      return
-    }
-    
     let isMounted = true
+    let timeoutId: NodeJS.Timeout | null = null
     
     const checkUser = async () => {
       try {
-        const { data: { user }, error } = await supabase!.auth.getUser()
+        // If Supabase client creation failed, show error and stop loading
+        if (!supabase) {
+          if (isMounted) {
+            setCheckingAuth(false)
+            setError('Configuration error: Missing Supabase credentials. Please check your environment variables.')
+          }
+          return
+        }
+        
+        const { data: { user }, error } = await supabase.auth.getUser()
         
         if (!isMounted) return
         
@@ -80,7 +83,9 @@ export default function LoginClient() {
         }
         
         // User is not authenticated, show login form
-        setCheckingAuth(false)
+        if (isMounted) {
+          setCheckingAuth(false)
+        }
       } catch (err: any) {
         if (!isMounted) return
         
@@ -88,30 +93,37 @@ export default function LoginClient() {
         if (err?.message && !err.message.includes('session missing')) {
           console.error('Error checking auth:', err)
         }
-        setCheckingAuth(false)
+        
+        // Always stop loading, even on error
+        if (isMounted) {
+          setCheckingAuth(false)
+        }
       }
     }
     
-    // Add timeout to prevent infinite loading - reduced to 2 seconds
-    const timeout = setTimeout(() => {
+    // Add timeout to prevent infinite loading - 1 second
+    timeoutId = setTimeout(() => {
       if (isMounted) {
         console.warn('Auth check timeout - stopping loading')
         setCheckingAuth(false)
       }
-    }, 2000)
+    }, 1000)
     
     checkUser()
       .finally(() => {
-        clearTimeout(timeout)
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
       })
     
     // Cleanup function
     return () => {
       isMounted = false
-      clearTimeout(timeout)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, searchParams])
+  }, [router, searchParams, supabase])
 
   // Clear email status when email changes
   useEffect(() => {
