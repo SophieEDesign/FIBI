@@ -26,7 +26,6 @@ export default function MapView() {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
-  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
@@ -235,10 +234,9 @@ export default function MapView() {
     mapInstanceRef.current = map
     console.log('MapView: Map instance created successfully', { hasMap: !!mapInstanceRef.current })
 
-    // Close preview when clicking on map
+    // Close modal when clicking on map
     const mapClickListener = map.addListener('click', () => {
       setSelectedItem(null)
-      setPreviewPosition(null)
     })
 
     return () => {
@@ -334,22 +332,8 @@ export default function MapView() {
         animation: window.google.maps.Animation.DROP,
       })
 
-      // Add click listener
+      // Add click listener - show modal
       marker.addListener('click', () => {
-        const projection = map.getProjection()
-        if (!projection) return
-
-        const scale = Math.pow(2, map.getZoom() || 10)
-        const worldCoordinate = projection.fromLatLngToPoint(position)
-        
-        const mapDiv = mapRef.current
-        if (!mapDiv) return
-
-        const mapBounds = mapDiv.getBoundingClientRect()
-        const x = worldCoordinate.x * scale + mapBounds.left
-        const y = worldCoordinate.y * scale + mapBounds.top - 140 // Position above pin
-
-        setPreviewPosition({ x, y })
         setSelectedItem(item)
       })
 
@@ -374,24 +358,17 @@ export default function MapView() {
     }
   }, [isGoogleLoaded, items])
 
-  // Close preview when clicking outside
+  // Close modal when clicking outside (on backdrop)
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (selectedItem && previewPosition) {
-        const previewCard = document.getElementById('preview-card')
-        if (previewCard && !previewCard.contains(e.target as Node)) {
-          // Check if click is on map
-          if (mapRef.current?.contains(e.target as Node)) {
-            setSelectedItem(null)
-            setPreviewPosition(null)
-          }
-        }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedItem) {
+        setSelectedItem(null)
       }
     }
 
-    document.addEventListener('click', handleClickOutside)
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [selectedItem, previewPosition])
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [selectedItem])
 
   return (
     <div className="fixed inset-0 flex flex-col">
@@ -425,57 +402,92 @@ export default function MapView() {
       {/* Map container - always render so ref is available */}
       <div ref={mapRef} className="flex-1 w-full" />
       
-      {/* Preview Card */}
-      {selectedItem && previewPosition && (
+      {/* Modal - shown when pin is clicked */}
+      {selectedItem && (
         <div
-          id="preview-card"
-          className="absolute z-10 bg-white rounded-lg shadow-lg overflow-hidden max-w-xs pointer-events-auto"
-          style={{
-            left: `${previewPosition.x}px`,
-            top: `${previewPosition.y}px`,
-            transform: 'translateX(-50%)',
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            // Close modal when clicking backdrop
+            if (e.target === e.currentTarget) {
+              setSelectedItem(null)
+            }
           }}
         >
-          <Link href={`/item/${selectedItem.id}`}>
-            {/* Screenshot or placeholder */}
-            {selectedItem.screenshot_url ? (
-              <img
-                src={selectedItem.screenshot_url}
-                alt={selectedItem.title || 'Place'}
-                className="w-full h-32 object-cover"
-              />
-            ) : (
-              <div className="w-full h-32 bg-gray-100 flex items-center justify-center">
-                <svg
-                  className="w-12 h-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-            )}
-            
-            {/* Content */}
-            <div className="p-3">
-              <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">
-                {selectedItem.title || 'Untitled place'}
-              </h3>
-              {(selectedItem.location_city || selectedItem.location_country) && (
-                <p className="text-xs text-gray-600">
-                  {[selectedItem.location_city, selectedItem.location_country]
-                    .filter(Boolean)
-                    .join(', ')}
-                </p>
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50" />
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden">
+            <Link 
+              href={`/item/${selectedItem.id}`}
+              className="block"
+            >
+              {/* Screenshot or placeholder */}
+              {selectedItem.screenshot_url ? (
+                <img
+                  src={selectedItem.screenshot_url}
+                  alt={selectedItem.title || 'Place'}
+                  className="w-full h-48 object-cover"
+                />
+              ) : (
+                <div className="w-full h-48 bg-gray-100 flex items-center justify-center">
+                  <svg
+                    className="w-16 h-16 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
               )}
-            </div>
-          </Link>
+              
+              {/* Content */}
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 text-base mb-2 line-clamp-2">
+                  {selectedItem.title || 'Untitled place'}
+                </h3>
+                {(selectedItem.location_city || selectedItem.location_country) && (
+                  <p className="text-sm text-gray-600 mb-3">
+                    {[selectedItem.location_city, selectedItem.location_country]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500">Tap to view details →</p>
+              </div>
+            </Link>
+            
+            {/* Close button */}
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setSelectedItem(null)
+              }}
+              className="absolute top-4 right-4 p-2 bg-black/70 text-white rounded-full hover:bg-black/90 transition-colors"
+              aria-label="Close"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
