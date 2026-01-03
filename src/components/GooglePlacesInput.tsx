@@ -54,23 +54,48 @@ export default function GooglePlacesInput({
   const [locationSearchValue, setLocationSearchValue] = useState(value)
 
   // Sync with props when they change
+  // Use a ref to track if we just set the value from a place selection
+  const justSetFromPlaceRef = useRef({ city: false, country: false })
+  
   useEffect(() => {
-    setManualCity(propManualCity)
+    // Only sync if we didn't just set it from a place selection
+    if (!justSetFromPlaceRef.current.city) {
+      setManualCity(propManualCity)
+    } else {
+      // Reset the flag after syncing
+      justSetFromPlaceRef.current.city = false
+    }
   }, [propManualCity])
 
   useEffect(() => {
-    setManualCountry(propManualCountry)
+    if (!justSetFromPlaceRef.current.country) {
+      setManualCountry(propManualCountry)
+    } else {
+      justSetFromPlaceRef.current.country = false
+    }
   }, [propManualCountry])
 
   // Sync search value with prop only when it changes from parent (e.g., place selection)
   // Don't override user typing
   useEffect(() => {
-    // Only sync if the value prop changed and we don't have a selected place
-    // This prevents overriding user input while typing
-    if (!hasSelectedPlace && value !== locationSearchValue) {
-      setLocationSearchValue(value)
+    // If value prop changes and it's different from current value, sync it
+    // This handles both initial load (when value is set from saved data) and updates
+    if (value !== locationSearchValue) {
+      // Only sync if:
+      // 1. We don't have a selected place (user hasn't selected a place yet), OR
+      // 2. The value is being set from parent (e.g., loading saved data)
+      // We check if the value is non-empty and different to avoid clearing user input
+      if (!hasSelectedPlace || (value && value !== locationSearchValue)) {
+        console.log('GooglePlacesInput: Syncing value prop to internal state:', { value, locationSearchValue, hasSelectedPlace })
+        setLocationSearchValue(value)
+        // If value is being set and it's not empty, mark that we have a selected place
+        // This happens when loading saved data
+        if (value && value.trim()) {
+          setHasSelectedPlace(true)
+        }
+      }
     }
-  }, [value, hasSelectedPlace])
+  }, [value, locationSearchValue, hasSelectedPlace])
 
   // Load Google Maps script
   useEffect(() => {
@@ -137,9 +162,16 @@ export default function GooglePlacesInput({
 
     // Handle place selection
     autocomplete.addListener('place_changed', () => {
+      console.log('GooglePlacesInput: place_changed event fired')
       const place = autocomplete.getPlace()
+      console.log('GooglePlacesInput: Raw place data:', place)
 
       if (!place.place_id || !place.geometry?.location) {
+        console.warn('GooglePlacesInput: Place missing place_id or geometry.location:', {
+          hasPlaceId: !!place.place_id,
+          hasGeometry: !!place.geometry,
+          hasLocation: !!place.geometry?.location,
+        })
         return
       }
 
@@ -147,26 +179,53 @@ export default function GooglePlacesInput({
       // Try multiple types for city (locality, administrative_area_level_2, administrative_area_level_1)
       let city: string | null = null
       let country: string | null = null
+      let postalTown: string | null = null
+      let sublocality: string | null = null
 
       if (place.address_components) {
+        console.log('GooglePlacesInput: Address components:', place.address_components.map(ac => ({
+          long_name: ac.long_name,
+          short_name: ac.short_name,
+          types: ac.types,
+        })))
+        
         for (const component of place.address_components) {
-          // City: try locality first, then administrative areas
+          // City: try multiple types in priority order
           if (!city) {
             if (component.types.includes('locality')) {
               city = component.long_name
-            } else if (component.types.includes('administrative_area_level_2')) {
-              city = component.long_name
-            } else if (component.types.includes('administrative_area_level_1') && !city) {
-              // Use state/province as fallback if no city found
-              city = component.long_name
+            } else if (component.types.includes('postal_town')) {
+              postalTown = component.long_name
+            } else if (component.types.includes('sublocality') || component.types.includes('sublocality_level_1')) {
+              sublocality = component.long_name
             }
           }
+          
+          // Administrative areas (fallback for city)
+          if (!city) {
+            if (component.types.includes('administrative_area_level_2')) {
+              city = component.long_name
+            } else if (component.types.includes('administrative_area_level_1')) {
+              // Only use state/province if we have nothing else
+              if (!postalTown && !sublocality) {
+                city = component.long_name
+              }
+            }
+          }
+          
           // Country
           if (component.types.includes('country')) {
             country = component.long_name
           }
         }
+        
+        // Use postal_town or sublocality as city if no locality found
+        if (!city) {
+          city = postalTown || sublocality
+        }
       }
+      
+      console.log('GooglePlacesInput: Extracted location data:', { city, country, postalTown, sublocality })
 
       const lat = place.geometry.location.lat()
       const lng = place.geometry.location.lng()
@@ -189,6 +248,10 @@ export default function GooglePlacesInput({
         city: googlePlace.city,
         country: googlePlace.country,
         formatted_address: googlePlace.formatted_address,
+        address_components: place.address_components?.map(ac => ({
+          long_name: ac.long_name,
+          types: ac.types,
+        })),
       })
 
       setHasSelectedPlace(true)
@@ -197,18 +260,18 @@ export default function GooglePlacesInput({
       // Update manual city/country fields with place data (user can override after)
       const cityValue = googlePlace.city || ''
       const countryValue = googlePlace.country || ''
+      
+      console.log('GooglePlacesInput: Updating city/country fields:', { cityValue, countryValue })
+      
+      // Update local state FIRST so fields update immediately
+      // Set flags to prevent useEffect from overwriting
+      justSetFromPlaceRef.current.city = true
+      justSetFromPlaceRef.current.country = true
       setManualCity(cityValue)
       setManualCountry(countryValue)
       
-      // Notify parent of city/country changes so it can update its state
-      if (onManualCityChange) {
-        onManualCityChange(cityValue)
-      }
-      if (onManualCountryChange) {
-        onManualCountryChange(countryValue)
-      }
-      
-      // Notify parent of place selection
+      // Notify parent of place selection - the parent's onChange handler will set city/country
+      // The parent will update props, but our flags prevent overwriting
       onChange(googlePlace)
     })
 

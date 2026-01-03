@@ -93,13 +93,16 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             {/* Desktop buttons */}
             <div className="hidden md:flex items-center gap-4">
               <Link
-                href="/map"
+                href="/app/map"
                 className="text-gray-600 hover:text-gray-900 text-sm font-medium"
               >
                 Map
               </Link>
+              <span className="text-gray-400 text-sm font-medium cursor-not-allowed">
+                Planner <span className="text-xs">(coming soon)</span>
+              </span>
               <Link
-                href="/add"
+                href="/app/add"
                 className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
               >
                 Add Place
@@ -300,12 +303,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
             {/* Primary action */}
             <div className="text-center">
-              <Link
-                href="/add"
-                className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-2"
-              >
-                Add your first place
-              </Link>
+                  <Link
+                    href="/app/add"
+                    className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-2"
+                  >
+                    Add your first place
+                  </Link>
               <p className="text-sm text-gray-500">
                 Or share a link from another app
               </p>

@@ -50,6 +50,16 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const supabase = createClient()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Use ref to store selected place so it's always available when saving (React state is async)
+  const selectedPlaceRef = useRef<{
+    place_name: string
+    place_id: string
+    latitude: number
+    longitude: number
+    formatted_address: string
+    city: string | null
+    country: string | null
+  } | null>(null)
 
   useEffect(() => {
     loadItem()
@@ -142,20 +152,56 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setLocationCountry(data.location_country || '')
         setLocationCity(data.location_city || '')
         // Load Google Place data if available
-        if (data.place_name && data.place_id && data.latitude && data.longitude) {
-          setSelectedPlace({
-            place_name: data.place_name,
-            place_id: data.place_id,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            formatted_address: data.formatted_address || '',
-            city: data.location_city,
-            country: data.location_country,
-          })
-          setLocationSearchValue(data.place_name)
+        // Check if we have coordinates (latitude and longitude are the key indicators)
+        const hasCoordinates = data.latitude != null && data.longitude != null
+        const hasPlaceInfo = data.place_name || data.place_id
+        
+        console.log('ItemDetail: Loading item location data:', {
+          hasCoordinates,
+          hasPlaceInfo,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          place_name: data.place_name,
+          place_id: data.place_id,
+          location_city: data.location_city,
+          location_country: data.location_country,
+        })
+        
+        if (hasCoordinates && hasPlaceInfo) {
+          // Ensure coordinates are numbers
+          const lat = typeof data.latitude === 'number' ? data.latitude : parseFloat(String(data.latitude))
+          const lng = typeof data.longitude === 'number' ? data.longitude : parseFloat(String(data.longitude))
+          
+          if (!isNaN(lat) && !isNaN(lng)) {
+            const placeData = {
+              place_name: data.place_name || '',
+              place_id: data.place_id || '',
+              latitude: lat,
+              longitude: lng,
+              formatted_address: data.formatted_address || '',
+              city: data.location_city,
+              country: data.location_country,
+            }
+            console.log('ItemDetail: Setting selected place from saved data:', placeData)
+            setSelectedPlace(placeData)
+            selectedPlaceRef.current = placeData
+            setLocationSearchValue(data.place_name || '')
+          } else {
+            console.warn('ItemDetail: Invalid coordinates, clearing place:', { lat, lng })
+            setSelectedPlace(null)
+            selectedPlaceRef.current = null
+            setLocationSearchValue('')
+          }
         } else {
+          console.log('ItemDetail: No place data found, clearing location field')
           setSelectedPlace(null)
-          setLocationSearchValue('')
+          selectedPlaceRef.current = null
+          // If we have city/country but no place, show them in manual fields
+          if (data.location_city || data.location_country) {
+            setLocationSearchValue('')
+          } else {
+            setLocationSearchValue('')
+          }
         }
         // Check if category/status is a custom one (not in predefined lists)
         const isCustomCategory = data.category && !CATEGORIES.includes(data.category as any)
@@ -371,18 +417,37 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     setError(null)
 
     try {
+      // Use ref to get the latest selected place (React state updates are async)
+      // This ensures we always have the most recent place data when saving
+      const currentSelectedPlace = selectedPlaceRef.current || selectedPlace
+      const currentLocationCity = locationCity
+      const currentLocationCountry = locationCountry
+      
+      console.log('ItemDetail: handleSaveLocation called with state:', {
+        selectedPlace: selectedPlace,
+        selectedPlaceRef: selectedPlaceRef.current,
+        currentSelectedPlace: currentSelectedPlace,
+        locationCity: currentLocationCity,
+        locationCountry: currentLocationCountry,
+      })
+
       // Determine location data: use Google Place if selected, otherwise use manual entry
       // If place is selected, use place data but allow manual city/country to override
-      const locationData = selectedPlace
+      // IMPORTANT: Ensure coordinates are numbers, not strings
+      const locationData = currentSelectedPlace
         ? {
-            place_name: selectedPlace.place_name,
-            place_id: selectedPlace.place_id,
-            latitude: selectedPlace.latitude,
-            longitude: selectedPlace.longitude,
-            formatted_address: selectedPlace.formatted_address,
+            place_name: currentSelectedPlace.place_name,
+            place_id: currentSelectedPlace.place_id,
+            latitude: typeof currentSelectedPlace.latitude === 'number' 
+              ? currentSelectedPlace.latitude 
+              : parseFloat(String(currentSelectedPlace.latitude)),
+            longitude: typeof currentSelectedPlace.longitude === 'number' 
+              ? currentSelectedPlace.longitude 
+              : parseFloat(String(currentSelectedPlace.longitude)),
+            formatted_address: currentSelectedPlace.formatted_address,
             // Use manual city/country if provided, otherwise use place data
-            location_city: locationCity.trim() || selectedPlace.city || null,
-            location_country: locationCountry.trim() || selectedPlace.country || null,
+            location_city: currentLocationCity.trim() || currentSelectedPlace.city || null,
+            location_country: currentLocationCountry.trim() || currentSelectedPlace.country || null,
           }
         : {
             place_name: null,
@@ -390,22 +455,34 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             latitude: null,
             longitude: null,
             formatted_address: null,
-            location_city: locationCity.trim() || null,
-            location_country: locationCountry.trim() || null,
+            location_city: currentLocationCity.trim() || null,
+            location_country: currentLocationCountry.trim() || null,
           }
+      
+      // Validate coordinates before saving
+      if (locationData.latitude !== null && (isNaN(locationData.latitude) || locationData.latitude < -90 || locationData.latitude > 90)) {
+        console.error('ItemDetail: Invalid latitude:', locationData.latitude)
+        locationData.latitude = null
+      }
+      if (locationData.longitude !== null && (isNaN(locationData.longitude) || locationData.longitude < -180 || locationData.longitude > 180)) {
+        console.error('ItemDetail: Invalid longitude:', locationData.longitude)
+        locationData.longitude = null
+      }
 
       console.log('ItemDetail: Saving location data:', {
-        hasSelectedPlace: !!selectedPlace,
-        selectedPlace: selectedPlace ? {
-          place_name: selectedPlace.place_name,
-          latitude: selectedPlace.latitude,
-          longitude: selectedPlace.longitude,
-          city: selectedPlace.city,
-          country: selectedPlace.country,
+        hasSelectedPlace: !!currentSelectedPlace,
+        selectedPlace: currentSelectedPlace ? {
+          place_name: currentSelectedPlace.place_name,
+          place_id: currentSelectedPlace.place_id,
+          latitude: currentSelectedPlace.latitude,
+          longitude: currentSelectedPlace.longitude,
+          city: currentSelectedPlace.city,
+          country: currentSelectedPlace.country,
+          formatted_address: currentSelectedPlace.formatted_address,
         } : null,
-        locationData,
-        manualCity: locationCity,
-        manualCountry: locationCountry,
+        locationData: JSON.parse(JSON.stringify(locationData)), // Deep clone to show full object
+        manualCity: currentLocationCity,
+        manualCountry: currentLocationCountry,
       })
 
       const updatePayload = {
@@ -413,7 +490,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         ...locationData,
       }
 
-      console.log('ItemDetail: Update payload:', updatePayload)
+      console.log('ItemDetail: Update payload (full):', JSON.parse(JSON.stringify(updatePayload)))
+      console.log('ItemDetail: Update payload latitude:', updatePayload.latitude)
+      console.log('ItemDetail: Update payload longitude:', updatePayload.longitude)
+      console.log('ItemDetail: Update payload place_name:', updatePayload.place_name)
 
       const { error: updateError, data: updateData } = await supabase
         .from('saved_items')
@@ -831,27 +911,57 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 <GooglePlacesInput
                   value={locationSearchValue}
                   onChange={(place) => {
+                    console.log('ItemDetail: Place onChange called:', place)
+                    console.log('ItemDetail: Place data:', place ? {
+                      place_name: place.place_name,
+                      place_id: place.place_id,
+                      latitude: place.latitude,
+                      longitude: place.longitude,
+                      city: place.city,
+                      country: place.country,
+                    } : null)
+                    
+                    // Update both state and ref
                     setSelectedPlace(place)
+                    selectedPlaceRef.current = place
+                    
                     if (place) {
                       setLocationSearchValue(place.place_name)
                       // Update city and country from place data (user can override after)
-                      setLocationCity(place.city || '')
-                      setLocationCountry(place.country || '')
-                      // Auto-save when place is selected
-                      setTimeout(() => handleSaveLocation(), 100)
+                      const cityValue = place.city || ''
+                      const countryValue = place.country || ''
+                      console.log('ItemDetail: Setting city/country from place:', { cityValue, countryValue })
+                      setLocationCity(cityValue)
+                      setLocationCountry(countryValue)
+                      
+                      // Auto-save when place is selected (use ref to ensure we have the latest data)
+                      setTimeout(() => {
+                        console.log('ItemDetail: State after place selection:', {
+                          selectedPlace: place,
+                          selectedPlaceRef: selectedPlaceRef.current,
+                          locationCity: cityValue,
+                          locationCountry: countryValue,
+                        })
+                        handleSaveLocation()
+                      }, 200)
                     } else {
+                      selectedPlaceRef.current = null
                       setLocationSearchValue('')
+                      setLocationCity('')
+                      setLocationCountry('')
                     }
                   }}
                   onSearchValueChange={(value) => {
                     setLocationSearchValue(value)
                   }}
                   onManualCityChange={(city) => {
+                    console.log('ItemDetail: onManualCityChange called with:', city)
                     setLocationCity(city)
                     // Allow manual override - don't clear selectedPlace
                     // User can override city/country while keeping the place coordinates
                   }}
                   onManualCountryChange={(country) => {
+                    console.log('ItemDetail: onManualCountryChange called with:', country)
                     setLocationCountry(country)
                     // Allow manual override - don't clear selectedPlace
                     // User can override city/country while keeping the place coordinates
@@ -877,6 +987,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       type="button"
                       onClick={() => {
                         setSelectedPlace(null)
+                        selectedPlaceRef.current = null
                         setLocationSearchValue('')
                         setLocationCity('')
                         setLocationCountry('')
