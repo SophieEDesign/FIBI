@@ -15,7 +15,7 @@ interface HomeGridProps {
 export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true) // Assume authenticated since server already checked
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
@@ -47,20 +47,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
 
   const loadItems = async () => {
     try {
-      // Check if user is authenticated first
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      setIsAuthenticated(!!user)
-
-      // If not authenticated, show empty state (don't try to load items)
-      if (!user) {
-        setItems([])
-        setLoading(false)
-        return
-      }
-
+      // Server already verified auth, so we can skip the check and load items directly
+      // This reduces flashing and improves UX
       const { data, error } = await supabase
         .from('saved_items')
         .select('*')
@@ -68,18 +56,18 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
 
       if (error) {
         console.error('Error loading items:', error)
-        // If it's an auth error, just show empty state
+        // If it's an auth error, redirect to login
         if (error.message.includes('JWT') || error.message.includes('auth')) {
-          setItems([])
-          setIsAuthenticated(false)
+          router.push('/login')
+          return
         }
+        setItems([])
       } else {
         setItems(data || [])
       }
     } catch (error) {
       console.error('Error loading items:', error)
       setItems([])
-      setIsAuthenticated(false)
     } finally {
       setLoading(false)
     }
@@ -96,14 +84,6 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
     if (selectedStatus !== 'all' && item.status !== selectedStatus) return false
     return true
   })
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -277,8 +257,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
           </div>
         )}
 
-        {/* Empty state - only show when authenticated and no items */}
-        {isAuthenticated && filteredItems.length === 0 && (
+        {/* Empty state - only show when authenticated and no items (and not loading) */}
+        {!loading && isAuthenticated && filteredItems.length === 0 && (
           <div className="max-w-3xl mx-auto">
             {/* Intro section */}
             <div className="text-center mb-12">
@@ -374,8 +354,23 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
           </div>
         )}
 
+        {/* Loading state - show skeleton while loading */}
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
+                <div className="aspect-[4/3] bg-gray-200" />
+                <div className="p-4">
+                  <div className="h-4 bg-gray-200 rounded mb-2" />
+                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Grid - only show when there are items */}
-        {filteredItems.length > 0 && (
+        {!loading && filteredItems.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredItems.map((item) => {
               // Preview priority: screenshot_url > thumbnail_url > placeholder
