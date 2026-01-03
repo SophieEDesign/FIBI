@@ -826,19 +826,13 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       }}
                       onManualCityChange={(city) => {
                         setLocationCity(city)
-                        // Clear Google place data when manually entering
-                        if (selectedPlace) {
-                          setSelectedPlace(null)
-                          setLocationSearchValue('')
-                        }
+                        // Allow manual override - don't clear selectedPlace
+                        // User can override city/country while keeping the place coordinates
                       }}
                       onManualCountryChange={(country) => {
                         setLocationCountry(country)
-                        // Clear Google place data when manually entering
-                        if (selectedPlace) {
-                          setSelectedPlace(null)
-                          setLocationSearchValue('')
-                        }
+                        // Allow manual override - don't clear selectedPlace
+                        // User can override city/country while keeping the place coordinates
                       }}
                       manualCity={locationCity}
                       manualCountry={locationCountry}

@@ -140,14 +140,25 @@ export default function GooglePlacesInput({
       }
 
       // Extract city and country from address_components
+      // Try multiple types for city (locality, administrative_area_level_2, administrative_area_level_1)
       let city: string | null = null
       let country: string | null = null
 
       if (place.address_components) {
         for (const component of place.address_components) {
-          if (component.types.includes('locality')) {
-            city = component.long_name
-          } else if (component.types.includes('country')) {
+          // City: try locality first, then administrative areas
+          if (!city) {
+            if (component.types.includes('locality')) {
+              city = component.long_name
+            } else if (component.types.includes('administrative_area_level_2')) {
+              city = component.long_name
+            } else if (component.types.includes('administrative_area_level_1') && !city) {
+              // Use state/province as fallback if no city found
+              city = component.long_name
+            }
+          }
+          // Country
+          if (component.types.includes('country')) {
             country = component.long_name
           }
         }
@@ -178,8 +189,22 @@ export default function GooglePlacesInput({
 
       setHasSelectedPlace(true)
       setLocationSearchValue(googlePlace.place_name)
-      setManualCity('')
-      setManualCountry('')
+      
+      // Update manual city/country fields with place data (user can override after)
+      const cityValue = googlePlace.city || ''
+      const countryValue = googlePlace.country || ''
+      setManualCity(cityValue)
+      setManualCountry(countryValue)
+      
+      // Notify parent of city/country changes so it can update its state
+      if (onManualCityChange) {
+        onManualCityChange(cityValue)
+      }
+      if (onManualCountryChange) {
+        onManualCountryChange(countryValue)
+      }
+      
+      // Notify parent of place selection
       onChange(googlePlace)
     })
 
@@ -218,26 +243,21 @@ export default function GooglePlacesInput({
   }
 
   // Handle manual city/country entry (fallback)
+  // Allow manual override while keeping the selected place (coordinates preserved)
   const handleManualCityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const city = e.target.value
     setManualCity(city)
     if (onManualCityChange) onManualCityChange(city)
-    // Clear Google place data when manually entering
-    if (hasSelectedPlace) {
-      setHasSelectedPlace(false)
-      onChange(null)
-    }
+    // Don't clear selectedPlace - allow manual override of city/country
+    // while keeping the place coordinates
   }
 
   const handleManualCountryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const country = e.target.value
     setManualCountry(country)
     if (onManualCountryChange) onManualCountryChange(country)
-    // Clear Google place data when manually entering
-    if (hasSelectedPlace) {
-      setHasSelectedPlace(false)
-      onChange(null)
-    }
+    // Don't clear selectedPlace - allow manual override of city/country
+    // while keeping the place coordinates
   }
 
   return (

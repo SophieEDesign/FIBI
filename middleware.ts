@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(req: NextRequest) {
+  // This middleware does nothing - all routes pass through
+  // Static files (manifest.json, sw.js, etc.) are served directly by Next.js
   return NextResponse.next()
 }
 
 export const config = {
-  // Explicitly exclude static files including manifest.json
-  // This ensures middleware never touches manifest.json or other static assets
-  matcher: [
-    '/((?!manifest\\.json|_next|favicon\\.ico|icon\\.svg|sw\\.js).*)',
-  ],
+  // Empty matcher = middleware never runs
+  // This is the safest approach - ensures static files are NEVER touched
+  matcher: [],
 }
 
