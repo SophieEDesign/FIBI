@@ -86,19 +86,40 @@ export default function MapView() {
           return
         }
 
-        const { data, error } = await supabase
+        // First, fetch ALL items to see what we have
+        const { data: allData, error: allError } = await supabase
           .from('saved_items')
           .select('*')
           .eq('user_id', user.id)
-          .not('latitude', 'is', null)
-          .not('longitude', 'is', null)
           .order('created_at', { ascending: false })
 
-        if (error) {
-          console.error('Error fetching items:', error)
-        } else {
-          setItems(data || [])
+        if (allError) {
+          console.error('Error fetching all items:', allError)
+          setItems([])
+          return
         }
+
+        console.log('MapView: All items fetched:', allData?.length || 0)
+        if (allData && allData.length > 0) {
+          console.log('MapView: Sample item:', {
+            id: allData[0].id,
+            title: allData[0].title,
+            latitude: allData[0].latitude,
+            longitude: allData[0].longitude,
+            hasLat: allData[0].latitude != null,
+            hasLng: allData[0].longitude != null,
+          })
+        }
+
+        // Filter for items with valid coordinates
+        const itemsWithCoords = (allData || []).filter(item => {
+          const hasLat = item.latitude != null && item.latitude !== ''
+          const hasLng = item.longitude != null && item.longitude !== ''
+          return hasLat && hasLng
+        })
+
+        console.log('MapView: Items with coordinates:', itemsWithCoords.length, 'out of', allData?.length || 0)
+        setItems(itemsWithCoords)
       } catch (error) {
         console.error('Error fetching items:', error)
       } finally {
@@ -109,13 +130,9 @@ export default function MapView() {
     fetchItems()
   }, [supabase, router])
 
-  // Initialize map
+  // Initialize map (only once)
   useEffect(() => {
-    if (!isGoogleLoaded || !mapRef.current) return
-    
-    // Filter items with valid coordinates
-    const itemsWithLocations = items.filter(item => item.latitude != null && item.longitude != null)
-    if (itemsWithLocations.length === 0) return
+    if (!isGoogleLoaded || !mapRef.current || mapInstanceRef.current) return
 
     // Calm, desaturated map style
     const mapStyle: Array<{
@@ -147,7 +164,7 @@ export default function MapView() {
       },
     ]
 
-    // Create map
+    // Create map (only once)
     const map = new window.google.maps.Map(mapRef.current, {
       zoom: 2,
       center: { lat: 20, lng: 0 },
@@ -162,23 +179,84 @@ export default function MapView() {
 
     mapInstanceRef.current = map
 
+    // Close preview when clicking on map
+    const mapClickListener = map.addListener('click', () => {
+      setSelectedItem(null)
+      setPreviewPosition(null)
+    })
+
+    return () => {
+      window.google.maps.event.removeListener(mapClickListener)
+    }
+  }, [isGoogleLoaded])
+
+  // Update markers when items change
+  useEffect(() => {
+    if (!isGoogleLoaded || !mapInstanceRef.current) {
+      console.log('MapView: Waiting for Google Maps to load or map instance', { isGoogleLoaded, hasMapInstance: !!mapInstanceRef.current })
+      return
+    }
+    
+    const map = mapInstanceRef.current
+    
+    // Filter items with valid coordinates
+    const itemsWithLocations = items.filter(item => item.latitude != null && item.longitude != null)
+    console.log('MapView: Updating markers with items', { totalItems: items.length, itemsWithLocations: itemsWithLocations.length })
+    
     // Clear existing markers
     markersRef.current.forEach(({ marker }) => marker.setMap(null))
     markersRef.current = []
+
+    if (itemsWithLocations.length === 0) {
+      console.log('MapView: No items with locations, cleared markers')
+      return
+    }
 
     // Create markers for each item (only those with valid coordinates)
     const bounds = new window.google.maps.LatLngBounds()
 
     itemsWithLocations.forEach((item) => {
-      // Double-check coordinates are valid numbers
-      const lat = typeof item.latitude === 'number' ? item.latitude : parseFloat(String(item.latitude))
-      const lng = typeof item.longitude === 'number' ? item.longitude : parseFloat(String(item.longitude))
+      // Handle PostgreSQL numeric type (can be string or number)
+      let lat: number
+      let lng: number
+      
+      if (typeof item.latitude === 'string') {
+        lat = parseFloat(item.latitude)
+      } else if (typeof item.latitude === 'number') {
+        lat = item.latitude
+      } else {
+        console.warn('MapView: Invalid latitude type for item:', item.id, { latitude: item.latitude, type: typeof item.latitude })
+        return
+      }
+      
+      if (typeof item.longitude === 'string') {
+        lng = parseFloat(item.longitude)
+      } else if (typeof item.longitude === 'number') {
+        lng = item.longitude
+      } else {
+        console.warn('MapView: Invalid longitude type for item:', item.id, { longitude: item.longitude, type: typeof item.longitude })
+        return
+      }
       
       if (isNaN(lat) || isNaN(lng)) {
-        console.warn('Invalid coordinates for item:', item.id, { latitude: item.latitude, longitude: item.longitude })
+        console.warn('MapView: Invalid coordinates for item:', item.id, { 
+          latitude: item.latitude, 
+          longitude: item.longitude, 
+          lat, 
+          lng,
+          latType: typeof item.latitude,
+          lngType: typeof item.longitude
+        })
         return
       }
 
+      // Validate coordinate ranges
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        console.warn('MapView: Coordinates out of range for item:', item.id, { lat, lng })
+        return
+      }
+
+      console.log('MapView: Creating marker for item:', item.id, { lat, lng, title: item.title })
       const position = new window.google.maps.LatLng(lat, lng)
 
       // Create custom pin icon (soft, aesthetic)
@@ -224,7 +302,8 @@ export default function MapView() {
     })
 
     // Fit map to show all markers
-    if (itemsWithLocations.length > 0) {
+    if (itemsWithLocations.length > 0 && markersRef.current.length > 0) {
+      console.log('MapView: Fitting bounds for', markersRef.current.length, 'markers')
       map.fitBounds(bounds)
       // Add padding
       const padding = 50
@@ -234,16 +313,8 @@ export default function MapView() {
         bottom: padding,
         left: padding,
       }
-    }
-
-    // Close preview when clicking on map
-    const mapClickListener = map.addListener('click', () => {
-      setSelectedItem(null)
-      setPreviewPosition(null)
-    })
-
-    return () => {
-      window.google.maps.event.removeListener(mapClickListener)
+    } else {
+      console.warn('MapView: No markers to fit bounds', { itemsWithLocations: itemsWithLocations.length, markers: markersRef.current.length })
     }
   }, [isGoogleLoaded, items])
 
@@ -358,13 +429,29 @@ export default function MapView() {
 
       {/* Empty state */}
       {items.length === 0 && !loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 pointer-events-none">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 pointer-events-none z-30">
           <div className="text-center bg-white rounded-lg shadow-sm p-6 max-w-sm">
             <p className="text-gray-600 mb-2">No places with locations yet</p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mb-4">
               Add locations to your saved places to see them on the map
             </p>
+            <Link
+              href="/app/add"
+              className="inline-block bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors pointer-events-auto"
+            >
+              Add a place with location
+            </Link>
           </div>
+        </div>
+      )}
+      
+      {/* Debug info (development only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs p-2 rounded pointer-events-none z-30">
+          <div>Items: {items.length}</div>
+          <div>Loading: {loading ? 'yes' : 'no'}</div>
+          <div>Google Loaded: {isGoogleLoaded ? 'yes' : 'no'}</div>
+          <div>Map Instance: {mapInstanceRef.current ? 'yes' : 'no'}</div>
         </div>
       )}
     </div>

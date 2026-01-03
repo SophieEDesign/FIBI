@@ -153,15 +153,28 @@ export default function GooglePlacesInput({
         }
       }
 
+      const lat = place.geometry.location.lat()
+      const lng = place.geometry.location.lng()
+
       const googlePlace: GooglePlace = {
         place_name: place.name || '',
         place_id: place.place_id,
-        latitude: place.geometry.location.lat(),
-        longitude: place.geometry.location.lng(),
+        latitude: lat,
+        longitude: lng,
         formatted_address: place.formatted_address || '',
         city,
         country,
       }
+
+      console.log('GooglePlacesInput: Place selected:', {
+        place_name: googlePlace.place_name,
+        place_id: googlePlace.place_id,
+        latitude: googlePlace.latitude,
+        longitude: googlePlace.longitude,
+        city: googlePlace.city,
+        country: googlePlace.country,
+        formatted_address: googlePlace.formatted_address,
+      })
 
       setHasSelectedPlace(true)
       setLocationSearchValue(googlePlace.place_name)

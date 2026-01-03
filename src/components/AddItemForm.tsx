@@ -761,45 +761,75 @@ export default function AddItemForm() {
         await saveCustomOption('status', finalStatus)
       }
 
+      // Prepare location data
+      const locationData = selectedPlace
+        ? {
+            place_name: selectedPlace.place_name,
+            place_id: selectedPlace.place_id,
+            latitude: selectedPlace.latitude,
+            longitude: selectedPlace.longitude,
+            formatted_address: selectedPlace.formatted_address,
+            location_city: selectedPlace.city,
+            location_country: selectedPlace.country,
+          }
+        : {
+            place_name: null,
+            place_id: null,
+            latitude: null,
+            longitude: null,
+            formatted_address: null,
+            location_city: locationCity.trim() || null,
+            location_country: locationCountry.trim() || null,
+          }
+
+      console.log('AddItemForm: Saving item with location data:', {
+        hasSelectedPlace: !!selectedPlace,
+        selectedPlace: selectedPlace ? {
+          place_name: selectedPlace.place_name,
+          latitude: selectedPlace.latitude,
+          longitude: selectedPlace.longitude,
+          city: selectedPlace.city,
+          country: selectedPlace.country,
+        } : null,
+        locationData,
+        manualCity: locationCity,
+        manualCountry: locationCountry,
+      })
+
       // Insert into saved_items
-      const { error: insertError } = await supabase
+      const insertPayload = {
+        user_id: user.id,
+        url: url.trim(),
+        platform,
+        title: finalTitle || null,
+        description: description.trim() || null,
+        notes: notes.trim() || null,
+        thumbnail_url: thumbnailUrl || null,
+        screenshot_url: screenshotUrl,
+        ...locationData,
+        category: finalCategory,
+        status: finalStatus,
+      }
+
+      console.log('AddItemForm: Insert payload:', insertPayload)
+
+      const { error: insertError, data: insertData } = await supabase
         .from('saved_items')
-        .insert({
-          user_id: user.id,
-          url: url.trim(),
-          platform,
-          title: finalTitle || null,
-          description: description.trim() || null,
-          notes: notes.trim() || null,
-          thumbnail_url: thumbnailUrl || null,
-          screenshot_url: screenshotUrl,
-          // Location data: use Google Place if selected, otherwise use manual entry
-          ...(selectedPlace
-            ? {
-                place_name: selectedPlace.place_name,
-                place_id: selectedPlace.place_id,
-                latitude: selectedPlace.latitude,
-                longitude: selectedPlace.longitude,
-                formatted_address: selectedPlace.formatted_address,
-                location_city: selectedPlace.city,
-                location_country: selectedPlace.country,
-              }
-            : {
-                place_name: null,
-                place_id: null,
-                latitude: null,
-                longitude: null,
-                formatted_address: null,
-                location_city: locationCity.trim() || null,
-                location_country: locationCountry.trim() || null,
-              }),
-          category: finalCategory,
-          status: finalStatus,
-        })
+        .insert(insertPayload)
+        .select()
 
       if (insertError) {
-        console.error('Database insert error:', insertError)
+        console.error('AddItemForm: Database insert error:', insertError)
         throw insertError
+      }
+
+      console.log('AddItemForm: Item saved successfully:', insertData?.[0])
+      if (insertData?.[0]) {
+        console.log('AddItemForm: Saved item location data:', {
+          latitude: insertData[0].latitude,
+          longitude: insertData[0].longitude,
+          place_name: insertData[0].place_name,
+        })
       }
 
       // Success - redirect to home page
