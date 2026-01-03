@@ -440,9 +440,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     setError(null)
 
     try {
-      // Use ref to get the latest selected place (React state updates are async)
+      // CRITICAL: Always use ref first - it's updated synchronously when place is selected
+      // The ref is set immediately in onChange, while state updates are async
       // This ensures we always have the most recent place data when saving
-      const currentSelectedPlace = selectedPlaceRef.current || selectedPlace
+      const currentSelectedPlace = selectedPlaceRef.current
       const currentLocationCity = locationCity
       const currentLocationCountry = locationCountry
       
@@ -962,9 +963,12 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       country: place.country,
                     } : null)
                     
-                    // Update both state and ref
-                    setSelectedPlace(place)
+                    // CRITICAL: Update ref FIRST (synchronously) before state updates
+                    // This ensures handleSaveLocation has access to the place data
                     selectedPlaceRef.current = place
+                    
+                    // Then update state (async)
+                    setSelectedPlace(place)
                     
                     if (place) {
                       setLocationSearchValue(place.place_name)
@@ -975,16 +979,18 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       setLocationCity(cityValue)
                       setLocationCountry(countryValue)
                       
-                      // Auto-save when place is selected (use ref to ensure we have the latest data)
+                      // Auto-save when place is selected
+                      // Use a longer timeout to ensure all state updates have propagated
                       setTimeout(() => {
-                        console.log('ItemDetail: State after place selection:', {
+                        console.log('ItemDetail: Auto-saving location after place selection:', {
                           selectedPlace: place,
                           selectedPlaceRef: selectedPlaceRef.current,
                           locationCity: cityValue,
                           locationCountry: countryValue,
                         })
+                        // The ref is already set, so handleSaveLocation will use it
                         handleSaveLocation()
-                      }, 200)
+                      }, 300)
                     } else {
                       selectedPlaceRef.current = null
                       setLocationSearchValue('')
@@ -1026,13 +1032,21 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     <span className="text-gray-300">•</span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedPlace(null)
+                      onClick={async () => {
+                        // CRITICAL: Clear ref FIRST (synchronously) so handleSaveLocation sees null
                         selectedPlaceRef.current = null
+                        
+                        // Then clear all state
+                        setSelectedPlace(null)
                         setLocationSearchValue('')
                         setLocationCity('')
                         setLocationCountry('')
-                        handleSaveLocation()
+                        
+                        // Wait a moment for state to clear, then save
+                        // The ref is already null, so handleSaveLocation will save null values
+                        setTimeout(() => {
+                          handleSaveLocation()
+                        }, 150)
                       }}
                       className="text-sm text-red-600 hover:text-red-800 font-medium"
                     >

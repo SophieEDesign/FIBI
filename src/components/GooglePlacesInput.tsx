@@ -194,6 +194,8 @@ export default function GooglePlacesInput({
       let country: string | null = null
       let postalTown: string | null = null
       let sublocality: string | null = null
+      let administrativeArea2: string | null = null
+      let administrativeArea1: string | null = null
 
       if (place.address_components) {
         console.log('GooglePlacesInput: Address components:', place.address_components.map(ac => ({
@@ -215,15 +217,10 @@ export default function GooglePlacesInput({
           }
           
           // Administrative areas (fallback for city)
-          if (!city) {
-            if (component.types.includes('administrative_area_level_2')) {
-              city = component.long_name
-            } else if (component.types.includes('administrative_area_level_1')) {
-              // Only use state/province if we have nothing else
-              if (!postalTown && !sublocality) {
-                city = component.long_name
-              }
-            }
+          if (component.types.includes('administrative_area_level_2')) {
+            administrativeArea2 = component.long_name
+          } else if (component.types.includes('administrative_area_level_1')) {
+            administrativeArea1 = component.long_name
           }
           
           // Country
@@ -234,7 +231,20 @@ export default function GooglePlacesInput({
         
         // Use postal_town or sublocality as city if no locality found
         if (!city) {
-          city = postalTown || sublocality
+          city = postalTown || sublocality || administrativeArea2 || administrativeArea1
+        }
+        
+        // If still no city, try parsing from formatted_address or place name
+        // For cities like "Valencia, Spain", the place name might be the city
+        if (!city && place.name) {
+          // Check if place name looks like a city name (not too long, no special chars)
+          const placeName = place.name.trim()
+          if (placeName.length < 50 && !placeName.includes(',')) {
+            // If formatted_address contains the place name, it's likely the city
+            if (place.formatted_address && place.formatted_address.includes(placeName)) {
+              city = placeName
+            }
+          }
         }
       }
       
