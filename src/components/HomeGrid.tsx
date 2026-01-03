@@ -9,13 +9,13 @@ import { useRouter } from 'next/navigation'
 import MobileMenu from '@/components/MobileMenu'
 
 interface HomeGridProps {
+  user: any
   confirmed?: boolean
 }
 
-export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
+export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true) // Assume authenticated since server already checked
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
@@ -24,9 +24,11 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
   const router = useRouter()
 
   useEffect(() => {
-    loadItems()
+    if (user) {
+      loadItems()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [user])
 
   // Listen for auth state changes (e.g., after login)
   useEffect(() => {
@@ -35,7 +37,9 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         // Reload items when auth state changes
-        loadItems()
+        if (session?.user) {
+          loadItems()
+        }
       }
     })
 
@@ -46,9 +50,9 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
   }, [])
 
   const loadItems = async () => {
+    if (!user) return
+
     try {
-      // Server already verified auth, so we can skip the check and load items directly
-      // This reduces flashing and improves UX
       const { data, error } = await supabase
         .from('saved_items')
         .select('*')
@@ -56,11 +60,6 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
 
       if (error) {
         console.error('Error loading items:', error)
-        // If it's an auth error, redirect to login
-        if (error.message.includes('JWT') || error.message.includes('auth')) {
-          router.push('/login')
-          return
-        }
         setItems([])
       } else {
         setItems(data || [])
@@ -93,39 +92,28 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
             <h1 className="text-2xl font-bold text-gray-900">FiBi</h1>
             {/* Desktop buttons */}
             <div className="hidden md:flex items-center gap-4">
-              {isAuthenticated ? (
-                <>
-                  <Link
-                    href="/map"
-                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                  >
-                    Map
-                  </Link>
-                  <Link
-                    href="/add"
-                    className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-                  >
-                    Add Place
-                  </Link>
-                  <button
-                    onClick={handleSignOut}
-                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                  >
-                    Sign out
-                  </button>
-                </>
-              ) : (
-                <Link
-                  href="/login"
-                  className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-                >
-                  Sign in
-                </Link>
-              )}
+              <Link
+                href="/map"
+                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              >
+                Map
+              </Link>
+              <Link
+                href="/add"
+                className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                Add Place
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              >
+                Sign out
+              </button>
             </div>
             {/* Mobile menu */}
             <MobileMenu
-              isAuthenticated={isAuthenticated === true}
+              isAuthenticated={true}
               onSignOut={handleSignOut}
             />
           </div>
@@ -147,7 +135,7 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
         )}
 
         {/* Instructions - collapsible */}
-        {isAuthenticated && filteredItems.length > 0 && (
+        {filteredItems.length > 0 && (
           <div className="mb-6">
             <button
               onClick={() => setShowInstructions(!showInstructions)}
@@ -257,8 +245,8 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
           </div>
         )}
 
-        {/* Empty state - only show when authenticated and no items (and not loading) */}
-        {!loading && isAuthenticated && filteredItems.length === 0 && (
+        {/* Empty state - only show when no items (and not loading) */}
+        {!loading && filteredItems.length === 0 && (
           <div className="max-w-3xl mx-auto">
             {/* Intro section */}
             <div className="text-center mb-12">
@@ -325,34 +313,6 @@ export default function HomeGrid({ confirmed }: HomeGridProps = {}) {
           </div>
         )}
 
-        {/* Not authenticated empty state */}
-        {isAuthenticated === false && (
-          <div className="max-w-2xl mx-auto py-16 px-4">
-            <div className="bg-white rounded-2xl border border-gray-200 p-8 md:p-12 text-center">
-              <div className="mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Save places before you lose them</h2>
-                <p className="text-gray-600 mb-8">
-                  Install Fibi first, then share links from TikTok, Instagram, or any website.
-                </p>
-              </div>
-
-              <Link
-                href="/login"
-                className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-4"
-              >
-                Sign in to get started
-              </Link>
-              <p className="text-sm text-gray-500">
-                Tip: Installing Fibi makes sharing one tap faster.
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Loading state - show skeleton while loading */}
         {loading && (

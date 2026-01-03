@@ -1,10 +1,11 @@
+'use client'
+
+import { useSearchParams } from 'next/navigation'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/useAuth'
 import HomeGrid from '@/components/HomeGrid'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-
-// Force dynamic rendering
-export const dynamic = 'force-dynamic'
 
 /**
  * App Home Page (Authenticated)
@@ -17,51 +18,45 @@ export const dynamic = 'force-dynamic'
  * - Registers SW after page loads, avoiding auth redirect race conditions
  * - NOT in RootLayout to prevent SW registration on every request
  */
-export default async function AppHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ code?: string; confirmed?: string }>
-}) {
-  try {
-    // Safely await searchParams - handle potential errors
-    let params: { code?: string; confirmed?: string } = {}
-    try {
-      params = await searchParams
-    } catch (searchParamsError) {
-      // If searchParams fails, use empty object
-      console.warn('Error reading searchParams:', searchParamsError)
-      params = {}
-    }
+export default function AppHomePage() {
+  const { user, loading } = useAuth()
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
-    const code = params?.code
-
-    // If there's a code parameter, redirect to auth callback
+  // Handle code parameter (from email confirmation)
+  useEffect(() => {
+    const code = searchParams.get('code')
     if (code) {
-      redirect(`/auth/callback?code=${encodeURIComponent(code)}`)
+      router.replace(`/auth/callback?code=${encodeURIComponent(code)}`)
     }
+  }, [searchParams, router])
 
-    // Check if user is authenticated
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    // Redirect to login if not authenticated
-    if (!user) {
-      redirect('/login')
+  // Redirect to login if not authenticated (after loading)
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login')
     }
+  }, [loading, user, router])
 
-    // Show home grid for authenticated users
+  if (loading) {
     return (
-      <>
-        <HomeGrid confirmed={params?.confirmed === 'true'} />
-        <ServiceWorkerRegistration />
-      </>
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading your places…
+      </div>
     )
-  } catch (error) {
-    // If there's any error, redirect to login
-    console.error('App home page error:', error)
-    redirect('/login')
   }
+
+  if (!user) {
+    return null // Will redirect via useEffect
+  }
+
+  const confirmed = searchParams.get('confirmed') === 'true'
+
+  return (
+    <>
+      <HomeGrid user={user} confirmed={confirmed} />
+      <ServiceWorkerRegistration />
+    </>
+  )
 }
 
