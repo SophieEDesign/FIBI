@@ -62,14 +62,16 @@ export default function GooglePlacesInput({
     // Also check if the prop value matches what we have locally (to avoid unnecessary updates)
     if (!justSetFromPlaceRef.current.city) {
       if (propManualCity !== manualCity) {
+        console.log('GooglePlacesInput: Syncing city prop:', { propManualCity, manualCity })
         setManualCity(propManualCity)
       }
     } else {
-      // Reset the flag after a short delay to allow parent state to update
+      // Flag is set - don't sync, but reset the flag after a longer delay
       // This prevents the parent's state update from overwriting what we just set
+      // Use 500ms to ensure parent state has fully updated
       const timeoutId = setTimeout(() => {
         justSetFromPlaceRef.current.city = false
-      }, 100)
+      }, 500)
       return () => clearTimeout(timeoutId)
     }
   }, [propManualCity, manualCity])
@@ -77,13 +79,15 @@ export default function GooglePlacesInput({
   useEffect(() => {
     if (!justSetFromPlaceRef.current.country) {
       if (propManualCountry !== manualCountry) {
+        console.log('GooglePlacesInput: Syncing country prop:', { propManualCountry, manualCountry })
         setManualCountry(propManualCountry)
       }
     } else {
-      // Reset the flag after a short delay to allow parent state to update
+      // Flag is set - don't sync, but reset the flag after a longer delay
+      // Use 500ms to ensure parent state has fully updated
       const timeoutId = setTimeout(() => {
         justSetFromPlaceRef.current.country = false
-      }, 100)
+      }, 500)
       return () => clearTimeout(timeoutId)
     }
   }, [propManualCountry, manualCountry])
@@ -293,23 +297,33 @@ export default function GooglePlacesInput({
       
       console.log('GooglePlacesInput: Updating city/country fields:', { cityValue, countryValue })
       
-      // Update local state FIRST so fields update immediately
-      // Set flags to prevent useEffect from overwriting when parent updates props
+      // Set flags FIRST to prevent useEffect from overwriting when parent updates props
       justSetFromPlaceRef.current.city = true
       justSetFromPlaceRef.current.country = true
+      
+      // Update local state so fields update immediately
       setManualCity(cityValue)
       setManualCountry(countryValue)
       
-      // Notify parent of place selection - the parent's onChange handler will set city/country
+      // Also notify parent immediately via onManualCityChange/onManualCountryChange
+      // This ensures parent state is updated synchronously before onChange is called
+      if (onManualCityChange) {
+        onManualCityChange(cityValue)
+      }
+      if (onManualCountryChange) {
+        onManualCountryChange(countryValue)
+      }
+      
+      // Notify parent of place selection - the parent's onChange handler will also set city/country
       // The parent will update props, but our flags prevent overwriting for a short time
       onChange(googlePlace)
       
-      // Reset flags after parent has had time to update (but before it might trigger useEffect)
-      // This gives the parent time to update its state, and by the time props update, flags are still set
+      // Reset flags after parent has had time to update
+      // Use 500ms to match the useEffect timeout
       setTimeout(() => {
         justSetFromPlaceRef.current.city = false
         justSetFromPlaceRef.current.country = false
-      }, 300)
+      }, 500)
     })
 
     return () => {

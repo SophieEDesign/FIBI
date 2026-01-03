@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter } from 'next/navigation'
@@ -60,6 +60,9 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     city: string | null
     country: string | null
   } | null>(null)
+  
+  // Use ref to store handleSaveLocation so it's available in callbacks
+  const handleSaveLocationRef = useRef<() => Promise<void>>()
 
   useEffect(() => {
     loadItem()
@@ -561,6 +564,11 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       setSaving(false)
     }
   }
+  
+  // Update ref whenever handleSaveLocation changes
+  useEffect(() => {
+    handleSaveLocationRef.current = handleSaveLocation
+  }, [handleSaveLocation])
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this item?')) return
@@ -955,67 +963,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 </label>
                 <GooglePlacesInput
                   value={locationSearchValue}
-                  onChange={(place) => {
-                    console.log('ItemDetail: Place onChange called:', place)
-                    console.log('ItemDetail: Place data:', place ? {
-                      place_name: place.place_name,
-                      place_id: place.place_id,
-                      latitude: place.latitude,
-                      longitude: place.longitude,
-                      city: place.city,
-                      country: place.country,
-                    } : null)
-                    
-                    // CRITICAL: Update ref FIRST (synchronously) before state updates
-                    // This ensures handleSaveLocation has access to the place data
-                    selectedPlaceRef.current = place
-                    
-                    // Then update state (async)
-                    setSelectedPlace(place)
-                    
-                    if (place) {
-                      setLocationSearchValue(place.place_name)
-                      // Update city and country from place data (user can override after)
-                      const cityValue = place.city || ''
-                      const countryValue = place.country || ''
-                      console.log('ItemDetail: Setting city/country from place:', { cityValue, countryValue })
-                      setLocationCity(cityValue)
-                      setLocationCountry(countryValue)
-                      
-                      // Auto-save when place is selected
-                      // Use a longer timeout to ensure all state updates have propagated
-                      setTimeout(() => {
-                        console.log('ItemDetail: Auto-saving location after place selection:', {
-                          selectedPlace: place,
-                          selectedPlaceRef: selectedPlaceRef.current,
-                          locationCity: cityValue,
-                          locationCountry: countryValue,
-                        })
-                        // The ref is already set, so handleSaveLocation will use it
-                        handleSaveLocation()
-                      }, 300)
-                    } else {
-                      selectedPlaceRef.current = null
-                      setLocationSearchValue('')
-                      setLocationCity('')
-                      setLocationCountry('')
-                    }
-                  }}
-                  onSearchValueChange={(value) => {
-                    setLocationSearchValue(value)
-                  }}
-                  onManualCityChange={(city) => {
-                    console.log('ItemDetail: onManualCityChange called with:', city)
-                    setLocationCity(city)
-                    // Allow manual override - don't clear selectedPlace
-                    // User can override city/country while keeping the place coordinates
-                  }}
-                  onManualCountryChange={(country) => {
-                    console.log('ItemDetail: onManualCountryChange called with:', country)
-                    setLocationCountry(country)
-                    // Allow manual override - don't clear selectedPlace
-                    // User can override city/country while keeping the place coordinates
-                  }}
+                  onChange={handlePlaceChange}
+                  onSearchValueChange={handleSearchValueChange}
+                  onManualCityChange={handleManualCityChange}
+                  onManualCountryChange={handleManualCountryChange}
                   onManualCityBlur={handleSaveLocation}
                   onManualCountryBlur={handleSaveLocation}
                   manualCity={locationCity}
