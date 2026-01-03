@@ -47,81 +47,45 @@ export default function LoginClient() {
   }, [searchParams, checkingAuth])
 
   // Check if user is already authenticated
+  // Use getSession() instead of getUser() to check for actual session, not cached user
   useEffect(() => {
     let isMounted = true
-    let timeoutId: NodeJS.Timeout | null = null
-    
-    const checkUser = async () => {
-      try {
-        // If Supabase client creation failed, show error and stop loading
-        if (!supabase) {
-          if (isMounted) {
-            setCheckingAuth(false)
-            setError('Configuration error: Missing Supabase credentials. Please check your environment variables.')
-          }
-          return
-        }
-        
-        const { data: { user }, error } = await supabase.auth.getUser()
-        
-        if (!isMounted) return
-        
-        // "Auth session missing" is expected when user is not logged in - not an error
-        if (error && !error.message.includes('session missing')) {
-          console.error('Auth check error:', error)
-        }
-        
-        // If user is already authenticated, redirect to home
-        if (user) {
-          const redirectParam = searchParams.get('redirect')
-          if (redirectParam) {
-            router.push(redirectParam)
-          } else {
-            router.push('/')
-          }
-          return
-        }
-        
-        // User is not authenticated, show login form
+
+    const checkSession = async () => {
+      if (!supabase) {
         if (isMounted) {
+          setCheckingAuth(false)
+          setError('Configuration error: Missing Supabase credentials. Please check your environment variables.')
+        }
+        return
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!isMounted) return
+
+        if (session) {
+          // Only redirect if we have a real session
+          const redirectParam = searchParams.get('redirect')
+          router.replace(redirectParam || '/')
+        } else {
+          // No session, show login form
           setCheckingAuth(false)
         }
       } catch (err: any) {
         if (!isMounted) return
         
-        // Ignore "session missing" errors - they're expected for logged-out users
-        if (err?.message && !err.message.includes('session missing')) {
-          console.error('Error checking auth:', err)
-        }
-        
-        // Always stop loading, even on error
-        if (isMounted) {
-          setCheckingAuth(false)
-        }
-      }
-    }
-    
-    // Add timeout to prevent infinite loading - 1 second
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.warn('Auth check timeout - stopping loading')
+        console.error('Error checking session:', err)
+        // On error, show login form (don't block user)
         setCheckingAuth(false)
       }
-    }, 1000)
-    
-    checkUser()
-      .finally(() => {
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-        }
-      })
-    
-    // Cleanup function
+    }
+
+    checkSession()
+
     return () => {
       isMounted = false
-      if (timeoutId) {
-        clearTimeout(timeoutId)
-      }
     }
   }, [router, searchParams, supabase])
 
