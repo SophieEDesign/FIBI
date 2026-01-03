@@ -437,6 +437,82 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     }
   }
 
+  // Memoized callbacks for GooglePlacesInput to prevent listener recreation
+  const handlePlaceChange = useCallback((place: {
+    place_name: string
+    place_id: string
+    latitude: number
+    longitude: number
+    formatted_address: string
+    city: string | null
+    country: string | null
+  } | null) => {
+    console.log('ItemDetail: Place onChange called:', place)
+    console.log('ItemDetail: Place data:', place ? {
+      place_name: place.place_name,
+      place_id: place.place_id,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      city: place.city,
+      country: place.country,
+    } : null)
+    
+    // CRITICAL: Update ref FIRST (synchronously) before state updates
+    // This ensures handleSaveLocation has access to the place data
+    selectedPlaceRef.current = place
+    
+    // Then update state (async)
+    setSelectedPlace(place)
+    
+    if (place) {
+      setLocationSearchValue(place.place_name)
+      // Update city and country from place data (user can override after)
+      const cityValue = place.city || ''
+      const countryValue = place.country || ''
+      console.log('ItemDetail: Setting city/country from place:', { cityValue, countryValue })
+      setLocationCity(cityValue)
+      setLocationCountry(countryValue)
+      
+      // Auto-save when place is selected
+      // Use a longer timeout to ensure all state updates have propagated
+      setTimeout(() => {
+        console.log('ItemDetail: Auto-saving location after place selection:', {
+          selectedPlace: place,
+          selectedPlaceRef: selectedPlaceRef.current,
+          locationCity: cityValue,
+          locationCountry: countryValue,
+        })
+        // Use ref to call handleSaveLocation
+        if (handleSaveLocationRef.current) {
+          handleSaveLocationRef.current()
+        }
+      }, 300)
+    } else {
+      selectedPlaceRef.current = null
+      setLocationSearchValue('')
+      setLocationCity('')
+      setLocationCountry('')
+    }
+  }, []) // Empty deps - we use refs and setters which are stable
+
+  const handleManualCityChange = useCallback((city: string) => {
+    console.log('ItemDetail: onManualCityChange called with:', city)
+    setLocationCity(city)
+    // Allow manual override - don't clear selectedPlace
+    // User can override city/country while keeping the place coordinates
+  }, [])
+
+  const handleManualCountryChange = useCallback((country: string) => {
+    console.log('ItemDetail: onManualCountryChange called with:', country)
+    setLocationCountry(country)
+    // Allow manual override - don't clear selectedPlace
+    // User can override city/country while keeping the place coordinates
+  }, [])
+
+  const handleSearchValueChange = useCallback((value: string) => {
+    setLocationSearchValue(value)
+  }, [])
+
   // Save location fields (when in edit mode)
   const handleSaveLocation = useCallback(async () => {
     setSaving(true)
