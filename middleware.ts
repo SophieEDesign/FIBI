@@ -6,6 +6,10 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [],
+  // Explicitly exclude static files including manifest.json
+  // This ensures middleware never touches manifest.json or other static assets
+  matcher: [
+    '/((?!manifest\\.json|_next|favicon\\.ico|icon\\.svg|sw\\.js).*)',
+  ],
 }
 
