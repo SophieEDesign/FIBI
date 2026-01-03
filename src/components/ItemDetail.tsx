@@ -434,7 +434,15 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       // Determine location data: use Google Place if selected, otherwise use manual entry
       // If place is selected, use place data but allow manual city/country to override
       // IMPORTANT: Ensure coordinates are numbers, not strings
-      const locationData = currentSelectedPlace
+      const locationData: {
+        place_name: string | null
+        place_id: string | null
+        latitude: number | null
+        longitude: number | null
+        formatted_address: string | null
+        location_city: string | null
+        location_country: string | null
+      } = currentSelectedPlace
         ? {
             place_name: currentSelectedPlace.place_name,
             place_id: currentSelectedPlace.place_id,
