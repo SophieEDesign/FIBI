@@ -91,6 +91,90 @@ export function generateHostnameTitle(url: string): string {
 }
 
 /**
+ * Extract place information from Google Maps URLs
+ * Supports various Google Maps URL formats:
+ * - https://maps.google.com/?q=Place+Name
+ * - https://www.google.com/maps/place/Place+Name/@lat,lng
+ * - https://www.google.com/maps/search/?api=1&query=lat,lng
+ * - https://maps.google.com/maps?q=lat,lng
+ */
+export function extractGoogleMapsPlace(url: string): {
+  placeName: string | null
+  coordinates: { lat: number; lng: number } | null
+  query: string | null
+} {
+  try {
+    const urlObj = new URL(url)
+    const hostname = urlObj.hostname.toLowerCase()
+    
+    // Check if it's a Google Maps URL
+    if (!hostname.includes('google.com') && !hostname.includes('maps.google')) {
+      return { placeName: null, coordinates: null, query: null }
+    }
+
+    // Format 1: /maps/place/Place+Name/@lat,lng
+    const placeMatch = urlObj.pathname.match(/\/maps\/place\/([^/@]+)/)
+    if (placeMatch) {
+      const placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '))
+      
+      // Try to extract coordinates from @lat,lng in pathname
+      const coordMatch = urlObj.pathname.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/)
+      if (coordMatch) {
+        const lat = parseFloat(coordMatch[1])
+        const lng = parseFloat(coordMatch[2])
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { placeName, coordinates: { lat, lng }, query: placeName }
+        }
+      }
+      
+      return { placeName, coordinates: null, query: placeName }
+    }
+
+    // Format 2: ?q=query or ?q=lat,lng
+    const qParam = urlObj.searchParams.get('q')
+    if (qParam) {
+      // Check if it's coordinates (lat,lng format)
+      const coordMatch = qParam.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/)
+      if (coordMatch) {
+        const lat = parseFloat(coordMatch[1])
+        const lng = parseFloat(coordMatch[2])
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { placeName: null, coordinates: { lat, lng }, query: qParam }
+        }
+      }
+      
+      // Otherwise it's a place name query
+      const placeName = decodeURIComponent(qParam.replace(/\+/g, ' '))
+      return { placeName, coordinates: null, query: placeName }
+    }
+
+    // Format 3: /maps/search/?api=1&query=lat,lng or query=Place+Name
+    if (urlObj.pathname.includes('/maps/search')) {
+      const queryParam = urlObj.searchParams.get('query')
+      if (queryParam) {
+        // Check if it's coordinates
+        const coordMatch = queryParam.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/)
+        if (coordMatch) {
+          const lat = parseFloat(coordMatch[1])
+          const lng = parseFloat(coordMatch[2])
+          if (!isNaN(lat) && !isNaN(lng)) {
+            return { placeName: null, coordinates: { lat, lng }, query: queryParam }
+          }
+        }
+        
+        // Otherwise it's a place name
+        const placeName = decodeURIComponent(queryParam.replace(/\+/g, ' '))
+        return { placeName, coordinates: null, query: placeName }
+      }
+    }
+
+    return { placeName: null, coordinates: null, query: null }
+  } catch {
+    return { placeName: null, coordinates: null, query: null }
+  }
+}
+
+/**
  * Google Places API response types
  */
 export interface GooglePlace {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle } from '@/lib/utils'
+import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle, extractGoogleMapsPlace } from '@/lib/utils'
 import { CATEGORIES, STATUSES } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -394,19 +394,100 @@ export default function AddItemForm() {
     // If we have a URL, fetch metadata immediately
     if (urlParam) {
       const initializeFromUrl = async () => {
+        // Check if it's a Google Maps URL and extract place info
+        const mapsPlace = extractGoogleMapsPlace(urlParam)
+        
+        if (mapsPlace.placeName || mapsPlace.coordinates || mapsPlace.query) {
+          // It's a Google Maps URL - extract location data
+          if (mapsPlace.coordinates) {
+            // We have coordinates - use reverse geocoding to get place details
+            try {
+              const response = await fetch('/api/places', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  query: `${mapsPlace.coordinates.lat},${mapsPlace.coordinates.lng}` 
+                }),
+              })
+
+              if (response.ok) {
+                const data = await response.json()
+                if (data.place) {
+                  // Set the place from coordinates
+                  const googlePlace = {
+                    place_name: data.place.name,
+                    place_id: data.place.place_id,
+                    latitude: data.place.geometry.location.lat,
+                    longitude: data.place.geometry.location.lng,
+                    formatted_address: data.place.formatted_address || '',
+                    city: data.city,
+                    country: data.country,
+                  }
+                  
+                  setSelectedPlace(googlePlace)
+                  setLocationSearchValue(googlePlace.place_name)
+                  
+                  // Set title if not already set
+                  if (!userEditedTitle.current && !titleParam) {
+                    setTitle(googlePlace.place_name)
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Error fetching place from coordinates:', err)
+            }
+          } else if (mapsPlace.query) {
+            // We have a place name query - search for it
+            try {
+              const response = await fetch('/api/places', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: mapsPlace.query }),
+              })
+
+              if (response.ok) {
+                const data = await response.json()
+                if (data.place) {
+                  const googlePlace = {
+                    place_name: data.place.name,
+                    place_id: data.place.place_id,
+                    latitude: data.place.geometry.location.lat,
+                    longitude: data.place.geometry.location.lng,
+                    formatted_address: data.place.formatted_address || '',
+                    city: data.city,
+                    country: data.country,
+                  }
+                  
+                  setSelectedPlace(googlePlace)
+                  setLocationSearchValue(googlePlace.place_name)
+                  
+                  // Set title if not already set
+                  if (!userEditedTitle.current && !titleParam) {
+                    setTitle(googlePlace.place_name)
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Error searching place from Google Maps URL:', err)
+            }
+          }
+        }
+
+        // Fetch metadata for non-Google Maps URLs or as fallback
         const metadata = await fetchMetadata(urlParam)
         metadataFetchedRef.current = true
 
-        let finalTitle = title // Start with current title (might be from shared title param)
+        let finalTitle = title // Start with current title (might be from shared title param or Google Maps)
 
         if (metadata) {
           // Apply metadata with priority order:
           // 1. User-edited title (already set if titleParam exists)
           // 2. Shared title (already set if titleParam exists)
-          // 3. Cleaned OG title
-          // 4. Hostname-based title
+          // 3. Google Maps place name (already set above)
+          // 4. Cleaned OG title
+          // 5. Hostname-based title
 
-          if (!userEditedTitle.current) {
+          if (!userEditedTitle.current && !finalTitle) {
             // Try cleaned OG title
             const cleanedTitle = cleanOGTitle(metadata.title)
             if (cleanedTitle) {
@@ -436,8 +517,8 @@ export default function AddItemForm() {
           }
         }
 
-        // After metadata is loaded and title is set, try Google Places search
-        if (finalTitle && finalTitle.trim() && urlParam) {
+        // After metadata is loaded and title is set, try Google Places search (if not already done)
+        if (finalTitle && finalTitle.trim() && urlParam && !mapsPlace.placeName && !mapsPlace.coordinates) {
           // Small delay to ensure title state is updated
           setTimeout(() => {
             searchPlaces(finalTitle)
@@ -463,6 +544,11 @@ export default function AddItemForm() {
       setDescription('')
       setThumbnailUrl('')
       setScreenshotUrl(null)
+      // Clear location if URL is cleared
+      if (selectedPlace) {
+        setSelectedPlace(null)
+        setLocationSearchValue('')
+      }
       return
     }
 
@@ -476,6 +562,91 @@ export default function AddItemForm() {
     // Only fetch metadata if user hasn't manually edited title
     // and we haven't already fetched for this URL
     if (!userEditedTitle.current && !metadataFetchedRef.current) {
+      // Check if it's a Google Maps URL and extract place info
+      const mapsPlace = extractGoogleMapsPlace(newUrl)
+      
+      if (mapsPlace.placeName || mapsPlace.coordinates || mapsPlace.query) {
+        // It's a Google Maps URL - extract location data
+        if (mapsPlace.coordinates) {
+          // We have coordinates - use reverse geocoding to get place details
+          try {
+            const response = await fetch('/api/places', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                query: `${mapsPlace.coordinates.lat},${mapsPlace.coordinates.lng}` 
+              }),
+            })
+
+            if (response.ok) {
+              const data = await response.json()
+              if (data.place) {
+                const googlePlace = {
+                  place_name: data.place.name,
+                  place_id: data.place.place_id,
+                  latitude: data.place.geometry.location.lat,
+                  longitude: data.place.geometry.location.lng,
+                  formatted_address: data.place.formatted_address || '',
+                  city: data.city,
+                  country: data.country,
+                }
+                
+                setSelectedPlace(googlePlace)
+                setLocationSearchValue(googlePlace.place_name)
+                
+                // Set title if not already set
+                if (!userEditedTitle.current) {
+                  setTitle(googlePlace.place_name)
+                }
+                
+                metadataFetchedRef.current = true
+                return // Skip metadata fetch for Google Maps URLs
+              }
+            }
+          } catch (err) {
+            console.warn('Error fetching place from coordinates:', err)
+          }
+        } else if (mapsPlace.query) {
+          // We have a place name query - search for it
+          try {
+            const response = await fetch('/api/places', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: mapsPlace.query }),
+            })
+
+            if (response.ok) {
+              const data = await response.json()
+              if (data.place) {
+                const googlePlace = {
+                  place_name: data.place.name,
+                  place_id: data.place.place_id,
+                  latitude: data.place.geometry.location.lat,
+                  longitude: data.place.geometry.location.lng,
+                  formatted_address: data.place.formatted_address || '',
+                  city: data.city,
+                  country: data.country,
+                }
+                
+                setSelectedPlace(googlePlace)
+                setLocationSearchValue(googlePlace.place_name)
+                
+                // Set title if not already set
+                if (!userEditedTitle.current) {
+                  setTitle(googlePlace.place_name)
+                }
+                
+                metadataFetchedRef.current = true
+                return // Skip metadata fetch for Google Maps URLs
+              }
+            }
+          } catch (err) {
+            console.warn('Error searching place from Google Maps URL:', err)
+          }
+        }
+      }
+
+      // Fetch metadata for non-Google Maps URLs
       const metadata = await fetchMetadata(newUrl)
       metadataFetchedRef.current = true
 
@@ -501,8 +672,8 @@ export default function AddItemForm() {
         }
       }
 
-      // Try Google Places search after title is set
-      if (finalTitle && finalTitle.trim() && newUrl) {
+      // Try Google Places search after title is set (if not already done from Google Maps URL)
+      if (finalTitle && finalTitle.trim() && newUrl && !mapsPlace.placeName && !mapsPlace.coordinates) {
         setTimeout(() => {
           searchPlaces(finalTitle)
         }, 1000)
