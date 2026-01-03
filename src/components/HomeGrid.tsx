@@ -21,12 +21,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
   const [showInstructions, setShowInstructions] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
+  const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
+  const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     if (user) {
       loadItems()
+      loadUserCustomOptions()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -70,6 +73,39 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       setItems([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Load user's custom categories and statuses
+  const loadUserCustomOptions = async () => {
+    if (!user) return
+
+    try {
+      const { data: categories, error: catError } = await supabase
+        .from('user_custom_options')
+        .select('value')
+        .eq('user_id', user.id)
+        .eq('type', 'category')
+        .order('created_at', { ascending: false })
+
+      const { data: statuses, error: statusError } = await supabase
+        .from('user_custom_options')
+        .select('value')
+        .eq('user_id', user.id)
+        .eq('type', 'status')
+        .order('created_at', { ascending: false })
+
+      if (catError) console.error('Error loading custom categories:', catError)
+      if (statusError) console.error('Error loading custom statuses:', statusError)
+
+      if (categories) {
+        setUserCustomCategories(categories.map(c => c.value))
+      }
+      if (statuses) {
+        setUserCustomStatuses(statuses.map(s => s.value))
+      }
+    } catch (err) {
+      console.error('Error loading custom options:', err)
     }
   }
 
@@ -240,6 +276,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   {category}
                 </button>
               ))}
+              {userCustomCategories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
             </div>
 
             <div className="flex flex-wrap gap-2 items-center mt-3">
@@ -267,6 +316,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   {status}
                 </button>
               ))}
+              {userCustomStatuses.map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setSelectedStatus(status)}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedStatus === status
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -274,64 +336,103 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         {/* Empty state */}
         {!loading && filteredItems.length === 0 && (
           <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                Save places you don&apos;t want to forget
-              </h2>
-              <p className="text-base md:text-lg text-gray-600">
-                From TikTok, Instagram, and the web — all in one calm place.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-8 mb-6 md:mb-8">
-              <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-6 text-center">
-                How it works
-              </h3>
-              <div className="space-y-4 md:space-y-6 max-w-2xl mx-auto">
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
-                    1
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <p className="text-gray-900 font-medium">Share a link to Fibi</p>
-                  </div>
+            {/* Show filter empty state if filters are active and there are items */}
+            {items.length > 0 && activeFiltersCount > 0 ? (
+              <div className="text-center py-12 md:py-16">
+                <div className="mb-4">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
                 </div>
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
-                    2
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <p className="text-gray-900 font-medium">Add a screenshot or note so you remember why</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 md:gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
-                    3
-                  </div>
-                  <div className="flex-1 pt-1">
-                    <p className="text-gray-900 font-medium">Find it again later by location or category</p>
-                  </div>
-                </div>
+                <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-2">
+                  No places match your filters
+                </h2>
+                <p className="text-sm md:text-base text-gray-600 mb-6">
+                  Try adjusting your category or status filters to see more results.
+                </p>
+                <button
+                  onClick={() => {
+                    setSelectedCategory('all')
+                    setSelectedStatus('all')
+                  }}
+                  className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+                >
+                  Clear all filters
+                </button>
               </div>
-            </div>
+            ) : (
+              /* Show full empty state if no items at all */
+              <>
+                <div className="text-center mb-8 md:mb-12">
+                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+                    Save places you don&apos;t want to forget
+                  </h2>
+                  <p className="text-base md:text-lg text-gray-600">
+                    From TikTok, Instagram, and the web — all in one calm place.
+                  </p>
+                </div>
 
-            <div className="text-center mb-6 md:mb-8">
-              <p className="text-sm text-gray-600">
-                Some apps don&apos;t share previews — a screenshot keeps the context.
-              </p>
-            </div>
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-8 mb-6 md:mb-8">
+                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-6 text-center">
+                    How it works
+                  </h3>
+                  <div className="space-y-4 md:space-y-6 max-w-2xl mx-auto">
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                        1
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <p className="text-gray-900 font-medium">Share a link to Fibi</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                        2
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <p className="text-gray-900 font-medium">Add a screenshot or note so you remember why</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
+                        3
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <p className="text-gray-900 font-medium">Find it again later by location or category</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="text-center">
-              <Link
-                href="/app/add"
-                className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-2"
-              >
-                Add your first place
-              </Link>
-              <p className="text-sm text-gray-500">
-                Or share a link from another app
-              </p>
-            </div>
+                <div className="text-center mb-6 md:mb-8">
+                  <p className="text-sm text-gray-600">
+                    Some apps don&apos;t share previews — a screenshot keeps the context.
+                  </p>
+                </div>
+
+                <div className="text-center">
+                  <Link
+                    href="/app/add"
+                    className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-2"
+                  >
+                    Add your first place
+                  </Link>
+                  <p className="text-sm text-gray-500">
+                    Or share a link from another app
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -533,6 +634,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       {category}
                     </button>
                   ))}
+                  {userCustomCategories.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        selectedCategory === category
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -558,6 +672,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                         selectedStatus === status
                           ? 'bg-gray-900 text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                  {userCustomStatuses.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setSelectedStatus(status)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        selectedStatus === status
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                       }`}
                     >
                       {status}
