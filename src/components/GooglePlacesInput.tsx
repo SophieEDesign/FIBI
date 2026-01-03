@@ -26,44 +26,7 @@ interface GooglePlacesInputProps {
   disabled?: boolean
 }
 
-declare global {
-  interface Window {
-    google: {
-      maps: {
-        places: {
-          Autocomplete: new (
-            inputField: HTMLInputElement,
-            options?: {
-              types?: string[]
-              fields?: string[]
-            }
-          ) => {
-            getPlace: () => {
-              place_id?: string
-              name?: string
-              formatted_address?: string
-              geometry?: {
-                location: {
-                  lat: () => number
-                  lng: () => number
-                }
-              }
-              address_components?: Array<{
-                long_name: string
-                types: string[]
-              }>
-            }
-            addListener: (event: string, callback: () => void) => void
-          }
-        }
-        event: {
-          clearInstanceListeners: (instance: any) => void
-        }
-      }
-    }
-    initGooglePlaces: () => void
-  }
-}
+// Google Maps types are defined in src/types/google-maps.d.ts
 
 export default function GooglePlacesInput({
   value,

@@ -6,21 +6,7 @@ import { SavedItem } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-declare global {
-  interface Window {
-    google: {
-      maps: {
-        Map: new (element: HTMLElement, options?: google.maps.MapOptions) => google.maps.Map
-        Marker: new (options?: google.maps.MarkerOptions) => google.maps.Marker
-        InfoWindow: new (options?: google.maps.InfoWindowOptions) => google.maps.InfoWindow
-        LatLng: new (lat: number, lng: number) => google.maps.LatLng
-        MapTypeId: {
-          ROADMAP: string
-        }
-      }
-    }
-  }
-}
+// Google Maps types are defined in src/types/google-maps.d.ts
 
 interface MapMarker {
   item: SavedItem
