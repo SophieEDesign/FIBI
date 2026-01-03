@@ -62,7 +62,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   } | null>(null)
   
   // Use ref to store handleSaveLocation so it's available in callbacks
-  const handleSaveLocationRef = useRef<() => Promise<void>>()
+  const handleSaveLocationRef = useRef<(() => Promise<void>) | undefined>(undefined)
 
   useEffect(() => {
     loadItem()
@@ -438,7 +438,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   }
 
   // Save location fields (when in edit mode)
-  const handleSaveLocation = async () => {
+  const handleSaveLocation = useCallback(async () => {
     setSaving(true)
     setError(null)
 
@@ -563,7 +563,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     } finally {
       setSaving(false)
     }
-  }
+  }, [locationCity, locationCountry, description, itemId, supabase, loadItem])
   
   // Update ref whenever handleSaveLocation changes
   useEffect(() => {
