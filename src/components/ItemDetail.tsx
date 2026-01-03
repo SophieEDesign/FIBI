@@ -458,6 +458,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       // Determine location data: use Google Place if selected, otherwise use manual entry
       // If place is selected, use place data but allow manual city/country to override
       // IMPORTANT: Ensure coordinates are numbers, not strings
+      // If no place is selected AND city/country are empty, clear everything
       const locationData: {
         place_name: string | null
         place_id: string | null
@@ -482,11 +483,13 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             location_country: currentLocationCountry.trim() || currentSelectedPlace.country || null,
           }
         : {
+            // No place selected - clear all location data if city/country are also empty
             place_name: null,
             place_id: null,
             latitude: null,
             longitude: null,
             formatted_address: null,
+            // Only keep city/country if they have values (manual entry without place)
             location_city: currentLocationCity.trim() || null,
             location_country: currentLocationCountry.trim() || null,
           }
@@ -1036,17 +1039,19 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                         // CRITICAL: Clear ref FIRST (synchronously) so handleSaveLocation sees null
                         selectedPlaceRef.current = null
                         
-                        // Then clear all state
+                        // Then clear all state - this will trigger GooglePlacesInput to clear too
                         setSelectedPlace(null)
-                        setLocationSearchValue('')
+                        setLocationSearchValue('') // This will sync to GooglePlacesInput and clear the input
                         setLocationCity('')
                         setLocationCountry('')
                         
-                        // Wait a moment for state to clear, then save
+                        // Wait a moment for state to clear and propagate, then save
                         // The ref is already null, so handleSaveLocation will save null values
-                        setTimeout(() => {
-                          handleSaveLocation()
-                        }, 150)
+                        setTimeout(async () => {
+                          await handleSaveLocation()
+                          // After saving, ensure everything is cleared
+                          // loadItem() will be called by handleSaveLocation, which should show empty fields
+                        }, 200)
                       }}
                       className="text-sm text-red-600 hover:text-red-800 font-medium"
                     >

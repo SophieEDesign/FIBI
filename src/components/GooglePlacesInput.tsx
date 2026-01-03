@@ -94,16 +94,23 @@ export default function GooglePlacesInput({
     // If value prop changes and it's different from current value, sync it
     // This handles both initial load (when value is set from saved data) and updates
     if (value !== locationSearchValue) {
-      // Only sync if:
+      // Sync if:
       // 1. We don't have a selected place (user hasn't selected a place yet), OR
-      // 2. The value is being set from parent (e.g., loading saved data)
-      // We check if the value is non-empty and different to avoid clearing user input
-      if (!hasSelectedPlace || (value && value !== locationSearchValue)) {
+      // 2. The value is being set from parent (e.g., loading saved data), OR
+      // 3. The value is being cleared (empty string) - this is a programmatic clear
+      if (!hasSelectedPlace || (value && value !== locationSearchValue) || (!value && locationSearchValue)) {
         console.log('GooglePlacesInput: Syncing value prop to internal state:', { value, locationSearchValue, hasSelectedPlace })
         setLocationSearchValue(value)
-        // If value is being set and it's not empty, mark that we have a selected place
-        // This happens when loading saved data
-        if (value && value.trim()) {
+        // If value is being cleared, also clear hasSelectedPlace
+        if (!value || !value.trim()) {
+          setHasSelectedPlace(false)
+          // Also clear the Autocomplete input field if it exists
+          if (inputRef.current && autocompleteRef.current) {
+            inputRef.current.value = ''
+          }
+        } else if (value && value.trim()) {
+          // If value is being set and it's not empty, mark that we have a selected place
+          // This happens when loading saved data
           setHasSelectedPlace(true)
         }
       }
