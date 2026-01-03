@@ -1,5 +1,4 @@
-// Force dynamic rendering
-export const dynamic = 'force-dynamic'
+'use client'
 
 import MapView from '@/components/MapView'
 

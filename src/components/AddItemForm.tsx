@@ -1153,12 +1153,25 @@ export default function AddItemForm() {
             <GooglePlacesInput
               value={locationSearchValue}
               onChange={(place) => {
+                console.log('AddItemForm: Place onChange called:', place)
+                console.log('AddItemForm: Place data:', place ? {
+                  place_name: place.place_name,
+                  place_id: place.place_id,
+                  latitude: place.latitude,
+                  longitude: place.longitude,
+                  city: place.city,
+                  country: place.country,
+                } : null)
+                
                 setSelectedPlace(place)
                 if (place) {
                   setLocationSearchValue(place.place_name)
                   // Update city and country from place data (user can override after)
-                  setLocationCity(place.city || '')
-                  setLocationCountry(place.country || '')
+                  const cityValue = place.city || ''
+                  const countryValue = place.country || ''
+                  console.log('AddItemForm: Setting city/country from place:', { cityValue, countryValue })
+                  setLocationCity(cityValue)
+                  setLocationCountry(countryValue)
                   // Clear old place state
                   setPlaceName('')
                   setPlaceId('')
@@ -1167,17 +1180,21 @@ export default function AddItemForm() {
                   setIsLocationSuggested(false)
                 } else {
                   setLocationSearchValue('')
+                  setLocationCity('')
+                  setLocationCountry('')
                 }
               }}
               onSearchValueChange={(value) => {
                 setLocationSearchValue(value)
               }}
               onManualCityChange={(city) => {
+                console.log('AddItemForm: onManualCityChange called with:', city)
                 setLocationCity(city)
                 // Allow manual override - don't clear selectedPlace
                 // User can override city/country while keeping the place coordinates
               }}
               onManualCountryChange={(country) => {
+                console.log('AddItemForm: onManualCountryChange called with:', country)
                 setLocationCountry(country)
                 // Allow manual override - don't clear selectedPlace
                 // User can override city/country while keeping the place coordinates

@@ -153,12 +153,11 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setLocationCity(data.location_city || '')
         // Load Google Place data if available
         // Check if we have coordinates (latitude and longitude are the key indicators)
+        // We can have coordinates without place_name/place_id (if manually entered), so check coordinates first
         const hasCoordinates = data.latitude != null && data.longitude != null
-        const hasPlaceInfo = data.place_name || data.place_id
         
         console.log('ItemDetail: Loading item location data:', {
           hasCoordinates,
-          hasPlaceInfo,
           latitude: data.latitude,
           longitude: data.longitude,
           place_name: data.place_name,
@@ -167,14 +166,20 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
           location_country: data.location_country,
         })
         
-        if (hasCoordinates && hasPlaceInfo) {
+        if (hasCoordinates) {
           // Ensure coordinates are numbers
           const lat = typeof data.latitude === 'number' ? data.latitude : parseFloat(String(data.latitude))
           const lng = typeof data.longitude === 'number' ? data.longitude : parseFloat(String(data.longitude))
           
           if (!isNaN(lat) && !isNaN(lng)) {
+            // Create place data - use place_name if available, otherwise use formatted_address or location
+            const placeName = data.place_name || data.formatted_address || 
+              (data.location_city && data.location_country 
+                ? `${data.location_city}, ${data.location_country}` 
+                : data.location_city || data.location_country || '')
+            
             const placeData = {
-              place_name: data.place_name || '',
+              place_name: placeName,
               place_id: data.place_id || '',
               latitude: lat,
               longitude: lng,
@@ -185,7 +190,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             console.log('ItemDetail: Setting selected place from saved data:', placeData)
             setSelectedPlace(placeData)
             selectedPlaceRef.current = placeData
-            setLocationSearchValue(data.place_name || '')
+            setLocationSearchValue(placeName)
           } else {
             console.warn('ItemDetail: Invalid coordinates, clearing place:', { lat, lng })
             setSelectedPlace(null)
@@ -193,15 +198,11 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             setLocationSearchValue('')
           }
         } else {
-          console.log('ItemDetail: No place data found, clearing location field')
+          console.log('ItemDetail: No coordinates found, clearing place data')
           setSelectedPlace(null)
           selectedPlaceRef.current = null
-          // If we have city/country but no place, show them in manual fields
-          if (data.location_city || data.location_country) {
-            setLocationSearchValue('')
-          } else {
-            setLocationSearchValue('')
-          }
+          // If we have city/country but no coordinates, show them in manual fields only
+          setLocationSearchValue('')
         }
         // Check if category/status is a custom one (not in predefined lists)
         const isCustomCategory = data.category && !CATEGORIES.includes(data.category as any)
