@@ -7,7 +7,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 // Google Maps types are defined in src/types/google-maps.d.ts
+// Import the types to ensure the namespace is available
+import type {} from '@/types/google-maps'
 
+// Type aliases for Google Maps types
+// The google namespace is declared in src/types/google-maps.d.ts
 interface MapMarker {
   item: SavedItem
   marker: google.maps.Marker
@@ -109,7 +113,11 @@ export default function MapView() {
     if (!isGoogleLoaded || !mapRef.current || items.length === 0) return
 
     // Calm, desaturated map style
-    const mapStyle: google.maps.MapTypeStyle[] = [
+    const mapStyle: Array<{
+      featureType?: string
+      elementType?: string
+      stylers?: Array<{ [key: string]: any }>
+    }> = [
       {
         featureType: 'poi',
         elementType: 'labels',

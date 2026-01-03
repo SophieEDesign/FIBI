@@ -2,6 +2,7 @@
 // This file consolidates all Google Maps API type declarations to avoid conflicts
 
 // Define the google namespace for type references
+// This must be declared at the top level (not inside declare global) to be globally available
 declare namespace google {
   namespace maps {
     interface Map {
@@ -76,6 +77,9 @@ declare namespace google {
     }
   }
 }
+
+// Export empty object to make this a module (required for namespace declarations)
+export {}
 
 declare global {
   interface Window {
