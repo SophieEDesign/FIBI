@@ -1,6 +1,82 @@
 // Shared Google Maps type definitions
 // This file consolidates all Google Maps API type declarations to avoid conflicts
 
+// Define the google namespace for type references
+declare namespace google {
+  namespace maps {
+    interface Map {
+      getZoom(): number | null
+      getBounds(): LatLngBounds | null
+      getProjection(): Projection | null
+      fitBounds(bounds: LatLngBounds): void
+      addListener(eventName: string, handler: () => void): MapsEventListener
+      padding?: {
+        top: number
+        right: number
+        bottom: number
+        left: number
+      }
+    }
+
+    interface Marker {
+      setMap(map: Map | null): void
+      addListener(eventName: string, handler: () => void): MapsEventListener
+    }
+
+    interface LatLngBounds {
+      extend(latLng: LatLng): void
+      getNorthEast(): LatLng
+    }
+
+    interface LatLng {
+      lat(): number
+      lng(): number
+    }
+
+    interface Projection {
+      fromLatLngToPoint(latLng: LatLng): Point
+    }
+
+    interface Point {
+      x: number
+      y: number
+    }
+
+    interface MapsEventListener {}
+
+    interface MapOptions {
+      zoom?: number
+      center?: { lat: number; lng: number }
+      mapTypeId?: any
+      styles?: MapTypeStyle[]
+      disableDefaultUI?: boolean
+      zoomControl?: boolean
+      mapTypeControl?: boolean
+      streetViewControl?: boolean
+      fullscreenControl?: boolean
+    }
+
+    interface MarkerOptions {
+      position?: LatLng
+      map?: Map
+      icon?: any
+      title?: string
+      animation?: any
+    }
+
+    interface InfoWindowOptions {
+      content?: string
+      position?: LatLng
+    }
+
+    interface MapTypeStyle {
+      featureType?: string
+      elementType?: string
+      stylers?: Array<{ [key: string]: any }>
+    }
+  }
+}
+
 declare global {
   interface Window {
     google: {
