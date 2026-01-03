@@ -113,8 +113,8 @@ export default function MapView() {
   useEffect(() => {
     if (!isGoogleLoaded || !mapRef.current) return
     
-    // Don't initialize if no items with locations
-    const itemsWithLocations = items.filter(item => item.latitude && item.longitude)
+    // Filter items with valid coordinates
+    const itemsWithLocations = items.filter(item => item.latitude != null && item.longitude != null)
     if (itemsWithLocations.length === 0) return
 
     // Calm, desaturated map style
@@ -168,7 +168,6 @@ export default function MapView() {
 
     // Create markers for each item (only those with valid coordinates)
     const bounds = new window.google.maps.LatLngBounds()
-    const itemsWithLocations = items.filter(item => item.latitude != null && item.longitude != null)
 
     itemsWithLocations.forEach((item) => {
       // Double-check coordinates are valid numbers
