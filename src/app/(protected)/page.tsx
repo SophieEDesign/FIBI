@@ -41,13 +41,14 @@ export default async function HomePage({
     }
 
     // Check if user is authenticated
+    // Use getSession() instead of getUser() to check for actual session, not cached user
     const supabase = await createClient()
     const {
-      data: { user },
-    } = await supabase.auth.getUser()
+      data: { session },
+    } = await supabase.auth.getSession()
 
     // Show landing page for unauthenticated users
-    if (!user) {
+    if (!session) {
       return <LandingPage />
     }
 

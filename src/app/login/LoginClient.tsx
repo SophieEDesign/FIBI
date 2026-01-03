@@ -206,8 +206,9 @@ export default function LoginClient() {
           attempts++
         }
         
-        // Additional small delay to ensure cookie is set
-        await new Promise((resolve) => setTimeout(resolve, 200))
+        // Additional delay to ensure cookie is set and available on server
+        // Server-side needs time to read the cookie
+        await new Promise((resolve) => setTimeout(resolve, 500))
         
         // Check for redirect parameter and preserve it
         const redirectParam = searchParams.get('redirect')
