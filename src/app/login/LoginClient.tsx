@@ -68,7 +68,7 @@ export default function LoginClient() {
         if (session) {
           // Only redirect if we have a real session
           const redirectParam = searchParams.get('redirect')
-          router.replace(redirectParam || '/')
+          router.replace(redirectParam || '/app')
         } else {
           // No session, show login form
           setCheckingAuth(false)
@@ -212,7 +212,7 @@ export default function LoginClient() {
         
         // Check for redirect parameter and preserve it
         const redirectParam = searchParams.get('redirect')
-        const targetPath = redirectParam || '/'
+        const targetPath = redirectParam || '/app'
         
         // Use window.location.href with cache-busting to ensure fresh server-side check
         // Add timestamp to force server to re-check cookies

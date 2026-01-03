@@ -278,11 +278,11 @@ export default function MapView() {
     <div className="fixed inset-0 flex flex-col">
       {/* Simple header */}
       <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 px-4 py-3 z-20 flex items-center justify-between">
-        <Link href="/" className="text-2xl font-bold text-gray-900">
+        <Link href="/app" className="text-2xl font-bold text-gray-900">
           FiBi
         </Link>
         <Link
-          href="/"
+          href="/app"
           className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
         >
           Back to places

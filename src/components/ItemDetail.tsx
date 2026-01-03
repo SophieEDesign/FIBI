@@ -440,7 +440,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
 
       if (error) throw error
 
-      router.push('/')
+      router.push('/app')
       router.refresh()
     } catch (err: any) {
       setError(err.message || 'Failed to delete item')
@@ -460,7 +460,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Item not found</p>
-          <Link href="/" className="text-gray-900 font-medium hover:underline">
+          <Link href="/app" className="text-gray-900 font-medium hover:underline">
             ← Back to home
           </Link>
         </div>
@@ -473,11 +473,11 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
+            <Link href="/app" className="text-2xl font-bold text-gray-900">
               FiBi
             </Link>
             <Link
-              href="/"
+              href="/app"
               className="text-gray-600 hover:text-gray-900 text-sm font-medium"
             >
               ← Back

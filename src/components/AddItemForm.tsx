@@ -633,7 +633,7 @@ export default function AddItemForm() {
 
       // Success - redirect to home page
       setLoading(false)
-      router.push('/')
+      router.push('/app')
       router.refresh()
     } catch (err: any) {
       console.error('Error saving item:', err)
@@ -725,13 +725,13 @@ export default function AddItemForm() {
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between relative">
-            <Link href="/" className="text-2xl font-bold text-gray-900">
+            <Link href="/app" className="text-2xl font-bold text-gray-900">
               FiBi
             </Link>
             <div className="flex items-center gap-4">
               {/* Desktop cancel button */}
               <Link
-                href="/"
+                href="/app"
                 className="hidden md:block text-gray-600 hover:text-gray-900 text-sm font-medium"
               >
                 Cancel
@@ -1151,7 +1151,7 @@ export default function AddItemForm() {
                 {loading ? 'Saving...' : 'Save Place'}
               </button>
               <Link
-                href="/"
+                href="/app"
                 className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancel
