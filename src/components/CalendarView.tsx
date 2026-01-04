@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SavedItem, Itinerary } from '@/types/database'
 import {
@@ -55,7 +55,15 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
-  const [showUnplannedFilters, setShowUnplannedFilters] = useState(false)
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false)
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+  const [showStageDropdown, setShowStageDropdown] = useState(false)
+  const [locationSearch, setLocationSearch] = useState('')
+  const [categorySearch, setCategorySearch] = useState('')
+  const [stageSearch, setStageSearch] = useState('')
+  const locationDropdownRef = useRef<HTMLDivElement>(null)
+  const categoryDropdownRef = useRef<HTMLDivElement>(null)
+  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
   // Detect mobile device
@@ -599,6 +607,26 @@ export default function CalendarView({ user }: CalendarViewProps) {
     setCurrentMonth(new Date())
   }
 
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false)
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setShowCategoryDropdown(false)
+      }
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
+        setShowStageDropdown(false)
+      }
+    }
+
+    if (showLocationDropdown || showCategoryDropdown || showStageDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showLocationDropdown, showCategoryDropdown, showStageDropdown])
+
   const handleDownloadCalendar = async () => {
     try {
       const response = await fetch('/api/calendar/download', {
@@ -789,28 +817,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Filter Toggle Button */}
-                {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0 || filterOptions.locations.length > 0 || filterOptions.categories.length > 0 || filterOptions.statuses.length > 0) && (
-                  <button
-                    onClick={() => setShowUnplannedFilters(!showUnplannedFilters)}
-                    className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <svg 
-                      className={`w-4 h-4 transition-transform ${showUnplannedFilters ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    <span>Filters</span>
-                    {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0) && (
-                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
-                        {unplannedLocationFilters.length + unplannedCategoryFilters.length + unplannedStatusFilters.length}
-                      </span>
-                    )}
-                  </button>
-                )}
                 
                 {/* View Mode Toggle */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
@@ -843,181 +849,361 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </div>
               </div>
             </div>
-            
-            {/* Filter Controls - Multiple filter types simultaneously */}
-            {showUnplannedFilters && (
-            <div className="mb-4 space-y-4">
-              {/* Clear all filters button */}
+
+            {/* Filter Controls - Dropdown multiselects in a row */}
+            <div className="mb-4 flex items-center gap-3 flex-wrap">
+              {/* Location Filter Dropdown */}
+              {filterOptions.locations.length > 0 && (
+                <div className="relative" ref={locationDropdownRef}>
+                  <button
+                    onClick={() => {
+                      setShowLocationDropdown(!showLocationDropdown)
+                      setShowCategoryDropdown(false)
+                      setShowStageDropdown(false)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <span>Location</span>
+                    {unplannedLocationFilters.length > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                        {unplannedLocationFilters.length}
+                      </span>
+                    )}
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showLocationDropdown ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {showLocationDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
+                      <div className="p-2 border-b border-gray-200">
+                        <input
+                          type="text"
+                          value={locationSearch}
+                          onChange={(e) => setLocationSearch(e.target.value)}
+                          placeholder="Search locations..."
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-2">
+                        <button
+                          onClick={() => {
+                            setUnplannedLocationFilters([])
+                            setLocationSearch('')
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                            unplannedLocationFilters.length === 0
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          All Locations
+                        </button>
+                        {filterOptions.locations
+                          .filter((loc) => 
+                            loc.toLowerCase().includes(locationSearch.toLowerCase())
+                          )
+                          .map((option) => {
+                            const isSelected = unplannedLocationFilters.includes(option)
+                            return (
+                              <button
+                                key={option}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setUnplannedLocationFilters(unplannedLocationFilters.filter(v => v !== option))
+                                  } else {
+                                    setUnplannedLocationFilters([...unplannedLocationFilters, option])
+                                  }
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                                  isSelected
+                                    ? 'bg-gray-900 text-white'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                <svg
+                                  className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                {option}
+                              </button>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Category Filter Dropdown */}
+              {filterOptions.categories.length > 0 && (
+                <div className="relative" ref={categoryDropdownRef}>
+                  <button
+                    onClick={() => {
+                      setShowCategoryDropdown(!showCategoryDropdown)
+                      setShowLocationDropdown(false)
+                      setShowStageDropdown(false)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <span>Category</span>
+                    {unplannedCategoryFilters.length > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                        {unplannedCategoryFilters.length}
+                      </span>
+                    )}
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {showCategoryDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
+                      <div className="p-2 border-b border-gray-200">
+                        <input
+                          type="text"
+                          value={categorySearch}
+                          onChange={(e) => setCategorySearch(e.target.value)}
+                          placeholder="Search categories..."
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-2">
+                        <button
+                          onClick={() => {
+                            setUnplannedCategoryFilters([])
+                            setCategorySearch('')
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                            unplannedCategoryFilters.length === 0
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          All Categories
+                        </button>
+                        {filterOptions.categories
+                          .filter((cat) => 
+                            cat.toLowerCase().includes(categorySearch.toLowerCase())
+                          )
+                          .map((option) => {
+                            const isSelected = unplannedCategoryFilters.includes(option)
+                            return (
+                              <button
+                                key={option}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setUnplannedCategoryFilters(unplannedCategoryFilters.filter(v => v !== option))
+                                  } else {
+                                    setUnplannedCategoryFilters([...unplannedCategoryFilters, option])
+                                  }
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                                  isSelected
+                                    ? 'bg-gray-900 text-white'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                <svg
+                                  className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                {option}
+                              </button>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Stage Filter Dropdown */}
+              {filterOptions.statuses.length > 0 && (
+                <div className="relative" ref={stageDropdownRef}>
+                  <button
+                    onClick={() => {
+                      setShowStageDropdown(!showStageDropdown)
+                      setShowLocationDropdown(false)
+                      setShowCategoryDropdown(false)
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <span>Stage</span>
+                    {unplannedStatusFilters.length > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                        {unplannedStatusFilters.length}
+                      </span>
+                    )}
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {showStageDropdown && (
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
+                      <div className="p-2 border-b border-gray-200">
+                        <input
+                          type="text"
+                          value={stageSearch}
+                          onChange={(e) => setStageSearch(e.target.value)}
+                          placeholder="Search stages..."
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-64 overflow-y-auto p-2">
+                        <button
+                          onClick={() => {
+                            setUnplannedStatusFilters([])
+                            setStageSearch('')
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                            unplannedStatusFilters.length === 0
+                              ? 'bg-gray-900 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          All Stages
+                        </button>
+                        {filterOptions.statuses
+                          .filter((status) => 
+                            status.toLowerCase().includes(stageSearch.toLowerCase())
+                          )
+                          .map((option) => {
+                            const isSelected = unplannedStatusFilters.includes(option)
+                            return (
+                              <button
+                                key={option}
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setUnplannedStatusFilters(unplannedStatusFilters.filter(v => v !== option))
+                                  } else {
+                                    setUnplannedStatusFilters([...unplannedStatusFilters, option])
+                                  }
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                                  isSelected
+                                    ? 'bg-gray-900 text-white'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                <svg
+                                  className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M5 13l4 4L19 7"
+                                  />
+                                </svg>
+                                {option}
+                              </button>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Selected Filters Display */}
               {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0) && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {unplannedLocationFilters.map((loc) => (
+                    <span
+                      key={loc}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                    >
+                      {loc}
+                      <button
+                        onClick={() => setUnplannedLocationFilters(unplannedLocationFilters.filter(l => l !== loc))}
+                        className="hover:text-gray-300"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {unplannedCategoryFilters.map((cat) => (
+                    <span
+                      key={cat}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                    >
+                      {cat}
+                      <button
+                        onClick={() => setUnplannedCategoryFilters(unplannedCategoryFilters.filter(c => c !== cat))}
+                        className="hover:text-gray-300"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {unplannedStatusFilters.map((status) => (
+                    <span
+                      key={status}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                    >
+                      {status}
+                      <button
+                        onClick={() => setUnplannedStatusFilters(unplannedStatusFilters.filter(s => s !== status))}
+                        className="hover:text-gray-300"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
                   <button
                     onClick={() => {
                       setUnplannedLocationFilters([])
                       setUnplannedCategoryFilters([])
                       setUnplannedStatusFilters([])
                     }}
-                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-1"
-                    title="Clear all filters"
+                    className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <span>Clear All Filters</span>
+                    Clear all
                   </button>
-                  <span className="text-xs text-gray-500">
-                    ({unplannedLocationFilters.length + unplannedCategoryFilters.length + unplannedStatusFilters.length} active)
-                  </span>
-                </div>
-              )}
-              
-              {/* Location Filters */}
-              {filterOptions.locations.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-medium text-gray-700">Location</h4>
-                    {unplannedLocationFilters.length > 0 && (
-                      <span className="text-xs text-gray-500">({unplannedLocationFilters.length} selected)</span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {filterOptions.locations.map((option) => {
-                      const isSelected = unplannedLocationFilters.includes(option)
-                      return (
-                        <button
-                          key={option}
-                          onClick={() => {
-                            if (isSelected) {
-                              setUnplannedLocationFilters(unplannedLocationFilters.filter(v => v !== option))
-                            } else {
-                              setUnplannedLocationFilters([...unplannedLocationFilters, option])
-                            }
-                          }}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          <svg
-                            className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          {option}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              
-              {/* Category Filters */}
-              {filterOptions.categories.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-medium text-gray-700">Category</h4>
-                    {unplannedCategoryFilters.length > 0 && (
-                      <span className="text-xs text-gray-500">({unplannedCategoryFilters.length} selected)</span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {filterOptions.categories.map((option) => {
-                      const isSelected = unplannedCategoryFilters.includes(option)
-                      return (
-                        <button
-                          key={option}
-                          onClick={() => {
-                            if (isSelected) {
-                              setUnplannedCategoryFilters(unplannedCategoryFilters.filter(v => v !== option))
-                            } else {
-                              setUnplannedCategoryFilters([...unplannedCategoryFilters, option])
-                            }
-                          }}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          <svg
-                            className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          {option}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              
-              {/* Status Filters */}
-              {filterOptions.statuses.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-medium text-gray-700">Stage</h4>
-                    {unplannedStatusFilters.length > 0 && (
-                      <span className="text-xs text-gray-500">({unplannedStatusFilters.length} selected)</span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {filterOptions.statuses.map((option) => {
-                      const isSelected = unplannedStatusFilters.includes(option)
-                      return (
-                        <button
-                          key={option}
-                          onClick={() => {
-                            if (isSelected) {
-                              setUnplannedStatusFilters(unplannedStatusFilters.filter(v => v !== option))
-                            } else {
-                              setUnplannedStatusFilters([...unplannedStatusFilters, option])
-                            }
-                          }}
-                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          <svg
-                            className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                          {option}
-                        </button>
-                      )
-                    })}
-                  </div>
                 </div>
               )}
             </div>
-            )}
             
             {/* Unplanned Items Display */}
             {unplannedItems.length > 0 ? (
