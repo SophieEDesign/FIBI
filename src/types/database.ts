@@ -17,6 +17,7 @@ export interface SavedItem {
   category: string | null
   status: string | null
   notes: string | null
+  planned_date: string | null
   created_at: string
   updated_at: string
 }

@@ -143,7 +143,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
         </div>
         <div 
           className="relative w-full flex items-center justify-center bg-white"
-          style={{ minHeight: isTikTok ? '600px' : isYouTube ? '450px' : '400px' }}
+          style={{ minHeight: isTikTok ? '800px' : isYouTube ? '450px' : '400px' }}
           dangerouslySetInnerHTML={{ __html: oembedData.html }}
         />
         {description && (

@@ -210,9 +210,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               >
                 Map
               </Link>
-              <span className="text-gray-400 text-sm font-medium cursor-not-allowed">
-                Planner <span className="text-xs">(coming soon)</span>
-              </span>
+              <Link
+                href="/app/calendar"
+                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              >
+                Planner
+              </Link>
               <Link
                 href="/app/add"
                 className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
