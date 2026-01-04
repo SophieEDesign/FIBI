@@ -9,6 +9,7 @@ import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import LinkPreview from '@/components/LinkPreview'
+import CollapsibleOptions from '@/components/CollapsibleOptions'
 
 export default function AddItemForm() {
   const [url, setUrl] = useState('')
@@ -1757,7 +1758,7 @@ export default function AddItemForm() {
                   </button>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
+              <CollapsibleOptions className="mb-2">
                 {CATEGORIES.map((cat) => {
                   const isSelected = categories.includes(cat)
                   return (
@@ -1834,7 +1835,7 @@ export default function AddItemForm() {
                 >
                   + Custom
                 </button>
-              </div>
+              </CollapsibleOptions>
               {showCustomCategoryInput && (
                 <div className="flex gap-2">
                   <input
@@ -1875,7 +1876,7 @@ export default function AddItemForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status
               </label>
-              <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
+              <CollapsibleOptions className="mb-2">
                 {STATUSES.map((stat) => {
                   const isSelected = statuses.includes(stat)
                   return (
@@ -1942,7 +1943,7 @@ export default function AddItemForm() {
                 >
                   + Custom
                 </button>
-              </div>
+              </CollapsibleOptions>
               {showCustomStatusInput && (
                 <div className="flex gap-2">
                   <input

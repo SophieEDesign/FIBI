@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { SavedItem } from '@/types/database'
+import { SavedItem, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -24,6 +24,8 @@ export default function MapView() {
   const markersRef = useRef<MapMarker[]>([])
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false)
   const [items, setItems] = useState<SavedItem[]>([])
+  const [itineraries, setItineraries] = useState<Itinerary[]>([])
+  const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
   const supabase = createClient()
@@ -71,6 +73,32 @@ export default function MapView() {
     }
     document.head.appendChild(script)
   }, [])
+
+  // Load itineraries
+  const loadItineraries = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('itineraries')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading itineraries:', error)
+        setItineraries([])
+      } else {
+        setItineraries(data || [])
+      }
+    } catch (error) {
+      console.error('Error loading itineraries:', error)
+      setItineraries([])
+    }
+  }
 
   // Fetch saved items with locations
   const fetchItems = async () => {
@@ -135,6 +163,7 @@ export default function MapView() {
       })
 
       console.log('MapView: Items with coordinates:', itemsWithCoords.length, 'out of', allData?.length || 0)
+      // Store all items - filtering by itinerary happens in useMemo
       setItems(itemsWithCoords)
     } catch (error) {
       console.error('Error fetching items:', error)
@@ -158,6 +187,7 @@ export default function MapView() {
 
       // Initial fetch
       await fetchItems()
+      await loadItineraries()
 
       // Subscribe to real-time changes
       const channel = supabase
@@ -306,6 +336,17 @@ export default function MapView() {
     }
   }
 
+  // Filter items based on selected itinerary
+  const filteredItems = useMemo(() => {
+    if (selectedItineraryId === null) {
+      // "All" tab - show all items
+      return items
+    } else {
+      // Show only items in the selected itinerary
+      return items.filter((item) => item.itinerary_id === selectedItineraryId)
+    }
+  }, [items, selectedItineraryId])
+
   // Update markers when items change
   useEffect(() => {
     if (!isGoogleLoaded || !mapInstanceRef.current) {
@@ -316,7 +357,7 @@ export default function MapView() {
     const map = mapInstanceRef.current
     
     // Filter items with valid coordinates (should already be filtered, but double-check)
-    const itemsWithLocations = items.filter(item => {
+    const itemsWithLocations = filteredItems.filter(item => {
       const lat = item.latitude
       const lng = item.longitude
       // Check for null and ensure they're valid numbers
@@ -418,7 +459,7 @@ export default function MapView() {
     } else {
       console.warn('MapView: No markers to fit bounds', { itemsWithLocations: itemsWithLocations.length, markers: markersRef.current.length })
     }
-  }, [isGoogleLoaded, items])
+  }, [isGoogleLoaded, filteredItems])
 
   // Close modal when clicking outside (on backdrop)
   useEffect(() => {
@@ -435,16 +476,47 @@ export default function MapView() {
   return (
     <div className="fixed inset-0 flex flex-col">
       {/* Simple header */}
-      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 px-4 py-3 z-20 flex items-center justify-between">
-        <Link href="/app" className="text-2xl font-bold text-gray-900">
-          FiBi
-        </Link>
-        <Link
-          href="/app"
-          className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          Back to places
-        </Link>
+      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-20">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <Link href="/app" className="text-2xl font-bold text-gray-900">
+            FiBi
+          </Link>
+          <Link
+            href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Add Place
+          </Link>
+        </div>
+        
+        {/* Itinerary Tabs */}
+        <div className="px-4 pb-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            <button
+              onClick={() => setSelectedItineraryId(null)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                selectedItineraryId === null
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              All
+            </button>
+            {itineraries.map((itinerary) => (
+              <button
+                key={itinerary.id}
+                onClick={() => setSelectedItineraryId(itinerary.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedItineraryId === itinerary.id
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {itinerary.name}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       
       {/* Loading state overlay */}
@@ -554,7 +626,7 @@ export default function MapView() {
       )}
 
       {/* Empty state */}
-      {items.length === 0 && !loading && (
+      {filteredItems.length === 0 && !loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 pointer-events-none z-30">
           <div className="text-center bg-white rounded-lg shadow-sm p-6 max-w-sm">
             <p className="text-gray-600 mb-2">No places with locations yet</p>
@@ -575,6 +647,8 @@ export default function MapView() {
       {process.env.NODE_ENV === 'development' && (
         <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs p-2 rounded pointer-events-none z-30">
           <div>Items: {items.length}</div>
+          <div>Filtered: {filteredItems.length}</div>
+          <div>Itinerary: {selectedItineraryId || 'All'}</div>
           <div>Loading: {loading ? 'yes' : 'no'}</div>
           <div>Google Loaded: {isGoogleLoaded ? 'yes' : 'no'}</div>
           <div>Map Instance: {mapInstanceRef.current ? 'yes' : 'no'}</div>

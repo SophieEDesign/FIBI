@@ -48,6 +48,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [showCreateItineraryModal, setShowCreateItineraryModal] = useState(false)
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareToken, setShareToken] = useState<string | null>(null)
+  const [loadingShare, setLoadingShare] = useState(false)
+  const [copied, setCopied] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -169,6 +174,103 @@ export default function CalendarView({ user }: CalendarViewProps) {
       setNewItineraryName('')
     }
   }
+
+  const handleShareItinerary = async () => {
+    if (!selectedItineraryId) return
+
+    setLoadingShare(true)
+    setCopied(false)
+    try {
+      const response = await fetch('/api/itinerary/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itinerary_id: selectedItineraryId }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate share link')
+      }
+
+      const data = await response.json()
+      setShareUrl(data.share_url)
+      setShareToken(data.share_token)
+      setShowShareModal(true)
+    } catch (error) {
+      console.error('Error sharing itinerary:', error)
+      alert('Failed to generate share link. Please try again.')
+    } finally {
+      setLoadingShare(false)
+    }
+  }
+
+  const handleCopyLink = async () => {
+    if (!shareUrl) return
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Error copying link:', error)
+      alert('Failed to copy link. Please try again.')
+    }
+  }
+
+  const handleRevokeShare = async () => {
+    if (!shareToken) return
+
+    try {
+      const response = await fetch(`/api/itinerary/share/${shareToken}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to revoke share link')
+      }
+
+      setShareUrl(null)
+      setShareToken(null)
+      setShowShareModal(false)
+    } catch (error) {
+      console.error('Error revoking share:', error)
+      alert('Failed to revoke share link. Please try again.')
+    }
+  }
+
+  // Load existing share when itinerary is selected
+  useEffect(() => {
+    if (!selectedItineraryId || selectedItineraryId === null) {
+      setShareUrl(null)
+      setShareToken(null)
+      return
+    }
+
+    // Check if there's an existing share for this itinerary
+    const checkExistingShare = async () => {
+      try {
+        const { data: shares, error } = await supabase
+          .from('itinerary_shares')
+          .select('share_token')
+          .eq('itinerary_id', selectedItineraryId)
+          .is('revoked_at', null)
+          .single()
+
+        if (!error && shares) {
+          const url = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/share/itinerary/${shares.share_token}`
+          setShareUrl(url)
+          setShareToken(shares.share_token)
+        } else {
+          setShareUrl(null)
+          setShareToken(null)
+        }
+      } catch (error) {
+        console.error('Error checking existing share:', error)
+      }
+    }
+
+    checkExistingShare()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItineraryId])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -431,17 +533,36 @@ export default function CalendarView({ user }: CalendarViewProps) {
               All
             </button>
             {itineraries.map((itinerary) => (
-              <button
-                key={itinerary.id}
-                onClick={() => setSelectedItineraryId(itinerary.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedItineraryId === itinerary.id
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                {itinerary.name}
-              </button>
+              <div key={itinerary.id} className="flex items-center gap-1">
+                <button
+                  onClick={() => setSelectedItineraryId(itinerary.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedItineraryId === itinerary.id
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {itinerary.name}
+                </button>
+                {selectedItineraryId === itinerary.id && (
+                  <button
+                    onClick={handleShareItinerary}
+                    disabled={loadingShare}
+                    className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                    title="Share itinerary"
+                  >
+                    {loadingShare ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    )}
+                  </button>
+                )}
+              </div>
             ))}
             <button
               onClick={() => setShowCreateItineraryModal(true)}
@@ -684,6 +805,60 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Share Itinerary Modal */}
+        {showShareModal && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowShareModal(false)
+              }
+            }}
+          >
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Share Itinerary</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Share Link
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={shareUrl || ''}
+                      readOnly
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                    />
+                    <button
+                      onClick={handleCopyLink}
+                      className="px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                    >
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Anyone with this link can view your itinerary. They won't be able to edit it.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRevokeShare}
+                    className="flex-1 px-4 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors"
+                  >
+                    Revoke Link
+                  </button>
+                  <button
+                    onClick={() => setShowShareModal(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Close
                   </button>
                 </div>
               </div>

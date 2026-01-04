@@ -36,3 +36,11 @@ export interface Itinerary {
   created_at: string
 }
 
+export interface ItineraryShare {
+  id: string
+  itinerary_id: string
+  share_token: string
+  created_at: string
+  revoked_at: string | null
+}
+

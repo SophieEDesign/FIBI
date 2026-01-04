@@ -1,6 +1,8 @@
 'use client'
 
 import BottomNavigation from '@/components/BottomNavigation'
+import DesktopNavigation from '@/components/DesktopNavigation'
+import { useAuth } from '@/lib/useAuth'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -11,8 +13,11 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { user } = useAuth()
+
   return (
     <>
+      <DesktopNavigation user={user} />
       {children}
       <BottomNavigation />
     </>

@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
+import CollapsibleOptions from '@/components/CollapsibleOptions'
 
 interface HomeGridProps {
   user: any
@@ -146,6 +147,59 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     // Single value
     return [item.status]
   }
+
+  // Calculate popularity (usage count) for categories and statuses
+  const calculatePopularity = () => {
+    const categoryCounts: Record<string, number> = {}
+    const statusCounts: Record<string, number> = {}
+
+    items.forEach((item) => {
+      const itemCategories = parseItemCategories(item)
+      const itemStatuses = parseItemStatuses(item)
+
+      itemCategories.forEach((cat) => {
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+      })
+
+      itemStatuses.forEach((stat) => {
+        statusCounts[stat] = (statusCounts[stat] || 0) + 1
+      })
+    })
+
+    return { categoryCounts, statusCounts }
+  }
+
+  const { categoryCounts, statusCounts } = calculatePopularity()
+
+  // Sort categories and statuses by popularity (most used first), then by name
+  const sortedCategories = [...CATEGORIES].sort((a, b) => {
+    const countA = categoryCounts[a] || 0
+    const countB = categoryCounts[b] || 0
+    if (countA !== countB) return countB - countA
+    return a.localeCompare(b)
+  })
+
+  const sortedStatuses = [...STATUSES].sort((a, b) => {
+    const countA = statusCounts[a] || 0
+    const countB = statusCounts[b] || 0
+    if (countA !== countB) return countB - countA
+    return a.localeCompare(b)
+  })
+
+  // Sort user custom categories and statuses by popularity
+  const sortedUserCustomCategories = [...userCustomCategories].sort((a, b) => {
+    const countA = categoryCounts[a] || 0
+    const countB = categoryCounts[b] || 0
+    if (countA !== countB) return countB - countA
+    return a.localeCompare(b)
+  })
+
+  const sortedUserCustomStatuses = [...userCustomStatuses].sort((a, b) => {
+    const countA = statusCounts[a] || 0
+    const countB = statusCounts[b] || 0
+    if (countA !== countB) return countB - countA
+    return a.localeCompare(b)
+  })
 
   const filteredItems = items.filter((item) => {
     // If no filters selected, show all
@@ -311,118 +365,122 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           <div className="mb-6 md:mb-8 hidden md:block">
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm font-medium text-gray-700 mr-2">Category:</span>
-              <button
-                onClick={() => setSelectedCategories([])}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategories.length === 0
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                All
-              </button>
-              {CATEGORIES.map((category) => {
-                const isSelected = selectedCategories.includes(category)
-                return (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedCategories(selectedCategories.filter(c => c !== category))
-                      } else {
-                        setSelectedCategories([...selectedCategories, category])
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                )
-              })}
-              {userCustomCategories.map((category) => {
-                const isSelected = selectedCategories.includes(category)
-                return (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedCategories(selectedCategories.filter(c => c !== category))
-                      } else {
-                        setSelectedCategories([...selectedCategories, category])
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                )
-              })}
+              <CollapsibleOptions>
+                <button
+                  onClick={() => setSelectedCategories([])}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategories.length === 0
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  All
+                </button>
+                {sortedCategories.map((category) => {
+                  const isSelected = selectedCategories.includes(category)
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCategories(selectedCategories.filter(c => c !== category))
+                        } else {
+                          setSelectedCategories([...selectedCategories, category])
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  )
+                })}
+                {sortedUserCustomCategories.map((category) => {
+                  const isSelected = selectedCategories.includes(category)
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCategories(selectedCategories.filter(c => c !== category))
+                        } else {
+                          setSelectedCategories([...selectedCategories, category])
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {category}
+                    </button>
+                  )
+                })}
+              </CollapsibleOptions>
             </div>
 
             <div className="flex flex-wrap gap-2 items-center mt-3">
               <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
-              <button
-                onClick={() => setSelectedStatuses([])}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedStatuses.length === 0
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                All
-              </button>
-              {STATUSES.map((status) => {
-                const isSelected = selectedStatuses.includes(status)
-                return (
-                  <button
-                    key={status}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                      } else {
-                        setSelectedStatuses([...selectedStatuses, status])
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                )
-              })}
-              {userCustomStatuses.map((status) => {
-                const isSelected = selectedStatuses.includes(status)
-                return (
-                  <button
-                    key={status}
-                    onClick={() => {
-                      if (isSelected) {
-                        setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                      } else {
-                        setSelectedStatuses([...selectedStatuses, status])
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                )
-              })}
+              <CollapsibleOptions>
+                <button
+                  onClick={() => setSelectedStatuses([])}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedStatuses.length === 0
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  All
+                </button>
+                {sortedStatuses.map((status) => {
+                  const isSelected = selectedStatuses.includes(status)
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                        } else {
+                          setSelectedStatuses([...selectedStatuses, status])
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  )
+                })}
+                {sortedUserCustomStatuses.map((status) => {
+                  const isSelected = selectedStatuses.includes(status)
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                        } else {
+                          setSelectedStatuses([...selectedStatuses, status])
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  )
+                })}
+              </CollapsibleOptions>
             </div>
           </div>
         )}
@@ -728,7 +786,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               {/* Category Filter */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Category</h3>
-                <div className="flex flex-wrap gap-2">
+                <CollapsibleOptions>
                   <button
                     onClick={() => setSelectedCategories([])}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
@@ -739,7 +797,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   >
                     All
                   </button>
-                  {CATEGORIES.map((category) => {
+                  {sortedCategories.map((category) => {
                     const isSelected = selectedCategories.includes(category)
                     return (
                       <button
@@ -761,7 +819,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       </button>
                     )
                   })}
-                  {userCustomCategories.map((category) => {
+                  {sortedUserCustomCategories.map((category) => {
                     const isSelected = selectedCategories.includes(category)
                     return (
                       <button
@@ -783,13 +841,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       </button>
                     )
                   })}
-                </div>
+                </CollapsibleOptions>
               </div>
 
               {/* Status Filter */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Status</h3>
-                <div className="flex flex-wrap gap-2">
+                <CollapsibleOptions>
                   <button
                     onClick={() => setSelectedStatuses([])}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
@@ -800,7 +858,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   >
                     All
                   </button>
-                  {STATUSES.map((status) => {
+                  {sortedStatuses.map((status) => {
                     const isSelected = selectedStatuses.includes(status)
                     return (
                       <button
@@ -822,7 +880,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       </button>
                     )
                   })}
-                  {userCustomStatuses.map((status) => {
+                  {sortedUserCustomStatuses.map((status) => {
                     const isSelected = selectedStatuses.includes(status)
                     return (
                       <button
@@ -844,7 +902,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       </button>
                     )
                   })}
-                </div>
+                </CollapsibleOptions>
               </div>
 
               {/* Apply Button */}
