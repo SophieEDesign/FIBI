@@ -49,15 +49,16 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
                                           data.html.match(/<p[^>]*>([^<]{10,})<\/p>/i) // Fallback: any <p> with substantial text
       
       if (captionMatch && captionMatch[1]) {
-        captionText = captionMatch[1].trim()
+        let extractedText = captionMatch[1].trim()
         // Clean up HTML entities
-        captionText = captionText
+        extractedText = extractedText
           .replace(/&amp;/g, '&')
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'")
           .replace(/&nbsp;/g, ' ')
+        captionText = extractedText
       }
     }
     
