@@ -217,8 +217,8 @@ export default function AddItemForm() {
   }
 
   // AI enrichment function (non-blocking, async)
-  const triggerAIEnrichment = async (urlToEnrich: string, currentTitle: string, currentDescription: string) => {
-    console.log('triggerAIEnrichment called:', { urlToEnrich, currentTitle, currentDescription, aiEnrichmentTriggered })
+  const triggerAIEnrichment = async (urlToEnrich: string, currentTitle: string, currentDescription: string, scrapedContent?: string | null) => {
+    console.log('triggerAIEnrichment called:', { urlToEnrich, currentTitle, currentDescription, scrapedContent: scrapedContent?.substring(0, 100), aiEnrichmentTriggered })
     
     // Don't trigger if already triggered or if user has edited fields
     if (aiEnrichmentTriggered || !urlToEnrich.trim()) {
@@ -254,6 +254,7 @@ export default function AddItemForm() {
             description: currentDescription || null,
             domain: domain || null,
             platform: platform || null,
+            scrapedContent: scrapedContent || null, // Pass scraped page content to AI
           }),
         })
         
@@ -332,8 +333,10 @@ export default function AddItemForm() {
     if (url && url.trim() && !aiEnrichmentTriggered && metadataFetchedRef.current && !aiEnrichmentTimeoutRef.current) {
       console.log('AddItemForm: URL present on mount, triggering AI enrichment after delay', { url })
       // Small delay to ensure metadata is loaded
+      // Note: We can't access metadata here, so we'll trigger without scraped content
+      // The handleUrlChange will handle it properly when URL is typed
       const timeout = setTimeout(() => {
-        triggerAIEnrichment(url, title || '', description || '')
+        triggerAIEnrichment(url, title || '', description || '', null)
       }, 1000)
       return () => clearTimeout(timeout)
     }
@@ -676,9 +679,10 @@ export default function AddItemForm() {
           url: urlParam,
           title: finalTitle,
           description: finalDescription,
+          scrapedContent: metadata?.scrapedContent?.substring(0, 100),
           metadataFetched: metadataFetchedRef.current,
         })
-        triggerAIEnrichment(urlParam, finalTitle || '', finalDescription || '')
+        triggerAIEnrichment(urlParam, finalTitle || '', finalDescription || '', metadata?.scrapedContent || null)
       }
 
       initializeFromUrl()
@@ -775,7 +779,7 @@ export default function AddItemForm() {
                 metadataFetchedRef.current = true
                 
                 // Trigger AI enrichment for Google Maps URLs too (can still suggest category, etc.)
-                triggerAIEnrichment(newUrl, googlePlace.place_name || '', description || '')
+                triggerAIEnrichment(newUrl, googlePlace.place_name || '', description || '', null)
                 return // Skip metadata fetch for Google Maps URLs
               }
             }
@@ -815,7 +819,7 @@ export default function AddItemForm() {
                 metadataFetchedRef.current = true
                 
                 // Trigger AI enrichment for Google Maps URLs too (can still suggest category, etc.)
-                triggerAIEnrichment(newUrl, googlePlace.place_name || '', description || '')
+                triggerAIEnrichment(newUrl, googlePlace.place_name || '', description || '', null)
                 return // Skip metadata fetch for Google Maps URLs
               }
             }
@@ -867,9 +871,10 @@ export default function AddItemForm() {
         url: newUrl,
         title: finalTitle,
         description: finalDescription,
+        scrapedContent: metadata?.scrapedContent?.substring(0, 100),
         metadataFetched: metadataFetchedRef.current,
       })
-      triggerAIEnrichment(newUrl, finalTitle || '', finalDescription || '')
+      triggerAIEnrichment(newUrl, finalTitle || '', finalDescription || '', metadata?.scrapedContent || null)
       }
     }
   }

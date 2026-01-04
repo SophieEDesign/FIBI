@@ -4,6 +4,7 @@ interface MetadataResponse {
   title: string | null
   description: string | null
   image: string | null
+  scrapedContent: string | null // Visible text content from the page
 }
 
 async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Response> {
@@ -30,6 +31,7 @@ function extractMetadata(html: string): MetadataResponse {
     title: null,
     description: null,
     image: null,
+    scrapedContent: null,
   }
 
   // Extract title
@@ -60,6 +62,66 @@ function extractMetadata(html: string): MetadataResponse {
     if (metaDescriptionMatch) {
       metadata.description = metaDescriptionMatch[1].trim()
     }
+  }
+
+  // Extract visible text content from the page (for AI enrichment)
+  try {
+    // Remove script and style tags
+    let cleanHtml = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    cleanHtml = cleanHtml.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    
+    // Extract text from common content containers
+    const contentSelectors = [
+      /<main[^>]*>([\s\S]*?)<\/main>/i,
+      /<article[^>]*>([\s\S]*?)<\/article>/i,
+      /<div[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*id=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<body[^>]*>([\s\S]*?)<\/body>/i,
+    ]
+    
+    let extractedText = ''
+    for (const selector of contentSelectors) {
+      const match = cleanHtml.match(selector)
+      if (match && match[1]) {
+        extractedText = match[1]
+        break
+      }
+    }
+    
+    // If no specific container found, use body content
+    if (!extractedText) {
+      const bodyMatch = cleanHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+      if (bodyMatch) {
+        extractedText = bodyMatch[1]
+      } else {
+        extractedText = cleanHtml
+      }
+    }
+    
+    // Remove HTML tags and decode entities
+    let text = extractedText
+      .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+    
+    // Limit to 2000 characters to avoid token limits
+    if (text.length > 2000) {
+      text = text.substring(0, 2000) + '...'
+    }
+    
+    // Only include if we have meaningful content (more than just whitespace and short)
+    if (text.length > 50) {
+      metadata.scrapedContent = text
+    }
+  } catch (err) {
+    // Silently fail - scraping is optional
+    console.debug('Error extracting page content:', err)
   }
 
   return metadata
@@ -103,6 +165,7 @@ export async function POST(request: NextRequest) {
           title: null,
           description: null,
           image: null,
+          scrapedContent: null,
         })
       }
 
@@ -117,6 +180,7 @@ export async function POST(request: NextRequest) {
         title: null,
         description: null,
         image: null,
+        scrapedContent: null,
       })
     }
   } catch (error: any) {

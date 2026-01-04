@@ -9,6 +9,7 @@ interface AIEnrichmentRequest {
   description: string | null
   domain: string | null
   platform: string | null
+  scrapedContent: string | null // Scraped visible text from the page
 }
 
 interface AIEnrichmentResponse {
@@ -27,9 +28,17 @@ interface AIEnrichmentResponse {
 export async function POST(request: NextRequest) {
   try {
     const body: AIEnrichmentRequest = await request.json()
-    const { url, title, description, domain, platform } = body
+    const { url, title, description, domain, platform, scrapedContent } = body
 
-    console.log('AI enrichment API: Request received', { url, title, description, domain, platform })
+    console.log('AI enrichment API: Request received', { 
+      url, 
+      title, 
+      description, 
+      domain, 
+      platform,
+      hasScrapedContent: !!scrapedContent,
+      scrapedContentLength: scrapedContent?.length || 0,
+    })
 
     if (!url || typeof url !== 'string') {
       console.log('AI enrichment API: Missing URL')
@@ -81,6 +90,7 @@ export async function POST(request: NextRequest) {
       description: description || '',
       domain: domain || '',
       platform: platform || '',
+      scrapedContent: scrapedContent || '',
     }
 
     // Use OpenAI API (can be switched to Anthropic/Claude if needed)
@@ -97,6 +107,7 @@ Given the following information extracted from a shared link:
 - Description: ${context.description || '(not provided)'}
 - Domain: ${context.domain || '(not provided)'}
 - Platform: ${context.platform || '(not provided)'}
+${context.scrapedContent ? `- Page Content (scraped): ${context.scrapedContent.substring(0, 1500)}${context.scrapedContent.length > 1500 ? '...' : ''}` : ''}
 
 Please suggest improvements. IMPORTANT RULES:
 1. For title: ALWAYS suggest a cleaner, shorter version. Even if the title seems fine, try to improve it (remove extra words, make it more concise, remove platform-specific text like "Instagram" or "TikTok"). Only return null if the title is already perfect.
