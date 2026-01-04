@@ -583,6 +583,7 @@ export default function AddItemForm() {
         metadataFetchedRef.current = true
 
         let finalTitle = title // Start with current title (might be from shared title param or Google Maps)
+        let finalDescription = description // Track description for AI enrichment
 
         if (metadata) {
           // Apply metadata with priority order:
@@ -608,6 +609,7 @@ export default function AddItemForm() {
           // Set description (OG description)
           if (metadata.description && !description) {
             setDescription(metadata.description)
+            finalDescription = metadata.description
           }
 
           // Set thumbnail (OG image)
@@ -631,7 +633,13 @@ export default function AddItemForm() {
         }
 
         // Trigger AI enrichment after metadata is loaded (non-blocking)
-        triggerAIEnrichment(urlParam, finalTitle || '', description || '')
+        console.log('AddItemForm: About to trigger AI enrichment from share flow', {
+          url: urlParam,
+          title: finalTitle,
+          description: finalDescription,
+          metadataFetched: metadataFetchedRef.current,
+        })
+        triggerAIEnrichment(urlParam, finalTitle || '', finalDescription || '')
       }
 
       initializeFromUrl()
@@ -680,7 +688,14 @@ export default function AddItemForm() {
 
     // Only fetch metadata if user hasn't manually edited title
     // and we haven't already fetched for this URL
-    if (!userEditedTitle.current && !metadataFetchedRef.current) {
+    // Note: Reset metadataFetchedRef when URL changes to allow re-fetching
+    if (!userEditedTitle.current) {
+      // Reset the flag if URL changed (allows re-fetching for new URLs)
+      if (metadataFetchedRef.current && url !== newUrl) {
+        metadataFetchedRef.current = false
+      }
+      
+      if (!metadataFetchedRef.current) {
       // Check if it's a Google Maps URL and extract place info
       const mapsPlace = extractGoogleMapsPlace(newUrl)
       
@@ -719,6 +734,9 @@ export default function AddItemForm() {
                 }
                 
                 metadataFetchedRef.current = true
+                
+                // Trigger AI enrichment for Google Maps URLs too (can still suggest category, etc.)
+                triggerAIEnrichment(newUrl, googlePlace.place_name || '', description || '')
                 return // Skip metadata fetch for Google Maps URLs
               }
             }
@@ -756,6 +774,9 @@ export default function AddItemForm() {
                 }
                 
                 metadataFetchedRef.current = true
+                
+                // Trigger AI enrichment for Google Maps URLs too (can still suggest category, etc.)
+                triggerAIEnrichment(newUrl, googlePlace.place_name || '', description || '')
                 return // Skip metadata fetch for Google Maps URLs
               }
             }
@@ -781,7 +802,10 @@ export default function AddItemForm() {
           setTitle(finalTitle)
         }
 
-        if (metadata.description) setDescription(metadata.description)
+        if (metadata.description) {
+          setDescription(metadata.description)
+          finalDescription = metadata.description
+        }
         if (metadata.image && !screenshotUrl) setThumbnailUrl(metadata.image)
       } else {
         // Ensure title is never empty
@@ -799,7 +823,14 @@ export default function AddItemForm() {
       }
 
       // Trigger AI enrichment after metadata is loaded (non-blocking)
-      triggerAIEnrichment(newUrl, finalTitle || '', description || '')
+      console.log('AddItemForm: About to trigger AI enrichment from handleUrlChange', {
+        url: newUrl,
+        title: finalTitle,
+        description: finalDescription,
+        metadataFetched: metadataFetchedRef.current,
+      })
+      triggerAIEnrichment(newUrl, finalTitle || '', finalDescription || '')
+      }
     }
   }
 
