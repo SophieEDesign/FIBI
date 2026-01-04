@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +11,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
+    // Convert Request to NextRequest for cookie handling
+    const nextRequest = request as unknown as NextRequest
+    const supabase = await createClient(nextRequest)
     
     // Get authenticated user
     const {
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
 
     if (authError || !user) {
       console.error('Calendar download auth error:', authError)
+      console.error('Request cookies:', request.headers.get('cookie'))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

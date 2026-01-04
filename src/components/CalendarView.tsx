@@ -52,8 +52,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [loadingShare, setLoadingShare] = useState(false)
   const [copied, setCopied] = useState(false)
   const [unplannedFilterType, setUnplannedFilterType] = useState<'all' | 'location' | 'category' | 'status'>('all')
-  const [unplannedFilterValue, setUnplannedFilterValue] = useState<string>('')
+  const [unplannedFilterValues, setUnplannedFilterValues] = useState<string[]>([]) // Multiple selections
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('list')
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
   const supabase = createClient()
 
   // Detect mobile device
@@ -328,58 +329,71 @@ export default function CalendarView({ user }: CalendarViewProps) {
   }, [currentMonth, filteredItems])
 
   // Get unplanned items (items without planned_date) with filtering
+  // Show ALL unplanned items regardless of itinerary, but respect the filter dropdowns
   const unplannedItems = useMemo(() => {
-    let items = filteredItems.filter((item) => !item.planned_date)
+    // Use all items, not filteredItems, so we show all unplanned items regardless of itinerary
+    let unplanned = items.filter((item) => !item.planned_date)
     
-    // Apply filter based on selected filter type
-    if (unplannedFilterType === 'location' && unplannedFilterValue) {
-      items = items.filter((item) => {
-        const filterLower = unplannedFilterValue.toLowerCase()
-        return (
-          (item.location_city && item.location_city.toLowerCase() === filterLower) ||
-          (item.location_country && item.location_country.toLowerCase() === filterLower) ||
-          (item.place_name && item.place_name.toLowerCase() === filterLower) ||
-          (item.formatted_address && item.formatted_address.toLowerCase().includes(filterLower))
-        )
+    // Apply multiple filters - items must match at least one selected value in each active filter type
+    if (unplannedFilterType === 'location' && unplannedFilterValues.length > 0) {
+      unplanned = unplanned.filter((item) => {
+        const itemLocations = [
+          item.location_city?.toLowerCase(),
+          item.location_country?.toLowerCase(),
+          item.place_name?.toLowerCase(),
+          item.formatted_address?.toLowerCase(),
+        ].filter(Boolean)
+        
+        return unplannedFilterValues.some((filterValue) => {
+          const filterLower = filterValue.toLowerCase()
+          return itemLocations.some((loc) => loc && (loc === filterLower || loc.includes(filterLower)))
+        })
       })
-    } else if (unplannedFilterType === 'category' && unplannedFilterValue) {
-      items = items.filter((item) => {
+    } else if (unplannedFilterType === 'category' && unplannedFilterValues.length > 0) {
+      unplanned = unplanned.filter((item) => {
         if (!item.category) return false
         try {
           const categories = JSON.parse(item.category)
           const categoryArray = Array.isArray(categories) ? categories : [categories]
-          return categoryArray.some((cat: string) => 
-            cat.toLowerCase() === unplannedFilterValue.toLowerCase()
+          const itemCategories = categoryArray.map((cat: string) => cat.toLowerCase())
+          return unplannedFilterValues.some((filterValue) =>
+            itemCategories.includes(filterValue.toLowerCase())
           )
         } catch {
-          return item.category.toLowerCase() === unplannedFilterValue.toLowerCase()
+          return unplannedFilterValues.some((filterValue) =>
+            item.category.toLowerCase() === filterValue.toLowerCase()
+          )
         }
       })
-    } else if (unplannedFilterType === 'status' && unplannedFilterValue) {
-      items = items.filter((item) => {
+    } else if (unplannedFilterType === 'status' && unplannedFilterValues.length > 0) {
+      unplanned = unplanned.filter((item) => {
         if (!item.status) return false
         try {
           const statuses = JSON.parse(item.status)
           const statusArray = Array.isArray(statuses) ? statuses : [statuses]
-          return statusArray.some((stat: string) => 
-            stat.toLowerCase() === unplannedFilterValue.toLowerCase()
+          const itemStatuses = statusArray.map((stat: string) => stat.toLowerCase())
+          return unplannedFilterValues.some((filterValue) =>
+            itemStatuses.includes(filterValue.toLowerCase())
           )
         } catch {
-          return item.status.toLowerCase() === unplannedFilterValue.toLowerCase()
+          return unplannedFilterValues.some((filterValue) =>
+            item.status.toLowerCase() === filterValue.toLowerCase()
+          )
         }
       })
     }
     
-    return items
-  }, [filteredItems, unplannedFilterType, unplannedFilterValue])
+    return unplanned
+  }, [items, unplannedFilterType, unplannedFilterValues])
 
-  // Extract unique filter values from unplanned items
+  // Extract unique filter values from ALL unplanned items (not just current itinerary)
   const filterOptions = useMemo(() => {
     const locations = new Set<string>()
     const categories = new Set<string>()
     const statuses = new Set<string>()
     
-    filteredItems
+    // Use all items, not filteredItems, so filter options include all unplanned items
+    items
       .filter((item) => !item.planned_date)
       .forEach((item) => {
         // Extract locations
@@ -415,7 +429,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
       categories: Array.from(categories).sort(),
       statuses: Array.from(statuses).sort(),
     }
-  }, [filteredItems])
+  }, [items])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -425,11 +439,22 @@ export default function CalendarView({ user }: CalendarViewProps) {
   }
 
   // Assign date to item (used for both drag-and-drop and tap-based selection)
+  // If an itinerary is selected, also assign the item to that itinerary
   const assignDateToItem = async (itemId: string, dateStr: string | null) => {
     try {
+      const updateData: { planned_date: string | null; itinerary_id?: string | null } = {
+        planned_date: dateStr,
+      }
+      
+      // If an itinerary is selected and we're assigning a date, also assign to itinerary
+      if (selectedItineraryId && dateStr) {
+        updateData.itinerary_id = selectedItineraryId
+      }
+      // If setting date to null (unplanned), don't change itinerary_id
+      
       const { error } = await supabase
         .from('saved_items')
-        .update({ planned_date: dateStr })
+        .update(updateData)
         .eq('id', itemId)
 
       if (error) throw error
@@ -437,7 +462,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
       // Optimistic update
       setItems((prev) =>
         prev.map((item) =>
-          item.id === itemId ? { ...item, planned_date: dateStr } : item
+          item.id === itemId 
+            ? { ...item, planned_date: dateStr, ...(selectedItineraryId && dateStr ? { itinerary_id: selectedItineraryId } : {}) }
+            : item
         )
       )
     } catch (error) {
@@ -742,55 +769,86 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </div>
             </div>
             
-            {/* Filter Controls */}
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
-              <select
-                value={unplannedFilterType}
-                onChange={(e) => {
-                  setUnplannedFilterType(e.target.value as 'all' | 'location' | 'category' | 'status')
-                  setUnplannedFilterValue('')
-                }}
-                className="text-sm px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              >
-                <option value="all">All Places</option>
-                <option value="location">Filter by Location</option>
-                <option value="category">Filter by Category</option>
-                <option value="status">Filter by Status</option>
-              </select>
+            {/* Filter Controls - Multi-select */}
+            <div className="mb-4 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={unplannedFilterType}
+                  onChange={(e) => {
+                    setUnplannedFilterType(e.target.value as 'all' | 'location' | 'category' | 'status')
+                    setUnplannedFilterValues([])
+                  }}
+                  className="text-sm px-3 py-2 border border-gray-400 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                >
+                  <option value="all">All Places</option>
+                  <option value="location">Filter by Location</option>
+                  <option value="category">Filter by Category</option>
+                  <option value="status">Filter by Status</option>
+                </select>
+                
+                {unplannedFilterValues.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setUnplannedFilterValues([])
+                    }}
+                    className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-1"
+                    title="Clear all filters"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Clear ({unplannedFilterValues.length})</span>
+                  </button>
+                )}
+              </div>
               
               {unplannedFilterType !== 'all' && (
-                <select
-                  value={unplannedFilterValue}
-                  onChange={(e) => setUnplannedFilterValue(e.target.value)}
-                  className="text-sm px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                >
-                  <option value="">Select {unplannedFilterType === 'location' ? 'location' : unplannedFilterType === 'category' ? 'category' : 'status'}...</option>
-                  {unplannedFilterType === 'location' && filterOptions.locations.map((loc) => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                  {unplannedFilterType === 'category' && filterOptions.categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                  {unplannedFilterType === 'status' && filterOptions.statuses.map((stat) => (
-                    <option key={stat} value={stat}>{stat}</option>
-                  ))}
-                </select>
-              )}
-              
-              {unplannedFilterType !== 'all' && unplannedFilterValue && (
-                <button
-                  onClick={() => {
-                    setUnplannedFilterType('all')
-                    setUnplannedFilterValue('')
-                  }}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-1"
-                  title="Clear filter"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  <span>Clear</span>
-                </button>
+                <div className="relative">
+                  <div className="flex flex-wrap gap-2">
+                    {(unplannedFilterType === 'location' ? filterOptions.locations : 
+                      unplannedFilterType === 'category' ? filterOptions.categories : 
+                      filterOptions.statuses).map((option) => {
+                      const isSelected = unplannedFilterValues.includes(option)
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            if (isSelected) {
+                              setUnplannedFilterValues(unplannedFilterValues.filter(v => v !== option))
+                            } else {
+                              setUnplannedFilterValues([...unplannedFilterValues, option])
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <svg
+                            className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {unplannedFilterValues.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Showing items matching {unplannedFilterValues.length} selected {unplannedFilterType === 'location' ? 'location' : unplannedFilterType === 'category' ? 'category' : 'status'}{unplannedFilterValues.length > 1 ? 'ies' : 'y'}: {unplannedFilterValues.slice(0, 3).join(', ')}{unplannedFilterValues.length > 3 ? ` +${unplannedFilterValues.length - 3} more` : ''}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
             
@@ -938,7 +996,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       }
                     }}
                     placeholder="e.g., Weekend Trip, Italy Ideas"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
                     autoFocus
                   />
                 </div>
@@ -987,7 +1045,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       type="text"
                       value={shareUrl || ''}
                       readOnly
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                      className="flex-1 px-4 py-2 border border-gray-400 rounded-lg bg-gray-50 text-sm text-gray-900"
                     />
                     <button
                       onClick={handleCopyLink}

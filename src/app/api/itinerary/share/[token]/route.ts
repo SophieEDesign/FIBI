@@ -78,12 +78,14 @@ export async function DELETE(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient(request)
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
+      console.error('Revoke share auth error - no user')
+      console.error('Request cookies:', request.headers.get('cookie'))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

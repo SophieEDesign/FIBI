@@ -1389,7 +1389,7 @@ export default function AddItemForm() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-200 md:hidden">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between relative">
             <Link href="/app" className="text-2xl font-bold text-gray-900">
@@ -1516,7 +1516,7 @@ export default function AddItemForm() {
                 onChange={(e) => handleUrlChange(e.target.value)}
                 required
                 placeholder="https://..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
               />
               {fetchingMetadata && (
                 <p className="mt-1 text-sm text-gray-500">Fetching metadata...</p>
@@ -1535,7 +1535,7 @@ export default function AddItemForm() {
                   value={title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="Enter a title"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
                 />
                 {/* AI Title Suggestion */}
                 {aiSuggestions?.title && !userEditedTitle.current && (
@@ -1575,7 +1575,7 @@ export default function AddItemForm() {
                 onChange={(e) => handleDescriptionChange(e.target.value)}
                 rows={4}
                 placeholder="Post caption or description (will be fetched automatically if available)..."
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none ${
+                className={`w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 resize-none ${
                   description ? 'bg-gray-50' : 'bg-white'
                 }`}
               />
@@ -1870,7 +1870,7 @@ export default function AddItemForm() {
                       }
                     }}
                     placeholder="Enter custom category..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
                   />
                   <button
                     type="button"
@@ -1978,7 +1978,7 @@ export default function AddItemForm() {
                       }
                     }}
                     placeholder="Enter custom status..."
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
                   />
                   <button
                     type="button"

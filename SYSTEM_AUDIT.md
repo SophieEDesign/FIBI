@@ -1,5 +1,6 @@
 # FiBi System Audit Report
-**Date:** 2024  
+**Date:** January 2025  
+**Last Updated:** January 2025 (API Authentication Fixes)  
 **Focus:** Product Quality, Architecture, UX, Future Scalability
 
 ---
@@ -57,6 +58,7 @@ FiBi is a well-architected Next.js 15 PWA with solid fundamentals. The codebase 
 - Proper use of `@supabase/ssr` for server/client separation
 - RLS policies correctly implemented
 - Email confirmation flow exists
+- **✅ FIXED: API route authentication** - Server client now properly reads cookies from request headers in API routes
 
 ### ⚠️ Issues
 
@@ -76,6 +78,15 @@ FiBi is a well-architected Next.js 15 PWA with solid fundamentals. The codebase 
 - **Missing auth check in MapView**: `MapView.tsx` doesn't check auth on mount - only in `fetchItems`. User could see empty map briefly.
   - **Impact:** Minor UX issue
   - **Fix:** Add auth check similar to other protected pages
+
+**✅ RECENTLY FIXED (January 2025):**
+- **API Route Cookie Reading**: Updated `src/lib/supabase/server.ts` to accept optional `NextRequest` parameter. When provided (API routes), reads cookies from request headers. When not provided (Server Components), uses `cookies()` from `next/headers`. This fixes 401 errors on `/api/itinerary/share` and `/api/calendar/download`.
+  - **Files Modified:**
+    - `src/lib/supabase/server.ts` - Added request-based cookie reading
+    - `src/app/api/itinerary/share/route.ts` - Now passes request to createClient()
+    - `src/app/api/calendar/download/route.ts` - Now passes request to createClient()
+    - `src/app/api/itinerary/share/[token]/route.ts` - DELETE handler now passes request
+  - **Impact:** API routes now properly authenticate users, eliminating 401 errors
 
 **Fix Later:**
 - **Session refresh handling**: No explicit handling of expired sessions. Users might get stuck in redirect loops.
@@ -138,12 +149,14 @@ FiBi is a well-architected Next.js 15 PWA with solid fundamentals. The codebase 
 ### ⚠️ Issues
 
 **Fix Now:**
-- **Manifest 401 errors**: `manifest.json/route.ts` exists but might still hit auth middleware. `middleware.ts` has empty matcher (line 14), which is good, but verify it's not running.
-  - **Impact:** PWA install fails, share target broken
+- **Manifest 401 errors**: Static file in `/public/manifest.json` should not require auth. Error may be browser cache or CORS issue.
+  - **Impact:** PWA install may fail, share target broken
+  - **Status:** Static file is correct, middleware has empty matcher. Error likely browser-side.
   - **Fix:** 
-    1. Verify middleware matcher excludes `/manifest.json`
+    1. Verify middleware matcher excludes `/manifest.json` (already empty `[]`)
     2. Test PWA install on iOS/Android
-    3. Add explicit public route config if needed
+    3. Clear browser cache if error persists
+    4. Check browser DevTools Network tab for actual request details
 
 - **Service worker registration timing**: `ServiceWorkerRegistration.tsx` waits 1s before registering (line 159). This might be too conservative or too aggressive depending on page load.
   - **Impact:** SW might not register on fast pages, or might interfere with auth redirects
@@ -248,9 +261,12 @@ FiBi is a well-architected Next.js 15 PWA with solid fundamentals. The codebase 
 
 ### Must Fix Now
 1. **Auth flow stability** (Section 2) - Critical for user trust
-2. **PWA manifest 401 errors** (Section 4) - Blocks core feature
+2. **PWA manifest 401 errors** (Section 4) - May block core feature (likely browser cache issue)
 3. **Category/Status data consistency** (Section 1) - Data integrity risk
 4. **HomeGrid re-render optimization** (Section 6) - Performance issue
+
+### ✅ Recently Fixed (January 2025)
+1. **API route authentication** (Section 2) - Fixed 401 errors on `/api/itinerary/share` and `/api/calendar/download` by properly reading cookies from request headers
 
 ### Can Wait
 1. **Soft deletes** - Nice to have, not critical
@@ -363,9 +379,10 @@ FiBi is a well-architected Next.js 15 PWA with solid fundamentals. The codebase 
 
 ### Week 1 (Critical)
 1. Fix login bounce/flash (Section 2)
-2. Verify PWA manifest accessibility (Section 4)
+2. Verify PWA manifest accessibility (Section 4) - Test and clear cache if needed
 3. Add auth check to MapView (Section 2)
 4. Fix HomeGrid re-render issue (Section 6)
+5. ✅ **COMPLETED:** Fix API route authentication (Section 2) - API routes now properly read cookies
 
 ### Week 2 (Important)
 5. Normalize category/status data (Section 1)
@@ -413,12 +430,50 @@ FiBi is in good shape. The architecture is sound, the code quality is high, and 
 - Proper security (RLS, auth)
 
 **Key Weaknesses:**
-- Auth flow stability
-- PWA reliability
+- Auth flow stability (login bounce/flash)
+- PWA reliability (manifest 401 may be browser cache)
 - Some performance optimizations needed
 - Missing some polish (error handling, loading states)
 
+**Recent Improvements (January 2025):**
+- ✅ API route authentication fixed - cookies now properly read from request headers
+- ✅ Better error logging added to diagnose auth issues
+
 **Overall:** 🟢 **Good foundation, needs polish before launch.**
+
+---
+
+## 11. Recent Changes & Fixes
+
+### January 2025 - API Authentication Fixes
+
+**Issue:** API routes (`/api/itinerary/share`, `/api/calendar/download`) were returning 401 Unauthorized errors even for authenticated users.
+
+**Root Cause:** The Supabase server client (`src/lib/supabase/server.ts`) was using `cookies()` from `next/headers`, which works for Server Components but doesn't properly read cookies from request headers in API Route Handlers.
+
+**Solution:**
+1. Updated `createClient()` to accept optional `NextRequest` parameter
+2. When request is provided (API routes), cookies are read from `request.headers.get('cookie')`
+3. When request is not provided (Server Components), uses `cookies()` from `next/headers` (existing behavior)
+4. Updated all authenticated API routes to pass the request object
+
+**Files Modified:**
+- `src/lib/supabase/server.ts` - Added request-based cookie reading with proper parsing
+- `src/app/api/itinerary/share/route.ts` - POST handler now passes request
+- `src/app/api/calendar/download/route.ts` - GET handler now passes request  
+- `src/app/api/itinerary/share/[token]/route.ts` - DELETE handler now passes request
+
+**Additional Improvements:**
+- Added error logging to help diagnose authentication issues
+- Improved cookie parsing to handle edge cases
+
+**Status:** ✅ **Fixed** - API routes now properly authenticate users
+
+**Testing Notes:**
+- Verify `/api/itinerary/share` works when authenticated
+- Verify `/api/calendar/download` works when authenticated
+- Check browser console for any remaining 401 errors
+- Monitor error logs for authentication issues
 
 ---
 

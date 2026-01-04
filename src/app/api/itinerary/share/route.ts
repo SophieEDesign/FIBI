@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient(request)
     const {
       data: { user },
       error: authError,
@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
 
     if (!user || authError) {
       console.error('Share API auth error:', authError)
+      console.error('Request cookies:', request.headers.get('cookie'))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

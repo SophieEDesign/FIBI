@@ -395,8 +395,8 @@ export default function GooglePlacesInput({
           onChange={handleInputChange}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent ${
-            disabled ? 'bg-gray-100 cursor-not-allowed' : ''
+          className={`w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${
+            disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
           } ${className}`}
         />
         {!isGoogleLoaded && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
@@ -423,7 +423,7 @@ export default function GooglePlacesInput({
             }}
             placeholder="e.g. London"
             disabled={disabled}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
           />
         </div>
 
@@ -441,7 +441,7 @@ export default function GooglePlacesInput({
             }}
             placeholder="e.g. United Kingdom"
             disabled={disabled}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
           />
         </div>
       </div>

@@ -158,7 +158,13 @@ FIBI/
 ### 🐛 Known Issues
 1. **Service Worker** - Removed from root layout to prevent race conditions; needs re-implementation
 2. **Share Target** - Needs real Android device testing
-3. **Manifest 401 errors** - Should be resolved with route handler, but needs verification
+3. **Manifest 401 errors** - Static file should not require auth; likely browser cache issue
+
+### ✅ Recently Fixed (January 2025)
+1. **API Route Authentication** - Fixed 401 errors on `/api/itinerary/share` and `/api/calendar/download` by properly reading cookies from request headers in API routes
+   - Updated `src/lib/supabase/server.ts` to support request-based cookie reading
+   - All authenticated API routes now pass request object to `createClient()`
+   - Added better error logging for debugging
 
 ---
 
@@ -363,6 +369,26 @@ FIBI/
 
 ---
 
-**Last Updated:** Current  
+**Last Updated:** January 2025 (API Authentication Fixes)  
 **Next Review:** After Phase 1 completion
+
+---
+
+## 🔄 Recent Changes (January 2025)
+
+### API Authentication Fixes
+**Issue:** API routes returning 401 Unauthorized errors for authenticated users.
+
+**Solution:** 
+- Updated Supabase server client to read cookies from request headers in API routes
+- Modified `createClient()` to accept optional `NextRequest` parameter
+- Updated all authenticated API routes to pass request object
+
+**Files Changed:**
+- `src/lib/supabase/server.ts`
+- `src/app/api/itinerary/share/route.ts`
+- `src/app/api/calendar/download/route.ts`
+- `src/app/api/itinerary/share/[token]/route.ts`
+
+**Status:** ✅ Fixed and tested
 

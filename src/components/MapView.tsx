@@ -521,24 +521,12 @@ export default function MapView() {
   }, [selectedItem])
 
   return (
-    <div className="fixed inset-0 flex flex-col">
+    <div className="fixed inset-0 flex flex-col md:pt-16">
       {/* Simple header */}
-      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-20">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <Link href="/app" className="text-2xl font-bold text-gray-900">
-            FiBi
-          </Link>
-          <Link
-            href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            Add Place
-          </Link>
-        </div>
-        
-        {/* Itinerary Tabs */}
-        <div className="px-4 pb-3">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-40 md:sticky md:top-16">
+        {/* Itinerary Filter - Top */}
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <button
               onClick={() => setSelectedItineraryId(null)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
@@ -572,6 +560,19 @@ export default function MapView() {
               New
             </button>
           </div>
+        </div>
+        
+        {/* Header with logo and actions - hidden on desktop since DesktopNavigation provides this */}
+        <div className="px-4 pb-3 flex items-center justify-between md:hidden">
+          <Link href="/app" className="text-2xl font-bold text-gray-900">
+            FiBi
+          </Link>
+          <Link
+            href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
+            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            Add Place
+          </Link>
         </div>
       </div>
       
@@ -740,7 +741,7 @@ export default function MapView() {
                     }
                   }}
                   placeholder="e.g., Weekend Trip, Italy Ideas"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
                   autoFocus
                 />
               </div>
