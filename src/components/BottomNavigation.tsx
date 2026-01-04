@@ -25,6 +25,8 @@ export default function BottomNavigation() {
                 ? 'text-gray-900'
                 : 'text-gray-500'
             }`}
+            aria-label="Home"
+            aria-current={isActive('/app') || isActive('/') ? 'page' : undefined}
           >
             <svg
               className="w-6 h-6 mb-1"
@@ -48,6 +50,8 @@ export default function BottomNavigation() {
                 ? 'text-gray-900'
                 : 'text-gray-500'
             }`}
+            aria-label="Map"
+            aria-current={isActive('/app/map') ? 'page' : undefined}
           >
             <svg
               className="w-6 h-6 mb-1"
@@ -71,6 +75,8 @@ export default function BottomNavigation() {
                 ? 'text-gray-900'
                 : 'text-gray-500'
             }`}
+            aria-label="Planner"
+            aria-current={isActive('/app/calendar') ? 'page' : undefined}
           >
             <svg
               className="w-6 h-6 mb-1"
@@ -94,6 +100,8 @@ export default function BottomNavigation() {
                 ? 'text-gray-900'
                 : 'text-gray-500'
             }`}
+            aria-label="Profile"
+            aria-current={isActive('/profile') ? 'page' : undefined}
           >
             <svg
               className="w-6 h-6 mb-1"

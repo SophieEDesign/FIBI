@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
@@ -35,6 +35,9 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearing, setClearing] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -42,28 +45,39 @@ export default function ProfilePage() {
     }
   }, [authLoading, user, router])
 
-  useEffect(() => {
-    if (user) {
-      loadProfileData()
-    }
-  }, [user])
-
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     if (!user) return
 
     try {
-      // Load stats
-      const { data: allItems, error: itemsError } = await supabase
-        .from('saved_items')
-        .select('id, planned_date, location_country')
+      setLoading(true)
+      setErrorMessage(null)
 
-      if (itemsError) {
-        console.error('Error loading stats:', itemsError)
+      // Optimize stats queries using COUNT instead of fetching all data
+      const [totalResult, plannedResult, countriesResult] = await Promise.all([
+        // Total places count
+        supabase
+          .from('saved_items')
+          .select('id', { count: 'exact', head: true }),
+        // Planned places count
+        supabase
+          .from('saved_items')
+          .select('id', { count: 'exact', head: true })
+          .not('planned_date', 'is', null),
+        // Unique countries (need to fetch distinct values)
+        supabase
+          .from('saved_items')
+          .select('location_country')
+          .not('location_country', 'is', null),
+      ])
+
+      if (totalResult.error) {
+        console.error('Error loading total places:', totalResult.error)
+        setErrorMessage('Failed to load stats. Please refresh the page.')
       } else {
-        const totalPlaces = allItems?.length || 0
-        const plannedPlaces = allItems?.filter(item => item.planned_date !== null).length || 0
+        const totalPlaces = totalResult.count || 0
+        const plannedPlaces = plannedResult.count || 0
         const uniqueCountries = new Set(
-          allItems?.filter(item => item.location_country).map(item => item.location_country)
+          countriesResult.data?.map(item => item.location_country).filter(Boolean) || []
         ).size
 
         setStats({
@@ -83,14 +97,24 @@ export default function ProfilePage() {
       setLoading(false)
     } catch (error) {
       console.error('Error loading profile data:', error)
+      setErrorMessage('Failed to load profile data. Please refresh the page.')
       setLoading(false)
     }
-  }
+  }, [user, supabase])
+
+  useEffect(() => {
+    if (user) {
+      loadProfileData()
+    }
+  }, [user, loadProfileData])
 
   const handleClearTestData = async () => {
     if (!user) return
 
     setClearing(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+    
     try {
       // Delete all items for this user
       const { error } = await supabase
@@ -100,20 +124,41 @@ export default function ProfilePage() {
 
       if (error) {
         console.error('Error clearing test data:', error)
-        alert('Failed to clear test data. Please try again.')
+        setErrorMessage('Failed to clear test data. Please try again.')
       } else {
         // Reload stats
         await loadProfileData()
         setShowClearConfirm(false)
-        alert('Test data cleared successfully.')
+        setSuccessMessage('All saved places have been deleted.')
+        // Clear success message after 5 seconds
+        setTimeout(() => setSuccessMessage(null), 5000)
       }
     } catch (error) {
       console.error('Error clearing test data:', error)
-      alert('Failed to clear test data. Please try again.')
+      setErrorMessage('Failed to clear test data. Please try again.')
     } finally {
       setClearing(false)
     }
   }
+
+  // Handle escape key to close modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showClearConfirm) {
+        setShowClearConfirm(false)
+      }
+    }
+
+    if (showClearConfirm) {
+      document.addEventListener('keydown', handleEscape)
+      // Focus the modal when it opens
+      modalRef.current?.focus()
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [showClearConfirm])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -151,6 +196,34 @@ export default function ProfilePage() {
           <p className="text-sm text-gray-500 mt-1">Your personal travel space</p>
         </header>
 
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <span>{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-red-700 hover:text-red-900 ml-4"
+              aria-label="Dismiss error message"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <span>{successMessage}</span>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-green-700 hover:text-green-900 ml-4"
+              aria-label="Dismiss success message"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Identity Section */}
         <section className="bg-white rounded-xl p-6 mb-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Identity</h2>
@@ -178,6 +251,7 @@ export default function ProfilePage() {
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Your name"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+              aria-label="Display name"
             />
             <p className="text-xs text-gray-500 mt-1">This is just for you</p>
           </div>
@@ -223,6 +297,8 @@ export default function ProfilePage() {
                         ? 'bg-gray-900 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
+                    aria-label={`Set default view to ${view}`}
+                    aria-pressed={preferences.defaultView === view}
                   >
                     {view.charAt(0).toUpperCase() + view.slice(1)}
                   </button>
@@ -245,6 +321,8 @@ export default function ProfilePage() {
                         ? 'bg-gray-900 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
+                    aria-label={`Set default home filter to ${filter}`}
+                    aria-pressed={preferences.defaultHomeFilter === filter}
                   >
                     {filter.charAt(0).toUpperCase() + filter.slice(1)}
                   </button>
@@ -267,6 +345,8 @@ export default function ProfilePage() {
                         ? 'bg-gray-900 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
+                    aria-label={`Set distance units to ${unit === 'km' ? 'kilometers' : 'miles'}`}
+                    aria-pressed={preferences.units === unit}
                   >
                     {unit === 'km' ? 'Kilometers' : 'Miles'}
                   </button>
@@ -285,9 +365,11 @@ export default function ProfilePage() {
             <button
               onClick={() => {
                 // Stub for now
-                alert('Export feature coming soon!')
+                setSuccessMessage('Export feature coming soon!')
+                setTimeout(() => setSuccessMessage(null), 3000)
               }}
               className="w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+              aria-label="Export saved places"
             >
               <div className="font-medium text-gray-900">Export Saved Places</div>
               <div className="text-xs text-gray-500 mt-0.5">Download your data (coming soon)</div>
@@ -297,6 +379,7 @@ export default function ProfilePage() {
             <button
               onClick={() => setShowClearConfirm(true)}
               className="w-full text-left px-4 py-3 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors"
+              aria-label="Clear all test data"
             >
               <div className="font-medium">Clear Test Data</div>
               <div className="text-xs text-red-500 mt-0.5">Delete all your saved places</div>
@@ -306,6 +389,7 @@ export default function ProfilePage() {
             <button
               onClick={handleSignOut}
               className="w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+              aria-label="Log out of your account"
             >
               <div className="font-medium text-gray-900">Log Out</div>
               <div className="text-xs text-gray-500 mt-0.5">Sign out of your account</div>
@@ -316,9 +400,26 @@ export default function ProfilePage() {
 
       {/* Clear Test Data Confirmation Modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Clear Test Data?</h3>
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            // Close modal when clicking backdrop
+            if (e.target === e.currentTarget) {
+              setShowClearConfirm(false)
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-data-title"
+        >
+          <div 
+            ref={modalRef}
+            className="bg-white rounded-2xl p-6 max-w-sm w-full"
+            tabIndex={-1}
+          >
+            <h3 id="clear-data-title" className="text-lg font-bold text-gray-900 mb-2">
+              Clear Test Data?
+            </h3>
             <p className="text-sm text-gray-600 mb-4">
               This will permanently delete all your saved places. This action cannot be undone.
             </p>
@@ -327,6 +428,7 @@ export default function ProfilePage() {
                 onClick={() => setShowClearConfirm(false)}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 disabled={clearing}
+                aria-label="Cancel clearing test data"
               >
                 Cancel
               </button>
@@ -334,6 +436,7 @@ export default function ProfilePage() {
                 onClick={handleClearTestData}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
                 disabled={clearing}
+                aria-label="Confirm and clear all test data"
               >
                 {clearing ? 'Clearing...' : 'Clear All'}
               </button>

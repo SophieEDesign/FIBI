@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import HomeGrid from '@/components/HomeGrid'
@@ -9,17 +9,10 @@ import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 import SharingTutorial from '@/components/SharingTutorial'
 
 /**
- * App Home Page (Authenticated)
- * 
- * Shows HomeGrid for authenticated users.
- * Redirects to login if not authenticated.
- * 
- * WHY ServiceWorkerRegistration is here:
- * - Home page is a safe, stable page (no immediate redirects)
- * - Registers SW after page loads, avoiding auth redirect race conditions
- * - NOT in RootLayout to prevent SW registration on every request
+ * Inner component that uses useSearchParams
+ * Must be wrapped in Suspense to avoid build errors
  */
-export default function AppHomePage() {
+function AppHomeContent() {
   const { user, loading } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -59,6 +52,29 @@ export default function AppHomePage() {
       <ServiceWorkerRegistration />
       <SharingTutorial />
     </>
+  )
+}
+
+/**
+ * App Home Page (Authenticated)
+ * 
+ * Shows HomeGrid for authenticated users.
+ * Redirects to login if not authenticated.
+ * 
+ * WHY ServiceWorkerRegistration is here:
+ * - Home page is a safe, stable page (no immediate redirects)
+ * - Registers SW after page loads, avoiding auth redirect race conditions
+ * - NOT in RootLayout to prevent SW registration on every request
+ */
+export default function AppHomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading your places…
+      </div>
+    }>
+      <AppHomeContent />
+    </Suspense>
   )
 }
 
