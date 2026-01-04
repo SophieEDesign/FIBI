@@ -52,11 +52,31 @@ export default function AddItemForm() {
   const [clipboardChecked, setClipboardChecked] = useState(false)
   const [clipboardTextUsed, setClipboardTextUsed] = useState(false)
   
+  // AI suggestions state
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    title: string | null
+    placeName: string | null
+    city: string | null
+    country: string | null
+    category: string | null
+    confidence: {
+      title: 'high' | 'medium' | 'low'
+      location: 'high' | 'medium' | 'low'
+      category: 'high' | 'medium' | 'low'
+    }
+  } | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiEnrichmentTriggered, setAiEnrichmentTriggered] = useState(false)
+  
   // Track user edits to prevent overwriting
   const userEditedTitle = useRef(false)
   const userEditedNotes = useRef(false)
+  const userEditedDescription = useRef(false)
+  const userEditedLocation = useRef(false)
+  const userEditedCategory = useRef(false)
   const metadataFetchedRef = useRef(false)
   const initialLoadRef = useRef(false)
+  const aiEnrichmentTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   const authCheckedRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -195,6 +215,70 @@ export default function AddItemForm() {
       setFetchingMetadata(false)
     }
   }
+
+  // AI enrichment function (non-blocking, async)
+  const triggerAIEnrichment = async (urlToEnrich: string, currentTitle: string, currentDescription: string) => {
+    // Don't trigger if already triggered or if user has edited fields
+    if (aiEnrichmentTriggered || !urlToEnrich.trim()) return
+    
+    // Debounce: clear existing timeout
+    if (aiEnrichmentTimeoutRef.current) {
+      clearTimeout(aiEnrichmentTimeoutRef.current)
+    }
+    
+    // Set timeout to trigger AI enrichment after a delay
+    aiEnrichmentTimeoutRef.current = setTimeout(async () => {
+      setAiLoading(true)
+      setAiEnrichmentTriggered(true)
+      
+      try {
+        const platform = detectPlatform(urlToEnrich)
+        const domain = getHostname(urlToEnrich)
+        
+        const response = await fetch('/api/ai-enrich', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: urlToEnrich,
+            title: currentTitle || null,
+            description: currentDescription || null,
+            domain: domain || null,
+            platform: platform || null,
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setAiSuggestions({
+            title: data.suggestedTitle,
+            placeName: data.suggestedPlaceName,
+            city: data.suggestedCity,
+            country: data.suggestedCountry,
+            category: data.suggestedCategory,
+            confidence: data.confidence || {
+              title: 'low',
+              location: 'low',
+              category: 'low',
+            },
+          })
+        }
+      } catch (err) {
+        console.debug('AI enrichment failed (non-blocking):', err)
+        // Silently fail - don't show error to user
+      } finally {
+        setAiLoading(false)
+      }
+    }, 2000) // 2 second debounce after metadata fetch
+  }
+
+  // Cleanup timeout on unmount or URL change
+  useEffect(() => {
+    return () => {
+      if (aiEnrichmentTimeoutRef.current) {
+        clearTimeout(aiEnrichmentTimeoutRef.current)
+      }
+    }
+  }, [url])
 
   // Search Google Places for location suggestions
   const searchPlaces = async (query: string) => {
@@ -524,6 +608,9 @@ export default function AddItemForm() {
             searchPlaces(finalTitle)
           }, 1000)
         }
+
+        // Trigger AI enrichment after metadata is loaded (non-blocking)
+        triggerAIEnrichment(urlParam, finalTitle || '', description || '')
       }
 
       initializeFromUrl()
@@ -537,6 +624,15 @@ export default function AddItemForm() {
   // Handle URL changes (when user types)
   const handleUrlChange = async (newUrl: string) => {
     setUrl(newUrl)
+    
+    // Reset AI enrichment state for new URL
+    setAiEnrichmentTriggered(false)
+    setAiSuggestions(null)
+    setAiLoading(false)
+    if (aiEnrichmentTimeoutRef.current) {
+      clearTimeout(aiEnrichmentTimeoutRef.current)
+      aiEnrichmentTimeoutRef.current = null
+    }
     
     if (!newUrl.trim()) {
       if (!userEditedTitle.current) setTitle('')
@@ -678,6 +774,9 @@ export default function AddItemForm() {
           searchPlaces(finalTitle)
         }, 1000)
       }
+
+      // Trigger AI enrichment after metadata is loaded (non-blocking)
+      triggerAIEnrichment(newUrl, finalTitle || '', description || '')
     }
   }
 
@@ -685,6 +784,11 @@ export default function AddItemForm() {
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle)
     userEditedTitle.current = true
+    
+    // Clear AI title suggestion if user edits
+    if (aiSuggestions?.title) {
+      setAiSuggestions(prev => prev ? { ...prev, title: null } : null)
+    }
     
     // If title becomes usable, try Google Places search
     if (newTitle.trim() && url) {
@@ -698,6 +802,74 @@ export default function AddItemForm() {
   const handleNotesChange = (newNotes: string) => {
     setNotes(newNotes)
     userEditedNotes.current = true
+  }
+
+  // Track description edits
+  const handleDescriptionChange = (newDescription: string) => {
+    setDescription(newDescription)
+    userEditedDescription.current = true
+  }
+
+  // Accept AI title suggestion
+  const handleAcceptAITitle = () => {
+    if (aiSuggestions?.title && !userEditedTitle.current) {
+      setTitle(aiSuggestions.title)
+      userEditedTitle.current = true
+      setAiSuggestions(prev => prev ? { ...prev, title: null } : null)
+    }
+  }
+
+  // Accept AI location suggestion
+  const handleAcceptAILocation = async () => {
+    if (aiSuggestions?.placeName && !userEditedLocation.current && !selectedPlace) {
+      // Try to search for the place name
+      try {
+        const response = await fetch('/api/places', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: aiSuggestions.placeName }),
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.place) {
+            const googlePlace = {
+              place_name: data.place.name,
+              place_id: data.place.place_id,
+              latitude: data.place.geometry.location.lat,
+              longitude: data.place.geometry.location.lng,
+              formatted_address: data.place.formatted_address || '',
+              city: aiSuggestions.city || data.city || null,
+              country: aiSuggestions.country || data.country || null,
+            }
+            
+            setSelectedPlace(googlePlace)
+            setLocationSearchValue(googlePlace.place_name)
+            setLocationCity(googlePlace.city || '')
+            setLocationCountry(googlePlace.country || '')
+            userEditedLocation.current = true
+            setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
+          }
+        }
+      } catch (err) {
+        console.debug('Error accepting AI location:', err)
+      }
+    } else if (aiSuggestions?.city || aiSuggestions?.country) {
+      // If we have city/country but no place, just set those
+      if (aiSuggestions.city) setLocationCity(aiSuggestions.city)
+      if (aiSuggestions.country) setLocationCountry(aiSuggestions.country)
+      userEditedLocation.current = true
+      setAiSuggestions(prev => prev ? { ...prev, city: null, country: null } : null)
+    }
+  }
+
+  // Accept AI category suggestion
+  const handleAcceptAICategory = () => {
+    if (aiSuggestions?.category && !userEditedCategory.current && !categories.includes(aiSuggestions.category)) {
+      setCategories([...categories, aiSuggestions.category])
+      userEditedCategory.current = true
+      setAiSuggestions(prev => prev ? { ...prev, category: null } : null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1025,14 +1197,35 @@ export default function AddItemForm() {
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
                 Title
               </label>
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => handleTitleChange(e.target.value)}
-                placeholder="Enter a title"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              />
+              <div className="space-y-2">
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="Enter a title"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                />
+                {/* AI Title Suggestion */}
+                {aiSuggestions?.title && !userEditedTitle.current && (
+                  <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex-1">
+                      <p className="text-xs text-gray-600 mb-1">Suggested title</p>
+                      <p className="text-sm text-gray-900">{aiSuggestions.title}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAcceptAITitle}
+                      className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                    >
+                      Use
+                    </button>
+                  </div>
+                )}
+                {aiLoading && !aiSuggestions && (
+                  <p className="text-xs text-gray-500 italic">Thinking...</p>
+                )}
+              </div>
             </div>
 
             {/* Notes - editable, pre-filled from shared text or clipboard */}
@@ -1064,7 +1257,7 @@ export default function AddItemForm() {
               <textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => handleDescriptionChange(e.target.value)}
                 rows={4}
                 placeholder="Original post text from the link (will be fetched automatically if available)..."
                 className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none ${
@@ -1162,64 +1355,111 @@ export default function AddItemForm() {
             </div>
 
             {/* Location fields */}
-            <GooglePlacesInput
-              value={locationSearchValue}
-              onChange={(place) => {
-                console.log('AddItemForm: Place onChange called:', place)
-                console.log('AddItemForm: Place data:', place ? {
-                  place_name: place.place_name,
-                  place_id: place.place_id,
-                  latitude: place.latitude,
-                  longitude: place.longitude,
-                  city: place.city,
-                  country: place.country,
-                } : null)
-                
-                setSelectedPlace(place)
-                if (place) {
-                  setLocationSearchValue(place.place_name)
-                  // Update city and country from place data (user can override after)
-                  const cityValue = place.city || ''
-                  const countryValue = place.country || ''
-                  console.log('AddItemForm: Setting city/country from place:', { cityValue, countryValue })
-                  setLocationCity(cityValue)
-                  setLocationCountry(countryValue)
-                  // Clear old place state
-                  setPlaceName('')
-                  setPlaceId('')
-                  setLatitude(null)
-                  setLongitude(null)
-                  setIsLocationSuggested(false)
-                } else {
-                  setLocationSearchValue('')
-                  setLocationCity('')
-                  setLocationCountry('')
-                }
-              }}
-              onSearchValueChange={(value) => {
-                setLocationSearchValue(value)
-              }}
-              onManualCityChange={(city) => {
-                console.log('AddItemForm: onManualCityChange called with:', city)
-                setLocationCity(city)
-                // Allow manual override - don't clear selectedPlace
-                // User can override city/country while keeping the place coordinates
-              }}
-              onManualCountryChange={(country) => {
-                console.log('AddItemForm: onManualCountryChange called with:', country)
-                setLocationCountry(country)
-                // Allow manual override - don't clear selectedPlace
-                // User can override city/country while keeping the place coordinates
-              }}
-              manualCity={locationCity}
-              manualCountry={locationCountry}
-              id="location-search"
-            />
+            <div className="space-y-2">
+              <GooglePlacesInput
+                value={locationSearchValue}
+                onChange={(place) => {
+                  console.log('AddItemForm: Place onChange called:', place)
+                  console.log('AddItemForm: Place data:', place ? {
+                    place_name: place.place_name,
+                    place_id: place.place_id,
+                    latitude: place.latitude,
+                    longitude: place.longitude,
+                    city: place.city,
+                    country: place.country,
+                  } : null)
+                  
+                  setSelectedPlace(place)
+                  if (place) {
+                    setLocationSearchValue(place.place_name)
+                    // Update city and country from place data (user can override after)
+                    const cityValue = place.city || ''
+                    const countryValue = place.country || ''
+                    console.log('AddItemForm: Setting city/country from place:', { cityValue, countryValue })
+                    setLocationCity(cityValue)
+                    setLocationCountry(countryValue)
+                    // Clear old place state
+                    setPlaceName('')
+                    setPlaceId('')
+                    setLatitude(null)
+                    setLongitude(null)
+                    setIsLocationSuggested(false)
+                    userEditedLocation.current = true
+                    // Clear AI location suggestion if user selects a place
+                    if (aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) {
+                      setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
+                    }
+                  } else {
+                    setLocationSearchValue('')
+                    setLocationCity('')
+                    setLocationCountry('')
+                  }
+                }}
+                onSearchValueChange={(value) => {
+                  setLocationSearchValue(value)
+                }}
+                onManualCityChange={(city) => {
+                  console.log('AddItemForm: onManualCityChange called with:', city)
+                  setLocationCity(city)
+                  userEditedLocation.current = true
+                  // Clear AI location suggestion if user edits
+                  if (aiSuggestions?.city) {
+                    setAiSuggestions(prev => prev ? { ...prev, city: null } : null)
+                  }
+                }}
+                onManualCountryChange={(country) => {
+                  console.log('AddItemForm: onManualCountryChange called with:', country)
+                  setLocationCountry(country)
+                  userEditedLocation.current = true
+                  // Clear AI location suggestion if user edits
+                  if (aiSuggestions?.country) {
+                    setAiSuggestions(prev => prev ? { ...prev, country: null } : null)
+                  }
+                }}
+                manualCity={locationCity}
+                manualCountry={locationCountry}
+                id="location-search"
+              />
+              {/* AI Location Suggestion */}
+              {(aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) && !userEditedLocation.current && !selectedPlace && (
+                <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-600 mb-1">Suggested location</p>
+                    <p className="text-sm text-gray-900">
+                      {aiSuggestions.placeName || [aiSuggestions.city, aiSuggestions.country].filter(Boolean).join(', ') || 'Location detected'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAcceptAILocation}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Use
+                  </button>
+                </div>
+              )}
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
+              {/* AI Category Suggestion */}
+              {aiSuggestions?.category && !userEditedCategory.current && !categories.includes(aiSuggestions.category) && (
+                <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg mb-2">
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-600 mb-1">Suggested category</p>
+                    <p className="text-sm text-gray-900">{aiSuggestions.category}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAcceptAICategory}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
+                  >
+                    Use
+                  </button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                 {CATEGORIES.map((cat) => {
                   const isSelected = categories.includes(cat)
@@ -1233,8 +1473,13 @@ export default function AddItemForm() {
                         } else {
                           setCategories([...categories, cat])
                         }
+                        userEditedCategory.current = true
                         setShowCustomCategoryInput(false)
                         setCustomCategory('')
+                        // Clear AI category suggestion if user selects a category
+                        if (aiSuggestions?.category) {
+                          setAiSuggestions(prev => prev ? { ...prev, category: null } : null)
+                        }
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                         isSelected
@@ -1258,8 +1503,13 @@ export default function AddItemForm() {
                         } else {
                           setCategories([...categories, cat])
                         }
+                        userEditedCategory.current = true
                         setShowCustomCategoryInput(false)
                         setCustomCategory('')
+                        // Clear AI category suggestion if user selects a category
+                        if (aiSuggestions?.category) {
+                          setAiSuggestions(prev => prev ? { ...prev, category: null } : null)
+                        }
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                         isSelected
