@@ -73,60 +73,104 @@ export default function MapView() {
   }, [])
 
   // Fetch saved items with locations
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+  const fetchItems = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-        if (!user) {
-          router.push('/login')
-          return
-        }
-
-        // First, fetch ALL items to see what we have
-        const { data: allData, error: allError } = await supabase
-          .from('saved_items')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (allError) {
-          console.error('Error fetching all items:', allError)
-          setItems([])
-          return
-        }
-
-        console.log('MapView: All items fetched:', allData?.length || 0)
-        if (allData && allData.length > 0) {
-          console.log('MapView: Sample item:', {
-            id: allData[0].id,
-            title: allData[0].title,
-            latitude: allData[0].latitude,
-            longitude: allData[0].longitude,
-            hasLat: allData[0].latitude != null,
-            hasLng: allData[0].longitude != null,
-          })
-        }
-
-        // Filter for items with valid coordinates
-        const itemsWithCoords = (allData || []).filter(item => {
-          const hasLat = item.latitude != null && item.latitude !== ''
-          const hasLng = item.longitude != null && item.longitude !== ''
-          return hasLat && hasLng
-        })
-
-        console.log('MapView: Items with coordinates:', itemsWithCoords.length, 'out of', allData?.length || 0)
-        setItems(itemsWithCoords)
-      } catch (error) {
-        console.error('Error fetching items:', error)
-      } finally {
-        setLoading(false)
+      if (!user) {
+        router.push('/login')
+        return
       }
+
+      // First, fetch ALL items to see what we have
+      const { data: allData, error: allError } = await supabase
+        .from('saved_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (allError) {
+        console.error('Error fetching all items:', allError)
+        setItems([])
+        return
+      }
+
+      console.log('MapView: All items fetched:', allData?.length || 0)
+      if (allData && allData.length > 0) {
+        console.log('MapView: Sample item:', {
+          id: allData[0].id,
+          title: allData[0].title,
+          latitude: allData[0].latitude,
+          longitude: allData[0].longitude,
+          hasLat: allData[0].latitude != null,
+          hasLng: allData[0].longitude != null,
+        })
+      }
+
+      // Filter for items with valid coordinates
+      const itemsWithCoords = (allData || []).filter(item => {
+        const hasLat = item.latitude != null && item.latitude !== ''
+        const hasLng = item.longitude != null && item.longitude !== ''
+        return hasLat && hasLng
+      })
+
+      console.log('MapView: Items with coordinates:', itemsWithCoords.length, 'out of', allData?.length || 0)
+      setItems(itemsWithCoords)
+    } catch (error) {
+      console.error('Error fetching items:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let subscription: any = null
+
+    const setupSubscription = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // Initial fetch
+      await fetchItems()
+
+      // Subscribe to real-time changes
+      const channel = supabase
+        .channel('saved_items_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'saved_items',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('MapView: Real-time change detected:', payload.eventType, payload.new || payload.old)
+            // Refetch items when any change occurs
+            fetchItems()
+          }
+        )
+        .subscribe()
+
+      subscription = channel
     }
 
-    fetchItems()
+    setupSubscription()
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase, router])
 
   // Initialize map (only once) - use callback to ensure ref is set

@@ -736,17 +736,40 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
-        {/* Close button */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
-          <h3 className="text-lg font-semibold text-gray-900">Place Preview</h3>
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
+        {/* Image Header */}
+        <div className="relative">
+          {imageUrl ? (
+            <div className="aspect-video w-full overflow-hidden bg-gray-100">
+              <img
+                src={imageUrl}
+                alt={displayTitle}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="aspect-video w-full bg-gray-100 relative overflow-hidden">
+              <EmbedPreview
+                url={item.url}
+                thumbnailUrl={item.thumbnail_url}
+                platform={item.platform}
+                displayTitle={displayTitle}
+              />
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+                <span className="text-4xl text-gray-400">
+                  {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* Close button overlay */}
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black/90 text-white rounded-full transition-colors backdrop-blur-sm"
             aria-label="Close"
           >
             <svg
-              className="w-5 h-5 text-gray-600"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -762,91 +785,104 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          {/* Image */}
-          {imageUrl ? (
-            <div className="aspect-video rounded-lg mb-4 overflow-hidden bg-gray-100">
-              <img
-                src={imageUrl}
-                alt={displayTitle}
-                className="w-full h-full object-cover"
-              />
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-5 space-y-4">
+            {/* Title */}
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">{displayTitle}</h2>
+              {item.description && (
+                <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
+              )}
             </div>
-          ) : (
-            <div className="aspect-video rounded-lg mb-4 bg-gray-100 relative overflow-hidden">
-              <EmbedPreview
-                url={item.url}
-                thumbnailUrl={item.thumbnail_url}
-                platform={item.platform}
-                displayTitle={displayTitle}
-              />
-              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
-                <span className="text-4xl text-gray-400">
-                  {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
-                </span>
+
+            {/* Location */}
+            {(item.place_name || item.formatted_address || item.location_city) && (
+              <div className="flex items-start gap-2">
+                <svg
+                  className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Location</p>
+                  <p className="text-sm text-gray-900">
+                    {item.place_name || item.formatted_address || 
+                     (item.location_city && item.location_country 
+                       ? `${item.location_city}, ${item.location_country}` 
+                       : item.location_city || item.location_country || '')}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Title */}
-          <h2 className="text-xl font-bold text-gray-900 mb-2">{displayTitle}</h2>
+            {/* Category and Status */}
+            {(item.category || item.status) && (
+              <div className="flex flex-wrap gap-2">
+                {item.category && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {item.category}
+                  </span>
+                )}
+                {item.status && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {item.status}
+                  </span>
+                )}
+              </div>
+            )}
 
-          {/* Description */}
-          {item.description && (
-            <p className="text-sm text-gray-600 mb-4">{item.description}</p>
-          )}
-
-          {/* Location */}
-          {(item.place_name || item.formatted_address || item.location_city) && (
-            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-1">Location</p>
-              <p className="text-sm text-gray-600">
-                {item.place_name || item.formatted_address || 
-                 (item.location_city && item.location_country 
-                   ? `${item.location_city}, ${item.location_country}` 
-                   : item.location_city || item.location_country || '')}
-              </p>
-            </div>
-          )}
-
-          {/* Category and Status */}
-          {(item.category || item.status) && (
-            <div className="flex gap-4 mb-4">
-              {item.category && (
+            {/* Planned Date */}
+            {item.planned_date && (
+              <div className="flex items-start gap-2">
+                <svg
+                  className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Category</p>
-                  <p className="text-sm text-gray-900">{item.category}</p>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Planned Date</p>
+                  <p className="text-sm text-gray-900">
+                    {new Date(item.planned_date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </p>
                 </div>
-              )}
-              {item.status && (
-                <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1">Status</p>
-                  <p className="text-sm text-gray-900">{item.status}</p>
-                </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        </div>
 
-          {/* Planned Date */}
-          {item.planned_date && (
-            <div className="mb-4">
-              <p className="text-xs font-medium text-gray-500 mb-1">Planned Date</p>
-              <p className="text-sm text-gray-600">
-                {new Date(item.planned_date).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+        {/* Actions */}
+        <div className="border-t border-gray-200 p-5 bg-gray-50">
+          <div className="flex gap-3">
             <Link
               href={`/item/${item.id}`}
-              className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors text-center"
+              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors text-center"
               onClick={onClose}
             >
               View Full Details
@@ -856,7 +892,7 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors whitespace-nowrap"
               >
                 Open Link
               </a>
