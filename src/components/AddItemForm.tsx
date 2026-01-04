@@ -207,6 +207,14 @@ export default function AddItemForm() {
       }
 
       const metadata = await response.json()
+      console.log('AddItemForm: Metadata fetched:', {
+        hasTitle: !!metadata.title,
+        hasDescription: !!metadata.description,
+        hasImage: !!metadata.image,
+        hasScrapedContent: !!metadata.scrapedContent,
+        descriptionLength: metadata.description?.length || 0,
+        imageUrl: metadata.image?.substring(0, 100) || null,
+      })
       return metadata
     } catch (err) {
       console.error('Error fetching metadata:', err)
@@ -648,15 +656,37 @@ export default function AddItemForm() {
             }
           }
 
-          // Set description (OG description)
-          if (metadata.description && !description) {
-            setDescription(metadata.description)
-            finalDescription = metadata.description
+          // Set description (OG description or scraped content)
+          // Always set if we have metadata description and current description is empty
+          if (metadata.description) {
+            console.log('AddItemForm: Setting description from metadata', {
+              metadataDescription: metadata.description.substring(0, 100),
+              currentDescription: description.substring(0, 100),
+              willSet: !description || description.trim() === '',
+            })
+            if (!description || description.trim() === '') {
+              setDescription(metadata.description)
+              finalDescription = metadata.description
+            } else {
+              // If description already exists, still track it for AI enrichment
+              finalDescription = description
+            }
+          } else {
+            console.log('AddItemForm: No description in metadata')
           }
 
           // Set thumbnail (OG image)
           if (metadata.image && !thumbnailUrl) {
+            console.log('AddItemForm: Setting thumbnail from metadata', {
+              imageUrl: metadata.image.substring(0, 100),
+              currentThumbnail: thumbnailUrl.substring(0, 100) || 'none',
+            })
             setThumbnailUrl(metadata.image)
+          } else {
+            console.log('AddItemForm: No image in metadata or thumbnail already set', {
+              hasImage: !!metadata.image,
+              hasThumbnail: !!thumbnailUrl,
+            })
           }
         } else {
           // No metadata available - ensure title is never empty
@@ -846,11 +876,35 @@ export default function AddItemForm() {
           setTitle(finalTitle)
         }
 
+        // Set description (always set if we have it and current is empty)
         if (metadata.description) {
-          setDescription(metadata.description)
-          finalDescription = metadata.description
+          console.log('AddItemForm: Setting description from metadata (handleUrlChange)', {
+            metadataDescription: metadata.description.substring(0, 100),
+            currentDescription: description.substring(0, 100),
+            willSet: !description || description.trim() === '',
+          })
+          if (!description || description.trim() === '') {
+            setDescription(metadata.description)
+            finalDescription = metadata.description
+          } else {
+            finalDescription = description
+          }
+        } else {
+          console.log('AddItemForm: No description in metadata (handleUrlChange)')
         }
-        if (metadata.image && !screenshotUrl) setThumbnailUrl(metadata.image)
+        // Set image (always set if we have it and no screenshot)
+        if (metadata.image && !screenshotUrl) {
+          console.log('AddItemForm: Setting thumbnail from metadata (handleUrlChange)', {
+            imageUrl: metadata.image.substring(0, 100),
+            currentThumbnail: thumbnailUrl.substring(0, 100) || 'none',
+          })
+          setThumbnailUrl(metadata.image)
+        } else {
+          console.log('AddItemForm: No image in metadata or screenshot exists (handleUrlChange)', {
+            hasImage: !!metadata.image,
+            hasScreenshot: !!screenshotUrl,
+          })
+        }
       } else {
         // Ensure title is never empty
         if (!finalTitle) {
@@ -920,8 +974,28 @@ export default function AddItemForm() {
 
   // Accept AI location suggestion
   const handleAcceptAILocation = async () => {
-    if (aiSuggestions?.placeName && !userEditedLocation.current && !selectedPlace) {
+    console.log('handleAcceptAILocation called', {
+      hasPlaceName: !!aiSuggestions?.placeName,
+      hasCity: !!aiSuggestions?.city,
+      hasCountry: !!aiSuggestions?.country,
+      userEditedLocation: userEditedLocation.current,
+      hasSelectedPlace: !!selectedPlace,
+    })
+
+    if (!aiSuggestions) {
+      console.log('handleAcceptAILocation: No AI suggestions available')
+      return
+    }
+
+    // Check if user has already edited location or selected a place
+    if (userEditedLocation.current || selectedPlace) {
+      console.log('handleAcceptAILocation: User has already edited location or selected a place, skipping')
+      return
+    }
+
+    if (aiSuggestions.placeName) {
       // Try to search for the place name
+      console.log('handleAcceptAILocation: Searching for place:', aiSuggestions.placeName)
       try {
         const response = await fetch('/api/places', {
           method: 'POST',
@@ -942,23 +1016,63 @@ export default function AddItemForm() {
               country: aiSuggestions.country || data.country || null,
             }
             
+            console.log('handleAcceptAILocation: Setting place from search:', googlePlace)
             setSelectedPlace(googlePlace)
             setLocationSearchValue(googlePlace.place_name)
             setLocationCity(googlePlace.city || '')
             setLocationCountry(googlePlace.country || '')
             userEditedLocation.current = true
             setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
+          } else {
+            console.log('handleAcceptAILocation: No place found from search, falling back to city/country')
+            // Fall through to city/country handling
+            if (aiSuggestions.city) {
+              console.log('handleAcceptAILocation: Setting city:', aiSuggestions.city)
+              setLocationCity(aiSuggestions.city)
+            }
+            if (aiSuggestions.country) {
+              console.log('handleAcceptAILocation: Setting country:', aiSuggestions.country)
+              setLocationCountry(aiSuggestions.country)
+            }
+            userEditedLocation.current = true
+            setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
           }
+        } else {
+          console.log('handleAcceptAILocation: Places API error, falling back to city/country')
+          // Fall through to city/country handling
+          if (aiSuggestions.city) {
+            setLocationCity(aiSuggestions.city)
+          }
+          if (aiSuggestions.country) {
+            setLocationCountry(aiSuggestions.country)
+          }
+          userEditedLocation.current = true
+          setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
         }
       } catch (err) {
-        console.debug('Error accepting AI location:', err)
+        console.error('Error accepting AI location:', err)
+        // Fall through to city/country handling
+        if (aiSuggestions.city) {
+          setLocationCity(aiSuggestions.city)
+        }
+        if (aiSuggestions.country) {
+          setLocationCountry(aiSuggestions.country)
+        }
+        userEditedLocation.current = true
+        setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
       }
-    } else if (aiSuggestions?.city || aiSuggestions?.country) {
+    } else if (aiSuggestions.city || aiSuggestions.country) {
       // If we have city/country but no place, just set those
+      console.log('handleAcceptAILocation: Setting city/country only', {
+        city: aiSuggestions.city,
+        country: aiSuggestions.country,
+      })
       if (aiSuggestions.city) setLocationCity(aiSuggestions.city)
       if (aiSuggestions.country) setLocationCountry(aiSuggestions.country)
       userEditedLocation.current = true
       setAiSuggestions(prev => prev ? { ...prev, city: null, country: null } : null)
+    } else {
+      console.log('handleAcceptAILocation: No location data to set')
     }
   }
 

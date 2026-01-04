@@ -56,6 +56,14 @@ function extractMetadata(html: string): MetadataResponse {
     metadata.image = ogImageMatch[1].trim()
   }
 
+  // Fallback to Twitter image if no og:image
+  if (!metadata.image) {
+    const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+    if (twitterImageMatch) {
+      metadata.image = twitterImageMatch[1].trim()
+    }
+  }
+
   // Fallback to meta description if no og:description
   if (!metadata.description) {
     const metaDescriptionMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
@@ -118,6 +126,16 @@ function extractMetadata(html: string): MetadataResponse {
     // Only include if we have meaningful content (more than just whitespace and short)
     if (text.length > 50) {
       metadata.scrapedContent = text
+      
+      // If we don't have a description from OG tags, use scraped content as description
+      // (but limit it to a reasonable length for the description field)
+      if (!metadata.description && text.length > 0) {
+        // Use first 500 characters of scraped content as description
+        metadata.description = text.substring(0, 500).trim()
+        if (text.length > 500) {
+          metadata.description += '...'
+        }
+      }
     }
   } catch (err) {
     // Silently fail - scraping is optional
@@ -171,6 +189,16 @@ export async function POST(request: NextRequest) {
 
       const html = await response.text()
       const metadata = extractMetadata(html)
+
+      console.log('Metadata extraction result:', {
+        url,
+        hasTitle: !!metadata.title,
+        hasDescription: !!metadata.description,
+        hasImage: !!metadata.image,
+        hasScrapedContent: !!metadata.scrapedContent,
+        descriptionLength: metadata.description?.length || 0,
+        imageUrl: metadata.image?.substring(0, 100) || null,
+      })
 
       return NextResponse.json(metadata)
     } catch (error: any) {
