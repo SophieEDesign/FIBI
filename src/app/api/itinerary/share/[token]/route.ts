@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = params
+    const { token } = await params
     const supabase = await createClient()
 
     if (!token || typeof token !== 'string') {
@@ -75,7 +75,7 @@ export async function GET(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -87,7 +87,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { token } = params
+    const { token } = await params
 
     if (!token || typeof token !== 'string') {
       return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
