@@ -844,7 +844,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Anyone with this link can view your itinerary. They won't be able to edit it.
+                    Anyone with this link can view your itinerary. They won&apos;t be able to edit it.
                   </p>
                 </div>
                 <div className="flex gap-3">
