@@ -1532,8 +1532,8 @@ export default function AddItemForm() {
                     shouldShow,
                   })
                 }
-                return shouldShow
-              })() && (
+                return shouldShow && aiSuggestions
+              })() && aiSuggestions && (
                 <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex-1">
                     <p className="text-xs text-gray-600 mb-1">Suggested location</p>
