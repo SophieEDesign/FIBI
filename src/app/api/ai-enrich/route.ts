@@ -40,20 +40,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if AI API key is configured
-    const aiApiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY
-    const hasOpenAI = !!process.env.OPENAI_API_KEY
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
+    // Note: On Vercel, env vars are available at build/runtime
+    const openaiKey = process.env.OPENAI_API_KEY
+    const anthropicKey = process.env.ANTHROPIC_API_KEY
+    const aiApiKey = openaiKey || anthropicKey
+    const hasOpenAI = !!openaiKey
+    const hasAnthropic = !!anthropicKey
     
     console.log('AI enrichment API: API key check', { 
       hasOpenAI, 
       hasAnthropic, 
       hasKey: !!aiApiKey,
-      keyLength: aiApiKey ? aiApiKey.length : 0 
+      keyPrefix: aiApiKey ? aiApiKey.substring(0, 7) + '...' : 'none',
+      envKeys: Object.keys(process.env).filter(k => k.includes('OPENAI') || k.includes('ANTHROPIC'))
     })
     
     if (!aiApiKey) {
       // If no AI key, return empty suggestions (graceful degradation)
-      console.log('AI enrichment: No API key configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to enable AI suggestions.')
+      console.log('AI enrichment: No API key configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to Vercel environment variables.')
       return NextResponse.json({
         suggestedTitle: null,
         suggestedPlaceName: null,
@@ -68,7 +72,7 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    console.log('AI enrichment API: API key found, proceeding with AI call')
+    console.log('AI enrichment API: API key found, proceeding with AI call', { usingProvider: hasOpenAI ? 'OpenAI' : 'Anthropic' })
 
     // Prepare context for AI
     const context = {
