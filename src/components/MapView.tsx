@@ -521,7 +521,7 @@ export default function MapView() {
   }, [selectedItem])
 
   return (
-    <div className="fixed inset-0 flex flex-col md:pt-16">
+    <div className="fixed top-0 left-0 right-0 bottom-0 flex flex-col md:top-16">
       {/* Simple header */}
       <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-40 md:sticky md:top-16">
         {/* Itinerary Filter - Top */}

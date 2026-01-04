@@ -51,10 +51,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [shareToken, setShareToken] = useState<string | null>(null)
   const [loadingShare, setLoadingShare] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [unplannedFilterType, setUnplannedFilterType] = useState<'all' | 'location' | 'category' | 'status'>('all')
-  const [unplannedFilterValues, setUnplannedFilterValues] = useState<string[]>([]) // Multiple selections
-  const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('list')
-  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [unplannedLocationFilters, setUnplannedLocationFilters] = useState<string[]>([])
+  const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
+  const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
+  const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
   const supabase = createClient()
 
   // Detect mobile device
@@ -330,12 +330,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   // Get unplanned items (items without planned_date) with filtering
   // Show ALL unplanned items regardless of itinerary, but respect the filter dropdowns
+  // Apply all active filters with AND logic (items must match all active filter types)
   const unplannedItems = useMemo(() => {
     // Use all items, not filteredItems, so we show all unplanned items regardless of itinerary
     let unplanned = items.filter((item) => !item.planned_date)
     
-    // Apply multiple filters - items must match at least one selected value in each active filter type
-    if (unplannedFilterType === 'location' && unplannedFilterValues.length > 0) {
+    // Apply location filter (if any locations selected)
+    if (unplannedLocationFilters.length > 0) {
       unplanned = unplanned.filter((item) => {
         const itemLocations = [
           item.location_city?.toLowerCase(),
@@ -344,12 +345,15 @@ export default function CalendarView({ user }: CalendarViewProps) {
           item.formatted_address?.toLowerCase(),
         ].filter(Boolean)
         
-        return unplannedFilterValues.some((filterValue) => {
+        return unplannedLocationFilters.some((filterValue) => {
           const filterLower = filterValue.toLowerCase()
           return itemLocations.some((loc) => loc && (loc === filterLower || loc.includes(filterLower)))
         })
       })
-    } else if (unplannedFilterType === 'category' && unplannedFilterValues.length > 0) {
+    }
+    
+    // Apply category filter (if any categories selected)
+    if (unplannedCategoryFilters.length > 0) {
       unplanned = unplanned.filter((item) => {
         if (!item.category) return false
         const category = item.category // Store in local variable for type narrowing
@@ -357,16 +361,19 @@ export default function CalendarView({ user }: CalendarViewProps) {
           const categories = JSON.parse(category)
           const categoryArray = Array.isArray(categories) ? categories : [categories]
           const itemCategories = categoryArray.map((cat: string) => cat.toLowerCase())
-          return unplannedFilterValues.some((filterValue) =>
+          return unplannedCategoryFilters.some((filterValue) =>
             itemCategories.includes(filterValue.toLowerCase())
           )
         } catch {
-          return unplannedFilterValues.some((filterValue) =>
+          return unplannedCategoryFilters.some((filterValue) =>
             category.toLowerCase() === filterValue.toLowerCase()
           )
         }
       })
-    } else if (unplannedFilterType === 'status' && unplannedFilterValues.length > 0) {
+    }
+    
+    // Apply status filter (if any statuses selected)
+    if (unplannedStatusFilters.length > 0) {
       unplanned = unplanned.filter((item) => {
         if (!item.status) return false
         const status = item.status // Store in local variable for type narrowing
@@ -374,11 +381,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
           const statuses = JSON.parse(status)
           const statusArray = Array.isArray(statuses) ? statuses : [statuses]
           const itemStatuses = statusArray.map((stat: string) => stat.toLowerCase())
-          return unplannedFilterValues.some((filterValue) =>
+          return unplannedStatusFilters.some((filterValue) =>
             itemStatuses.includes(filterValue.toLowerCase())
           )
         } catch {
-          return unplannedFilterValues.some((filterValue) =>
+          return unplannedStatusFilters.some((filterValue) =>
             status.toLowerCase() === filterValue.toLowerCase()
           )
         }
@@ -386,7 +393,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
     
     return unplanned
-  }, [items, unplannedFilterType, unplannedFilterValues])
+  }, [items, unplannedLocationFilters, unplannedCategoryFilters, unplannedStatusFilters])
 
   // Extract unique filter values from ALL unplanned items (not just current itinerary)
   const filterOptions = useMemo(() => {
@@ -771,27 +778,16 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </div>
             </div>
             
-            {/* Filter Controls - Multi-select */}
-            <div className="mb-4 space-y-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <select
-                  value={unplannedFilterType}
-                  onChange={(e) => {
-                    setUnplannedFilterType(e.target.value as 'all' | 'location' | 'category' | 'status')
-                    setUnplannedFilterValues([])
-                  }}
-                  className="text-sm px-3 py-2 border border-gray-400 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                >
-                  <option value="all">All Places</option>
-                  <option value="location">Filter by Location</option>
-                  <option value="category">Filter by Category</option>
-                  <option value="status">Filter by Status</option>
-                </select>
-                
-                {unplannedFilterValues.length > 0 && (
+            {/* Filter Controls - Multiple filter types simultaneously */}
+            <div className="mb-4 space-y-4">
+              {/* Clear all filters button */}
+              {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0) && (
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      setUnplannedFilterValues([])
+                      setUnplannedLocationFilters([])
+                      setUnplannedCategoryFilters([])
+                      setUnplannedStatusFilters([])
                     }}
                     className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-1"
                     title="Clear all filters"
@@ -799,26 +795,34 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    <span>Clear ({unplannedFilterValues.length})</span>
+                    <span>Clear All Filters</span>
                   </button>
-                )}
-              </div>
+                  <span className="text-xs text-gray-500">
+                    ({unplannedLocationFilters.length + unplannedCategoryFilters.length + unplannedStatusFilters.length} active)
+                  </span>
+                </div>
+              )}
               
-              {unplannedFilterType !== 'all' && (
-                <div className="relative">
+              {/* Location Filters */}
+              {filterOptions.locations.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Location</h4>
+                    {unplannedLocationFilters.length > 0 && (
+                      <span className="text-xs text-gray-500">({unplannedLocationFilters.length} selected)</span>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {(unplannedFilterType === 'location' ? filterOptions.locations : 
-                      unplannedFilterType === 'category' ? filterOptions.categories : 
-                      filterOptions.statuses).map((option) => {
-                      const isSelected = unplannedFilterValues.includes(option)
+                    {filterOptions.locations.map((option) => {
+                      const isSelected = unplannedLocationFilters.includes(option)
                       return (
                         <button
                           key={option}
                           onClick={() => {
                             if (isSelected) {
-                              setUnplannedFilterValues(unplannedFilterValues.filter(v => v !== option))
+                              setUnplannedLocationFilters(unplannedLocationFilters.filter(v => v !== option))
                             } else {
-                              setUnplannedFilterValues([...unplannedFilterValues, option])
+                              setUnplannedLocationFilters([...unplannedLocationFilters, option])
                             }
                           }}
                           className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
@@ -845,11 +849,104 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       )
                     })}
                   </div>
-                  {unplannedFilterValues.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      Showing items matching {unplannedFilterValues.length} selected {unplannedFilterType === 'location' ? 'location' : unplannedFilterType === 'category' ? 'category' : 'status'}{unplannedFilterValues.length > 1 ? 'ies' : 'y'}: {unplannedFilterValues.slice(0, 3).join(', ')}{unplannedFilterValues.length > 3 ? ` +${unplannedFilterValues.length - 3} more` : ''}
-                    </p>
-                  )}
+                </div>
+              )}
+              
+              {/* Category Filters */}
+              {filterOptions.categories.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Category</h4>
+                    {unplannedCategoryFilters.length > 0 && (
+                      <span className="text-xs text-gray-500">({unplannedCategoryFilters.length} selected)</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions.categories.map((option) => {
+                      const isSelected = unplannedCategoryFilters.includes(option)
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            if (isSelected) {
+                              setUnplannedCategoryFilters(unplannedCategoryFilters.filter(v => v !== option))
+                            } else {
+                              setUnplannedCategoryFilters([...unplannedCategoryFilters, option])
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <svg
+                            className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {/* Status Filters */}
+              {filterOptions.statuses.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Status</h4>
+                    {unplannedStatusFilters.length > 0 && (
+                      <span className="text-xs text-gray-500">({unplannedStatusFilters.length} selected)</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions.statuses.map((option) => {
+                      const isSelected = unplannedStatusFilters.includes(option)
+                      return (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            if (isSelected) {
+                              setUnplannedStatusFilters(unplannedStatusFilters.filter(v => v !== option))
+                            } else {
+                              setUnplannedStatusFilters([...unplannedStatusFilters, option])
+                            }
+                          }}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                            isSelected
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <svg
+                            className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -886,9 +983,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
             ) : (
               <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
                 <p className="text-sm text-gray-500">
-                  {unplannedFilterType === 'all' 
+                  {(unplannedLocationFilters.length === 0 && unplannedCategoryFilters.length === 0 && unplannedStatusFilters.length === 0)
                     ? 'No unplanned places. All places are scheduled!'
-                    : 'No items match the selected filter'}
+                    : 'No items match the selected filters'}
                 </p>
               </div>
             )}
