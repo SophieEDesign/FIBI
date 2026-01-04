@@ -1,3 +1,7 @@
+'use client'
+
+import BottomNavigation from '@/components/BottomNavigation'
+
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
@@ -7,6 +11,11 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return (
+    <>
+      {children}
+      <BottomNavigation />
+    </>
+  )
 }
 
