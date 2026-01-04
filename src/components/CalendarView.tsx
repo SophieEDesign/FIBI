@@ -18,8 +18,6 @@ import {
 } from '@dnd-kit/core'
 import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
-import MobileMenu from '@/components/MobileMenu'
-import { useRouter } from 'next/navigation'
 import LinkPreview from '@/components/LinkPreview'
 
 interface CalendarViewProps {
@@ -56,7 +54,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [unplannedFilterType, setUnplannedFilterType] = useState<'all' | 'location' | 'category' | 'status'>('all')
   const [unplannedFilterValue, setUnplannedFilterValue] = useState<string>('')
   const supabase = createClient()
-  const router = useRouter()
 
   // Detect mobile device
   useEffect(() => {
@@ -185,6 +182,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
     try {
       const response = await fetch('/api/itinerary/share', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itinerary_id: selectedItineraryId }),
       })
@@ -226,6 +224,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
     try {
       const response = await fetch(`/api/itinerary/share/${shareToken}`, {
         method: 'DELETE',
+        credentials: 'include',
       })
 
       if (!response.ok) {
@@ -275,12 +274,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
     checkExistingShare()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItineraryId])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
 
   // Filter items based on selected itinerary
   const filteredItems = useMemo(() => {
@@ -526,14 +519,20 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   const handleDownloadCalendar = async () => {
     try {
-      const response = await fetch('/api/calendar/download')
+      const response = await fetch('/api/calendar/download', {
+        credentials: 'include',
+      })
       
       if (!response.ok) {
         if (response.status === 401) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Authentication error:', errorData)
           alert('Please sign in to download your calendar')
           return
         }
-        throw new Error('Failed to download calendar')
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Download error:', response.status, errorData)
+        throw new Error(errorData.error || 'Failed to download calendar')
       }
 
       const blob = await response.blob()
@@ -553,60 +552,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Planner</h1>
-
-            {/* Mobile: Menu */}
-            <div className="md:hidden flex items-center gap-2">
-              <Link
-                href="/app"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Back
-              </Link>
-              <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
-            </div>
-
-            {/* Desktop buttons */}
-            <div className="hidden md:flex items-center gap-4">
-              <Link
-                href="/app"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Home
-              </Link>
-              <Link
-                href="/app/map"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Map
-              </Link>
-              <Link
-                href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                Add Place
-              </Link>
-              <Link
-                href="/profile"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Profile
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-8">
         {/* Itinerary Tabs */}
         <div className="mb-6">

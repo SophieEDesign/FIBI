@@ -32,6 +32,9 @@ export default function ProfilePage() {
     units: 'km',
   })
   const [displayName, setDisplayName] = useState('')
+  const [email, setEmail] = useState('')
+  const [isEditingEmail, setIsEditingEmail] = useState(false)
+  const [updatingEmail, setUpdatingEmail] = useState(false)
   const [loading, setLoading] = useState(true)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [clearing, setClearing] = useState(false)
@@ -104,6 +107,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
+      setEmail(user.email || '')
       loadProfileData()
     }
   }, [user, loadProfileData])
@@ -164,6 +168,48 @@ export default function ProfilePage() {
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
+  }
+
+  const handleUpdateEmail = async () => {
+    if (!user || !email.trim()) {
+      setErrorMessage('Please enter a valid email address.')
+      return
+    }
+
+    if (email === user.email) {
+      setIsEditingEmail(false)
+      return
+    }
+
+    setUpdatingEmail(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    try {
+      const { error } = await supabase.auth.updateUser({ email: email.trim() })
+
+      if (error) {
+        console.error('Error updating email:', error)
+        setErrorMessage(error.message || 'Failed to update email. Please try again.')
+        setUpdatingEmail(false)
+        return
+      }
+
+      setSuccessMessage('Email update requested. Please check your new email for a confirmation link.')
+      setIsEditingEmail(false)
+      setTimeout(() => setSuccessMessage(null), 5000)
+    } catch (error) {
+      console.error('Error updating email:', error)
+      setErrorMessage('Failed to update email. Please try again.')
+    } finally {
+      setUpdatingEmail(false)
+    }
+  }
+
+  const handleCancelEmailEdit = () => {
+    setEmail(user?.email || '')
+    setIsEditingEmail(false)
+    setErrorMessage(null)
   }
 
   const getInitials = (email: string) => {
@@ -231,12 +277,53 @@ export default function ProfilePage() {
           <div className="flex items-center gap-4 mb-6">
             {/* Avatar */}
             <div className="w-16 h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-xl font-semibold">
-              {getInitials(user.email || '')}
+              {getInitials(email || user.email || '')}
             </div>
             
             <div className="flex-1">
               <div className="text-sm text-gray-500 mb-1">Email</div>
-              <div className="text-base text-gray-900">{user.email}</div>
+              {isEditingEmail ? (
+                <div className="space-y-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={updatingEmail}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder="your@email.com"
+                    aria-label="Email address"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleUpdateEmail}
+                      disabled={updatingEmail || !email.trim() || email === user.email}
+                      className="px-4 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Save email"
+                    >
+                      {updatingEmail ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={handleCancelEmailEdit}
+                      disabled={updatingEmail}
+                      className="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Cancel email edit"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="text-base text-gray-900">{user.email}</div>
+                  <button
+                    onClick={() => setIsEditingEmail(true)}
+                    className="text-sm text-gray-600 hover:text-gray-900 underline"
+                    aria-label="Edit email"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

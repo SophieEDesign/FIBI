@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { SavedItem } from '@/types/database'
+import { SavedItem, STATUSES } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
+import CollapsibleOptions from '@/components/CollapsibleOptions'
 
 interface SharedItineraryViewProps {
   shareToken: string
@@ -33,6 +34,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [viewMode, setViewMode] = useState<'calendar' | 'map' | 'list'>('calendar')
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
 
   useEffect(() => {
     loadSharedItinerary()
@@ -64,11 +66,58 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
     }
   }
 
-  // Filter items based on current month
+  // Helper function to parse statuses from item (supports both single string and array)
+  const parseItemStatuses = (item: SavedItem): string[] => {
+    if (!item.status) return []
+    // If it's already an array, return it
+    if (Array.isArray(item.status)) return item.status
+    // If it's a JSON string, parse it
+    try {
+      const parsed = JSON.parse(item.status)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // Not JSON, treat as single value
+    }
+    // Single value
+    return [item.status]
+  }
+
+  // Calculate status counts for filtering
+  const statusCounts = useMemo(() => {
+    if (!data) return {}
+    const counts: Record<string, number> = {}
+    data.items.forEach((item) => {
+      const itemStatuses = parseItemStatuses(item)
+      itemStatuses.forEach((stat) => {
+        counts[stat] = (counts[stat] || 0) + 1
+      })
+    })
+    return counts
+  }, [data])
+
+  // Sort statuses by popularity (most used first), then by name
+  const sortedStatuses = useMemo(() => {
+    return [...STATUSES].sort((a, b) => {
+      const countA = statusCounts[a] || 0
+      const countB = statusCounts[b] || 0
+      if (countA !== countB) return countB - countA
+      return a.localeCompare(b)
+    })
+  }, [statusCounts])
+
+  // Filter items based on selected statuses
   const filteredItems = useMemo(() => {
     if (!data) return []
-    return data.items
-  }, [data])
+    
+    // If no status filters selected, show all
+    if (selectedStatuses.length === 0) return data.items
+    
+    // Filter items that have at least one of the selected statuses
+    return data.items.filter((item) => {
+      const itemStatuses = parseItemStatuses(item)
+      return selectedStatuses.some(status => itemStatuses.includes(status))
+    })
+  }, [data, selectedStatuses])
 
   // Generate calendar days for current month
   const calendarDays = useMemo(() => {
@@ -251,6 +300,61 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
             </button>
           </div>
         </div>
+
+        {/* Status Filters */}
+        {data && data.items.length > 0 && (
+          <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+              <CollapsibleOptions>
+                <button
+                  onClick={() => setSelectedStatuses([])}
+                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                    selectedStatuses.length === 0
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  All
+                </button>
+                {sortedStatuses.map((status) => {
+                  const isSelected = selectedStatuses.includes(status)
+                  const count = statusCounts[status] || 0
+                  if (count === 0) return null // Don't show statuses with no items
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                        } else {
+                          setSelectedStatuses([...selectedStatuses, status])
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {status} ({count})
+                    </button>
+                  )
+                })}
+              </CollapsibleOptions>
+            </div>
+            {selectedStatuses.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setSelectedStatuses([])}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Calendar View */}
         {viewMode === 'calendar' && (

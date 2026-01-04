@@ -14,7 +14,7 @@ WITH CHECK (
   auth.uid()::text = (storage.foldername(name))[1]
 );
 
--- Allow authenticated users to read screenshots (public bucket, but explicit policy)
+-- Allow anyone to read screenshots (public bucket for image access)
 CREATE POLICY "Users can read screenshots"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'screenshots');
