@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
+import LinkPreview from '@/components/LinkPreview'
 
 export default function AddItemForm() {
   const [url, setUrl] = useState('')
@@ -1046,9 +1047,11 @@ export default function AddItemForm() {
           } else {
             console.log('handleAcceptAILocation: No place found from search, falling back to city/country')
             // Fall through to city/country handling
-            if (aiSuggestions.city) {
-              console.log('handleAcceptAILocation: Setting city:', aiSuggestions.city)
-              setLocationCity(aiSuggestions.city)
+            // If we have a placeName but no city, use placeName as city (e.g., "Cornwall" -> city)
+            const cityToSet = aiSuggestions.city || (aiSuggestions.placeName ? aiSuggestions.placeName : null)
+            if (cityToSet) {
+              console.log('handleAcceptAILocation: Setting city:', cityToSet, { fromPlaceName: !aiSuggestions.city })
+              setLocationCity(cityToSet)
             }
             if (aiSuggestions.country) {
               console.log('handleAcceptAILocation: Setting country:', aiSuggestions.country)
@@ -1060,10 +1063,14 @@ export default function AddItemForm() {
         } else {
           console.log('handleAcceptAILocation: Places API error, falling back to city/country')
           // Fall through to city/country handling
-          if (aiSuggestions.city) {
-            setLocationCity(aiSuggestions.city)
+          // If we have a placeName but no city, use placeName as city
+          const cityToSet = aiSuggestions.city || (aiSuggestions.placeName ? aiSuggestions.placeName : null)
+          if (cityToSet) {
+            console.log('handleAcceptAILocation: Setting city (API error):', cityToSet)
+            setLocationCity(cityToSet)
           }
           if (aiSuggestions.country) {
+            console.log('handleAcceptAILocation: Setting country (API error):', aiSuggestions.country)
             setLocationCountry(aiSuggestions.country)
           }
           userEditedLocation.current = true
@@ -1072,10 +1079,14 @@ export default function AddItemForm() {
       } catch (err) {
         console.error('Error accepting AI location:', err)
         // Fall through to city/country handling
-        if (aiSuggestions.city) {
-          setLocationCity(aiSuggestions.city)
+        // If we have a placeName but no city, use placeName as city
+        const cityToSet = aiSuggestions.city || (aiSuggestions.placeName ? aiSuggestions.placeName : null)
+        if (cityToSet) {
+          console.log('handleAcceptAILocation: Setting city (error):', cityToSet)
+          setLocationCity(cityToSet)
         }
         if (aiSuggestions.country) {
+          console.log('handleAcceptAILocation: Setting country (error):', aiSuggestions.country)
           setLocationCountry(aiSuggestions.country)
         }
         userEditedLocation.current = true
@@ -1376,6 +1387,17 @@ export default function AddItemForm() {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
+              </div>
+            )}
+
+            {/* Link Preview */}
+            {url.trim() && (
+              <div className="mb-6">
+                <LinkPreview
+                  url={url}
+                  ogImage={thumbnailUrl}
+                  screenshotUrl={screenshotUrl}
+                />
               </div>
             )}
 
