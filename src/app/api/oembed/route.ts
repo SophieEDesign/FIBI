@@ -8,6 +8,7 @@ interface OEmbedResponse {
   author_name?: string
   title?: string
   provider_name?: string
+  caption_text?: string // Extracted caption text (e.g., from TikTok HTML)
   error?: string
 }
 
@@ -36,12 +37,37 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
     }
 
     const data = await response.json()
+    
+    // Extract caption from TikTok HTML (WordPress-style extraction)
+    // TikTok oEmbed HTML contains the caption in a <p> tag within a blockquote
+    let captionText: string | undefined
+    if (data.html) {
+      // Try to extract caption from <p> tag in the blockquote HTML
+      // Pattern: <blockquote><p>caption text</p></blockquote>
+      const captionMatch = data.html.match(/<blockquote[^>]*>\s*<p[^>]*>([^<]+)<\/p>/i) ||
+                                          data.html.match(/<p[^>]*class\s*=\s*["'][^"']*caption[^"']*["'][^>]*>([^<]+)<\/p>/i) ||
+                                          data.html.match(/<p[^>]*>([^<]{10,})<\/p>/i) // Fallback: any <p> with substantial text
+      
+      if (captionMatch && captionMatch[1]) {
+        captionText = captionMatch[1].trim()
+        // Clean up HTML entities
+        captionText = captionText
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+      }
+    }
+    
     return {
       html: data.html,
       thumbnail_url: data.thumbnail_url,
       author_name: data.author_name,
       title: data.title,
       provider_name: 'TikTok',
+      caption_text: captionText,
     }
   } catch (error) {
     console.error('TikTok oEmbed error:', error)

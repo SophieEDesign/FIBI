@@ -876,6 +876,28 @@ export default function AddItemForm() {
       let finalTitle = title // Start with current title
       let finalDescription = description // Track description for AI enrichment
 
+      // For TikTok URLs, also try to get caption from oEmbed (WordPress-style extraction)
+      let oembedCaption: string | null = null
+      const platform = detectPlatform(newUrl)
+      if (platform === 'TikTok') {
+        try {
+          const oembedResponse = await fetch('/api/oembed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: newUrl }),
+          })
+          if (oembedResponse.ok) {
+            const oembedData = await oembedResponse.json()
+            if (oembedData.caption_text) {
+              oembedCaption = oembedData.caption_text
+              console.log('AddItemForm: Extracted TikTok caption from oEmbed:', oembedCaption.substring(0, 100))
+            }
+          }
+        } catch (err) {
+          console.debug('AddItemForm: Error fetching oEmbed caption (non-blocking):', err)
+        }
+      }
+
       if (metadata) {
         const cleanedTitle = cleanOGTitle(metadata.title)
         if (cleanedTitle) {
@@ -886,14 +908,13 @@ export default function AddItemForm() {
           setTitle(finalTitle)
         }
 
-        // Set description (always set if we have it and current is empty)
-        // Use scrapedContent as fallback if description is not available
-        const descriptionToUse = metadata.description || metadata.scrapedContent
+        // Set description: Priority: oEmbed caption > metadata description > scrapedContent
+        const descriptionToUse = oembedCaption || metadata.description || metadata.scrapedContent
         if (descriptionToUse) {
-          console.log('AddItemForm: Setting description from metadata (handleUrlChange)', {
+          console.log('AddItemForm: Setting description (handleUrlChange)', {
+            oembedCaption: oembedCaption?.substring(0, 100) || null,
             metadataDescription: metadata.description?.substring(0, 100) || null,
             scrapedContent: metadata.scrapedContent?.substring(0, 100) || null,
-            usingScrapedContent: !metadata.description && !!metadata.scrapedContent,
             currentDescription: description.substring(0, 100),
             willSet: !description || description.trim() === '',
           })
@@ -904,7 +925,8 @@ export default function AddItemForm() {
             finalDescription = description
           }
         } else {
-          console.log('AddItemForm: No description in metadata (handleUrlChange)', {
+          console.log('AddItemForm: No description found (handleUrlChange)', {
+            hasOembedCaption: !!oembedCaption,
             hasDescription: !!metadata.description,
             hasScrapedContent: !!metadata.scrapedContent,
             scrapedContentLength: metadata.scrapedContent?.length || 0,

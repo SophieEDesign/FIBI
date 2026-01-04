@@ -79,6 +79,64 @@ function extractMetadata(html: string): MetadataResponse {
     }
   }
 
+  // Try to extract from JSON-LD structured data (TikTok, YouTube, etc. use this)
+  if (!metadata.description) {
+    try {
+      const jsonLdMatches = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
+      if (jsonLdMatches) {
+        for (const match of jsonLdMatches) {
+          try {
+            const jsonContent = match.replace(/<script[^>]*>|<\/script>/gi, '').trim()
+            const jsonData = JSON.parse(jsonContent)
+            
+            // Check for description in various JSON-LD structures
+            if (jsonData.description) {
+              metadata.description = jsonData.description.trim()
+              break
+            }
+            if (jsonData.text) {
+              metadata.description = jsonData.text.trim()
+              break
+            }
+            if (jsonData.caption) {
+              metadata.description = jsonData.caption.trim()
+              break
+            }
+            // For VideoObject schema
+            if (jsonData['@type'] === 'VideoObject' && jsonData.description) {
+              metadata.description = jsonData.description.trim()
+              break
+            }
+            // For array of objects
+            if (Array.isArray(jsonData)) {
+              for (const item of jsonData) {
+                if (item.description) {
+                  metadata.description = item.description.trim()
+                  break
+                }
+                if (item.text) {
+                  metadata.description = item.text.trim()
+                  break
+                }
+                if (item.caption) {
+                  metadata.description = item.caption.trim()
+                  break
+                }
+              }
+              if (metadata.description) break
+            }
+          } catch (parseError) {
+            // Skip invalid JSON, continue to next script tag
+            continue
+          }
+        }
+      }
+    } catch (err) {
+      // Silently fail - JSON-LD extraction is optional
+      console.debug('Error extracting JSON-LD:', err)
+    }
+  }
+
   // Extract visible text content from the page (for AI enrichment)
   try {
     // Remove script and style tags
