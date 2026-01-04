@@ -99,10 +99,10 @@ Given the following information extracted from a shared link:
 - Platform: ${context.platform || '(not provided)'}
 
 Please suggest improvements. IMPORTANT RULES:
-1. Only suggest if you have reasonable confidence (don't invent data)
-2. For title: suggest a cleaner, shorter version if the current title is messy or too long
-3. For location: extract any place name, city, or country mentioned (even if low confidence)
-4. For category: suggest one of: Food, Stay, Nature, Activity, City, Beach, Other (or null if unclear)
+1. For title: ALWAYS suggest a cleaner, shorter version. Even if the title seems fine, try to improve it (remove extra words, make it more concise, remove platform-specific text like "Instagram" or "TikTok"). Only return null if the title is already perfect.
+2. For location: AGGRESSIVELY extract any place name, city, or country mentioned. Look in the URL, title, description, and domain. Even if confidence is low, suggest it (we'll mark confidence as "low"). Examples: "Cornwall" from "cornwall" in URL, "Lisbon" from description, "Portugal" from context.
+3. For category: ALWAYS suggest a category based on the content. Use context clues: restaurant/food mentions = "Food", hotel/accommodation = "Stay", beach/ocean = "Beach", hiking/nature = "Nature", city/urban = "City", activity/experience = "Activity". If truly unclear, use "Other".
+4. Be smart: Use the URL domain (e.g., "tripadvisor.com" might suggest a place), platform (Instagram/TikTok often have location tags), and description text to extract information.
 
 Return ONLY a JSON object with this exact structure:
 {

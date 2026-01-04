@@ -270,6 +270,16 @@ export default function AddItemForm() {
             return
           }
           
+          // Log comparison with current values
+          console.log('AI enrichment: Comparing suggestions with current values', {
+            title: { current: title, suggested: data.suggestedTitle, different: data.suggestedTitle && data.suggestedTitle !== title },
+            location: { 
+              current: { place: selectedPlace?.place_name, city: locationCity, country: locationCountry },
+              suggested: { place: data.suggestedPlaceName, city: data.suggestedCity, country: data.suggestedCountry }
+            },
+            category: { current: categories, suggested: data.suggestedCategory },
+          })
+          
           // Only set suggestions if we have at least one non-null suggestion
           if (data.suggestedTitle || data.suggestedPlaceName || data.suggestedCity || data.suggestedCountry || data.suggestedCategory) {
             console.log('AI enrichment: Setting suggestions', {
@@ -315,6 +325,20 @@ export default function AddItemForm() {
       }
     }
   }, [url])
+
+  // Trigger AI enrichment if URL is already present when component mounts
+  // This handles the case where page loads with URL already in the field
+  useEffect(() => {
+    if (url && url.trim() && !aiEnrichmentTriggered && metadataFetchedRef.current && !aiEnrichmentTimeoutRef.current) {
+      console.log('AddItemForm: URL present on mount, triggering AI enrichment after delay', { url })
+      // Small delay to ensure metadata is loaded
+      const timeout = setTimeout(() => {
+        triggerAIEnrichment(url, title || '', description || '')
+      }, 1000)
+      return () => clearTimeout(timeout)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, title, description])
 
   // Search Google Places for location suggestions
   const searchPlaces = async (query: string) => {
@@ -1491,7 +1515,20 @@ export default function AddItemForm() {
                 id="location-search"
               />
               {/* AI Location Suggestion */}
-              {(aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) && !userEditedLocation.current && !selectedPlace && (
+              {(() => {
+                const shouldShow = (aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) && !userEditedLocation.current && !selectedPlace
+                if (aiSuggestions && (aiSuggestions.placeName || aiSuggestions.city || aiSuggestions.country)) {
+                  console.log('AI location suggestion: Visibility check', {
+                    hasPlaceName: !!aiSuggestions.placeName,
+                    hasCity: !!aiSuggestions.city,
+                    hasCountry: !!aiSuggestions.country,
+                    userEditedLocation: userEditedLocation.current,
+                    hasSelectedPlace: !!selectedPlace,
+                    shouldShow,
+                  })
+                }
+                return shouldShow
+              })() && (
                 <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
                   <div className="flex-1">
                     <p className="text-xs text-gray-600 mb-1">Suggested location</p>
