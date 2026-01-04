@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { detectPlatform } from '@/lib/utils'
+import { detectPlatform, isMobileDevice } from '@/lib/utils'
 
 interface LinkPreviewProps {
   url: string
@@ -47,10 +47,27 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   const isTikTok = platform === 'TikTok'
   const isInstagram = platform === 'Instagram'
   const isYouTube = platform === 'YouTube'
+  const [isMobile, setIsMobile] = useState(false)
 
-  // Fetch oEmbed data when URL changes
+  // Detect mobile device
+  useEffect(() => {
+    setIsMobile(isMobileDevice())
+    const handleResize = () => {
+      setIsMobile(isMobileDevice())
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Fetch oEmbed data when URL changes (only on desktop)
   useEffect(() => {
     if (!url.trim()) {
+      setOembedData(null)
+      return
+    }
+
+    // On mobile, skip oEmbed HTML fetch - we'll use static preview only
+    if (isMobile) {
       setOembedData(null)
       return
     }
@@ -92,7 +109,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     // Debounce oEmbed fetch
     const timeoutId = setTimeout(fetchOEmbed, 500)
     return () => clearTimeout(timeoutId)
-  }, [url, isTikTok, isInstagram, isYouTube])
+  }, [url, isTikTok, isInstagram, isYouTube, isMobile])
 
   // Determine preview source and label (priority order)
   // Priority: Screenshot > Embedded link image (oEmbed thumbnail) > OG image > oEmbed HTML
@@ -133,7 +150,8 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     : 'Preview'
 
   // Render oEmbed HTML (TikTok, Instagram, YouTube return embeddable HTML)
-  if (previewSource === 'oembed-html' && oembedData?.html) {
+  // Only on desktop - mobile always uses static preview
+  if (!isMobile && previewSource === 'oembed-html' && oembedData?.html) {
     // TikTok oEmbed HTML includes a blockquote and script tag
     // Instagram and YouTube oEmbed HTML are iframes
     return (
@@ -156,7 +174,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     )
   }
 
-  // Render thumbnail/image preview
+  // Render thumbnail/image preview (static preview - used on mobile and as fallback on desktop)
   if (previewSource === 'oembed-thumbnail' || previewSource === 'og-image' || previewSource === 'screenshot') {
     const imageUrl = previewSource === 'oembed-thumbnail'
       ? oembedData?.thumbnail_url
@@ -200,6 +218,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
             }}
           />
         </div>
+        {/* Caption always shown as plain text below image - first class data */}
         {(oembedData?.author_name || description) && (
           <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2">
             {oembedData?.author_name && (
@@ -213,6 +232,55 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
             )}
           </div>
         )}
+        {/* Link to original content - always visible on mobile */}
+        <div className="px-3 py-2 bg-white border-t border-gray-200">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-gray-700 hover:text-gray-900 underline flex items-center gap-1"
+          >
+            View original content
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // On mobile, if we have oEmbed HTML but no thumbnail, still show a static preview with link
+  // This ensures mobile always shows *something*
+  if (isMobile && oembedData?.html && !previewSource) {
+    return (
+      <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+          <p className="text-xs text-gray-600">{previewLabel}</p>
+        </div>
+        <div className="px-3 py-8 bg-gray-50 text-center">
+          <div className="text-gray-400 text-4xl mb-3">
+            {isTikTok ? '🎵' : isInstagram ? '📷' : isYouTube ? '▶️' : '🔗'}
+          </div>
+          <p className="text-sm text-gray-600 mb-3">Preview not available on mobile</p>
+          {description && (
+            <div className="mb-4 text-left">
+              <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+            </div>
+          )}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 underline"
+          >
+            View original content
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
       </div>
     )
   }
@@ -222,21 +290,65 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   const hasAnySource = oembedData?.html || oembedData?.thumbnail_url || screenshotUrl || ogImage
   if (url.trim() && !loading && !previewSource && !hasAnySource) {
     return (
-      <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-        <p className="text-sm text-gray-500">
-          Preview not available · Add screenshot
-        </p>
+      <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+          <p className="text-xs text-gray-600">{previewLabel}</p>
+        </div>
+        <div className="p-8 text-center">
+          <p className="text-sm text-gray-500 mb-3">
+            Preview not available · Add screenshot
+          </p>
+          {description && (
+            <div className="mb-4 text-left">
+              <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+            </div>
+          )}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 underline"
+          >
+            View original content
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
       </div>
     )
   }
 
-  // If we have sources but all failed, show placeholder
+  // If we have sources but all failed, show placeholder with caption
   if (url.trim() && !loading && !previewSource && hasAnySource) {
     return (
-      <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-        <p className="text-sm text-gray-500">
-          Preview not available · Add screenshot
-        </p>
+      <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+          <p className="text-xs text-gray-600">{previewLabel}</p>
+        </div>
+        <div className="p-8 text-center">
+          <p className="text-sm text-gray-500 mb-3">
+            Preview not available · Add screenshot
+          </p>
+          {description && (
+            <div className="mb-4 text-left">
+              <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+              <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+            </div>
+          )}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 underline"
+          >
+            View original content
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
       </div>
     )
   }

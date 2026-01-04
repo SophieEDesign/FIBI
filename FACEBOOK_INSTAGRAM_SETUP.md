@@ -167,3 +167,99 @@ If you want to access Instagram Business account content:
 4. **Monitor API usage** to detect unusual activity
 5. **Set up rate limiting** in your application to avoid hitting Facebook's limits
 
+---
+
+## Adding Facebook Login (Optional)
+
+You can also use your Facebook App to enable Facebook Login as an authentication option in your app. This allows users to sign in with their Facebook account instead of (or in addition to) email/password.
+
+### Benefits
+
+- **Faster sign-up** - Users don't need to create a new account
+- **No password management** - Users use their existing Facebook account
+- **Higher conversion** - Reduces friction in the sign-up process
+
+### Setup Steps
+
+#### 1. Add Facebook Login Product
+
+1. In your Facebook App dashboard, go to **"Add Products"**
+2. Find **"Facebook Login"** and click **"Set Up"**
+3. Follow the setup wizard
+
+#### 2. Configure OAuth Redirect URIs
+
+1. Go to **"Settings"** → **"Basic"** in your Facebook App
+2. Under **"Facebook Login"** → **"Settings"**, add your redirect URIs:
+   - `https://fibi.world/auth/callback` (production)
+   - `http://localhost:3000/auth/callback` (development, if needed)
+
+#### 3. Configure in Supabase
+
+1. Go to your Supabase project dashboard
+2. Navigate to **"Authentication"** → **"Providers"**
+3. Find **"Facebook"** and enable it
+4. Enter your Facebook App credentials:
+   - **App ID**: Your Facebook App ID (e.g., `25519623950997349`)
+   - **App Secret**: Your Facebook App Secret
+5. Add the redirect URL: `https://fibi.world/auth/callback`
+6. Save the configuration
+
+#### 4. Add Facebook Login Button to Your App
+
+Update your `LoginClient.tsx` to add a Facebook login button:
+
+```tsx
+const handleFacebookLogin = async () => {
+  if (!supabase) return
+  
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'facebook',
+    options: {
+      redirectTo: `${getSiteUrl()}/auth/callback`,
+    },
+  })
+  
+  if (error) {
+    setError(error.message)
+  }
+}
+```
+
+Then add a button in your login form:
+```tsx
+<button
+  onClick={handleFacebookLogin}
+  className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+>
+  Continue with Facebook
+</button>
+```
+
+### Required Permissions
+
+For basic Facebook Login, you typically need:
+- `email` - To get the user's email address
+- `public_profile` - Basic profile information (name, profile picture)
+
+These are usually approved automatically for Facebook Login.
+
+### App Review
+
+If you add Facebook Login, you'll need to submit your app for review with:
+- **Facebook Login** permission
+- Explanation of how you use user data
+- Test instructions
+
+### Notes
+
+- **Separate from oEmbed**: Facebook Login uses different permissions than Instagram oEmbed
+- **User data**: You'll receive user email, name, and profile picture from Facebook
+- **Privacy policy**: Make sure your privacy policy explains how you use Facebook user data
+- **Optional**: You can keep email/password as the primary method and add Facebook as an alternative
+
+### Resources
+
+- [Supabase Facebook OAuth Guide](https://supabase.com/docs/guides/auth/social-login/auth-facebook)
+- [Facebook Login Documentation](https://developers.facebook.com/docs/facebook-login/)
+

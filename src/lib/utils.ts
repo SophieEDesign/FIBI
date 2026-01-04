@@ -37,6 +37,19 @@ export function detectPlatform(url: string): string {
   }
 }
 
+/**
+ * Detect if user is on a mobile device
+ * Checks for touch capability and screen width
+ */
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false
+  // Check for touch capability (more reliable than user agent)
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+  // Check screen width (mobile is typically < 768px)
+  const isSmallScreen = window.innerWidth < 768
+  return hasTouch && isSmallScreen
+}
+
 export function getHostname(url: string): string {
   try {
     return new URL(url).hostname.replace('www.', '')

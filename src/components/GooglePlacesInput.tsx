@@ -288,25 +288,22 @@ export default function GooglePlacesInput({
         })),
       })
 
-      setHasSelectedPlace(true)
-      setLocationSearchValue(googlePlace.place_name)
-      
-      // Update manual city/country fields with place data (user can override after)
-      const cityValue = googlePlace.city || ''
-      const countryValue = googlePlace.country || ''
-      
-      console.log('GooglePlacesInput: Updating city/country fields:', { cityValue, countryValue })
-      
+      // CRITICAL: Update all state synchronously and call onChange immediately
       // Set flags FIRST to prevent useEffect from overwriting when parent updates props
       justSetFromPlaceRef.current.city = true
       justSetFromPlaceRef.current.country = true
       
-      // Update local state so fields update immediately
+      // Update local state immediately
+      const cityValue = googlePlace.city || ''
+      const countryValue = googlePlace.country || ''
+      
+      setHasSelectedPlace(true)
+      setLocationSearchValue(googlePlace.place_name)
       setManualCity(cityValue)
       setManualCountry(countryValue)
       
-      // Also notify parent immediately via onManualCityChange/onManualCountryChange
-      // This ensures parent state is updated synchronously before onChange is called
+      // CRITICAL: Notify parent callbacks immediately and synchronously
+      // Call these BEFORE onChange to ensure parent state is ready
       if (onManualCityChange) {
         onManualCityChange(cityValue)
       }
@@ -314,9 +311,14 @@ export default function GooglePlacesInput({
         onManualCountryChange(countryValue)
       }
       
-      // Notify parent of place selection - the parent's onChange handler will also set city/country
-      // The parent will update props, but our flags prevent overwriting for a short time
+      // CRITICAL: Call onChange immediately - this must happen synchronously
+      // Use a small setTimeout(0) only if we need to ensure DOM is ready, but try without first
       onChange(googlePlace)
+      
+      // Also update input value directly to ensure it shows the place name
+      if (inputRef.current) {
+        inputRef.current.value = googlePlace.place_name
+      }
       
       // Reset flags after parent has had time to update
       // Use 500ms to match the useEffect timeout
@@ -331,7 +333,8 @@ export default function GooglePlacesInput({
         window.google.maps.event.clearInstanceListeners(autocompleteRef.current)
       }
     }
-  }, [isGoogleLoaded, onChange, disabled])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGoogleLoaded, disabled]) // Removed onChange from deps to prevent listener recreation
 
   // Handle manual input (when user types without selecting)
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

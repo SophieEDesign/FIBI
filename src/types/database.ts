@@ -18,6 +18,7 @@ export interface SavedItem {
   status: string | null
   notes: string | null
   planned_date: string | null
+  itinerary_id: string | null
   created_at: string
   updated_at: string
 }

@@ -16,7 +16,7 @@ import {
   useDraggable,
   useDroppable,
 } from '@dnd-kit/core'
-import { getHostname } from '@/lib/utils'
+import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
 import { useRouter } from 'next/navigation'
@@ -40,21 +40,30 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draggedItem, setDraggedItem] = useState<SavedItem | null>(null)
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [itemToDate, setItemToDate] = useState<SavedItem | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
+  // Detect mobile device
+  useEffect(() => {
+    setIsMobile(isMobileDevice())
+    const handleResize = () => {
+      setIsMobile(isMobileDevice())
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Only enable drag sensors on desktop
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
     }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 5,
-      },
-    })
+    // Disable TouchSensor on mobile - we'll use tap instead
   )
 
   useEffect(() => {
@@ -68,6 +77,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
     if (!user) return
 
     try {
+      // Load items with planned_date (for calendar view)
+      // For now, we load all items regardless of itinerary_id (supporting future multi-itinerary)
+      // When multiple itineraries are implemented, we'll filter by selected itinerary_id
       const { data, error } = await supabase
         .from('saved_items')
         .select('*')
@@ -143,6 +155,28 @@ export default function CalendarView({ user }: CalendarViewProps) {
     setDraggedItem(item || null)
   }
 
+  // Assign date to item (used for both drag-and-drop and tap-based selection)
+  const assignDateToItem = async (itemId: string, dateStr: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('saved_items')
+        .update({ planned_date: dateStr })
+        .eq('id', itemId)
+
+      if (error) throw error
+
+      // Optimistic update
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId ? { ...item, planned_date: dateStr } : item
+        )
+      )
+    } catch (error) {
+      console.error('Error updating planned date:', error)
+      loadItems() // Reload on error
+    }
+  }
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
@@ -155,50 +189,33 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
     // If dropped on "unplanned" area, set planned_date to null
     if (targetDate === 'unplanned') {
-      try {
-        const { error } = await supabase
-          .from('saved_items')
-          .update({ planned_date: null })
-          .eq('id', itemId)
-
-        if (error) throw error
-
-        // Optimistic update
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === itemId ? { ...item, planned_date: null } : item
-          )
-        )
-      } catch (error) {
-        console.error('Error removing planned date:', error)
-        loadItems() // Reload on error
-      }
+      await assignDateToItem(itemId, null)
       return
     }
 
     // Parse date from target (format: "date-YYYY-MM-DD")
     if (typeof targetDate === 'string' && targetDate.startsWith('date-')) {
       const dateStr = targetDate.replace('date-', '')
-
-      try {
-        const { error } = await supabase
-          .from('saved_items')
-          .update({ planned_date: dateStr })
-          .eq('id', itemId)
-
-        if (error) throw error
-
-        // Optimistic update
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === itemId ? { ...item, planned_date: dateStr } : item
-          )
-        )
-      } catch (error) {
-        console.error('Error updating planned date:', error)
-        loadItems() // Reload on error
-      }
+      await assignDateToItem(itemId, dateStr)
     }
+  }
+
+  // Handle tap on item to show date picker (mobile only)
+  const handleItemTapForDate = (item: SavedItem) => {
+    if (isMobile) {
+      setItemToDate(item)
+      setShowDatePicker(true)
+    }
+  }
+
+  // Handle date selection from picker (mobile)
+  const handleDateSelected = async (date: Date | null) => {
+    if (!itemToDate) return
+
+    const dateStr = date ? date.toISOString().split('T')[0] : null
+    await assignDateToItem(itemToDate.id, dateStr)
+    setShowDatePicker(false)
+    setItemToDate(null)
   }
 
   const monthNames = [
@@ -323,6 +340,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
+          enabled={!isMobile} // Disable drag-and-drop on mobile
         >
           {/* Month Navigation */}
           <div className="mb-6 flex items-center justify-between">
@@ -414,6 +432,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     item={item}
                     isDragging={activeId === item.id}
                     onSelect={() => setSelectedItem(item)}
+                    onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                    isMobile={isMobile}
                   />
                 ))}
               </UnplannedDropZone>
@@ -455,6 +475,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           isDragging={activeId === item.id}
                           compact
                           onSelect={() => setSelectedItem(item)}
+                          onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                          isMobile={isMobile}
                         />
                       ))}
                     </div>
@@ -477,6 +499,19 @@ export default function CalendarView({ user }: CalendarViewProps) {
           <PlacePreviewModal
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
+          />
+        )}
+
+        {/* Date Picker Modal (Mobile) */}
+        {showDatePicker && itemToDate && (
+          <DatePickerModal
+            item={itemToDate}
+            currentDate={itemToDate.planned_date ? new Date(itemToDate.planned_date) : null}
+            onSelect={handleDateSelected}
+            onClose={() => {
+              setShowDatePicker(false)
+              setItemToDate(null)
+            }}
           />
         )}
 
@@ -531,11 +566,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Drag places onto the calendar
+              {isMobile ? 'Tap places to plan them' : 'Drag places onto the calendar'}
             </h3>
             <p className="text-sm text-gray-600 max-w-md mx-auto">
-              Drag any place from the unplanned section above onto a date to plan it. You can
-              move places between dates or remove them by dragging back to unplanned.
+              {isMobile
+                ? 'Tap any place from the unplanned section above to assign it to a date. You can move places between dates or remove them from the calendar.'
+                : 'Drag any place from the unplanned section above onto a date to plan it. You can move places between dates or remove them by dragging back to unplanned.'}
             </p>
           </div>
         )}
@@ -588,18 +624,21 @@ function CalendarDayDropZone({
   )
 }
 
-// Place Card Component (draggable)
+// Place Card Component (draggable on desktop, tappable on mobile)
 interface PlaceCardProps {
   item: SavedItem
   isDragging: boolean
   compact?: boolean
   overlay?: boolean
   onSelect?: () => void
+  onAssignDate?: () => void
+  isMobile?: boolean
 }
 
-function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelect }: PlaceCardProps) {
+function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelect, onAssignDate, isMobile = false }: PlaceCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: item.id,
+    disabled: isMobile, // Disable dragging on mobile
   })
 
   const style = transform
@@ -611,11 +650,14 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
   const displayTitle = item.title || getHostname(item.url)
   const imageUrl = item.screenshot_url || item.thumbnail_url
 
-  // Handle click (separate from drag)
+  // Handle click/tap
   const handleClick = (e: React.MouseEvent) => {
-    // Only trigger if not dragging
-    if (!isDragging && onSelect) {
-      e.stopPropagation()
+    e.stopPropagation()
+    
+    // On mobile, show date picker; on desktop, show preview
+    if (isMobile && onAssignDate) {
+      onAssignDate()
+    } else if (!isDragging && onSelect) {
       onSelect()
     }
   }
@@ -658,8 +700,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
       <div
         ref={setNodeRef}
         style={style}
-        {...listeners}
-        {...attributes}
+        {...(!isMobile ? { ...listeners, ...attributes } : {})} // Only enable drag listeners on desktop
         onClick={handleClick}
         className={`bg-white rounded border border-gray-200 p-1.5 cursor-pointer hover:shadow-sm transition-shadow ${
           isDragging ? 'opacity-50' : ''
@@ -698,8 +739,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
+      {...(!isMobile ? { ...listeners, ...attributes } : {})} // Only enable drag listeners on desktop
       onClick={handleClick}
       className={`bg-white rounded-lg border border-gray-200 p-2 w-32 md:w-40 cursor-pointer hover:shadow-md transition-shadow ${
         isDragging ? 'opacity-50' : ''
@@ -961,6 +1001,201 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
                 Open Link
               </a>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Date Picker Modal Component (Mobile)
+interface DatePickerModalProps {
+  item: SavedItem
+  currentDate: Date | null
+  onSelect: (date: Date | null) => void
+  onClose: () => void
+}
+
+function DatePickerModal({ item, currentDate, onSelect, onClose }: DatePickerModalProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(currentDate)
+  const [viewMonth, setViewMonth] = useState(new Date(currentDate || new Date()))
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
+
+  // Generate calendar days for view month
+  const calendarDays = useMemo(() => {
+    const year = viewMonth.getFullYear()
+    const month = viewMonth.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
+
+    const days: Date[] = []
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + i)
+      days.push(date)
+    }
+    return days
+  }, [viewMonth])
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const isSameDay = (date1: Date, date2: Date | null) => {
+    if (!date2) return false
+    return (
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear()
+    )
+  }
+
+  const handleDateClick = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    const currentDateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
+    
+    // Toggle date if clicking the same date
+    if (dateStr === currentDateStr) {
+      setSelectedDate(null)
+    } else {
+      setSelectedDate(date)
+    }
+  }
+
+  const displayTitle = item.title || getHostname(item.url)
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-t-2xl md:rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
+        {/* Header */}
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Assign Date</h2>
+            <p className="text-sm text-gray-600 mt-1 line-clamp-1">{displayTitle}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Calendar */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {/* Month Navigation */}
+          <div className="mb-4 flex items-center justify-between">
+            <button
+              onClick={() => {
+                const newDate = new Date(viewMonth)
+                newDate.setMonth(viewMonth.getMonth() - 1)
+                setViewMonth(newDate)
+              }}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+            </h3>
+            <button
+              onClick={() => {
+                const newDate = new Date(viewMonth)
+                newDate.setMonth(viewMonth.getMonth() + 1)
+                setViewMonth(newDate)
+              }}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Week day headers */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {weekDays.map((day) => (
+              <div key={day} className="p-2 text-center text-xs font-medium text-gray-700">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar days */}
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.map((day, index) => {
+              const isCurrentMonth = day.getMonth() === viewMonth.getMonth()
+              const isSelected = isSameDay(day, selectedDate)
+              const today = new Date()
+              const isToday = isSameDay(day, today)
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleDateClick(day)}
+                  className={`p-2 text-sm rounded-lg transition-colors ${
+                    !isCurrentMonth
+                      ? 'text-gray-300'
+                      : isSelected
+                      ? 'bg-gray-900 text-white font-medium'
+                      : isToday
+                      ? 'bg-blue-50 text-blue-600 font-medium'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {day.getDate()}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="border-t border-gray-200 p-5 bg-gray-50">
+          <div className="flex gap-3">
+            <button
+              onClick={() => onSelect(null)}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors"
+            >
+              Remove from calendar
+            </button>
+            <button
+              onClick={() => onSelect(selectedDate)}
+              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+            >
+              {selectedDate
+                ? `Assign ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : 'Select date'}
+            </button>
           </div>
         </div>
       </div>
