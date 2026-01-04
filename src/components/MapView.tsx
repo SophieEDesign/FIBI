@@ -114,11 +114,11 @@ export default function MapView() {
       const itemsWithCoords = (allData || []).filter(item => {
         // Check if latitude exists and is valid
         const lat = item.latitude
-        const hasLat = lat != null && lat !== '' && !isNaN(Number(lat))
+        const hasLat = lat != null && !isNaN(Number(lat))
         
         // Check if longitude exists and is valid
         const lng = item.longitude
-        const hasLng = lng != null && lng !== '' && !isNaN(Number(lng))
+        const hasLng = lng != null && !isNaN(Number(lng))
         
         if (!hasLat || !hasLng) {
           console.log('MapView: Filtering out item without valid coordinates:', {
@@ -319,8 +319,9 @@ export default function MapView() {
     const itemsWithLocations = items.filter(item => {
       const lat = item.latitude
       const lng = item.longitude
-      return lat != null && lat !== '' && !isNaN(Number(lat)) &&
-             lng != null && lng !== '' && !isNaN(Number(lng))
+      // Check for null and ensure they're valid numbers
+      return lat != null && !isNaN(Number(lat)) &&
+             lng != null && !isNaN(Number(lng))
     })
     console.log('MapView: Updating markers with items', { totalItems: items.length, itemsWithLocations: itemsWithLocations.length })
     
