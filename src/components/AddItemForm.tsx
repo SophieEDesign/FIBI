@@ -218,22 +218,32 @@ export default function AddItemForm() {
 
   // AI enrichment function (non-blocking, async)
   const triggerAIEnrichment = async (urlToEnrich: string, currentTitle: string, currentDescription: string) => {
+    console.log('triggerAIEnrichment called:', { urlToEnrich, currentTitle, currentDescription, aiEnrichmentTriggered })
+    
     // Don't trigger if already triggered or if user has edited fields
-    if (aiEnrichmentTriggered || !urlToEnrich.trim()) return
+    if (aiEnrichmentTriggered || !urlToEnrich.trim()) {
+      console.log('AI enrichment: Skipping - already triggered or no URL')
+      return
+    }
     
     // Debounce: clear existing timeout
     if (aiEnrichmentTimeoutRef.current) {
       clearTimeout(aiEnrichmentTimeoutRef.current)
     }
     
+    console.log('AI enrichment: Setting timeout (2s delay)')
+    
     // Set timeout to trigger AI enrichment after a delay
     aiEnrichmentTimeoutRef.current = setTimeout(async () => {
+      console.log('AI enrichment: Timeout fired, making API call')
       setAiLoading(true)
       setAiEnrichmentTriggered(true)
       
       try {
         const platform = detectPlatform(urlToEnrich)
         const domain = getHostname(urlToEnrich)
+        
+        console.log('AI enrichment: Calling API with:', { url: urlToEnrich, title: currentTitle, description: currentDescription, domain, platform })
         
         const response = await fetch('/api/ai-enrich', {
           method: 'POST',
@@ -246,6 +256,8 @@ export default function AddItemForm() {
             platform: platform || null,
           }),
         })
+        
+        console.log('AI enrichment: API response status:', response.status)
         
         if (response.ok) {
           const data = await response.json()

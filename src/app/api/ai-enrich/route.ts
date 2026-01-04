@@ -29,7 +29,10 @@ export async function POST(request: NextRequest) {
     const body: AIEnrichmentRequest = await request.json()
     const { url, title, description, domain, platform } = body
 
+    console.log('AI enrichment API: Request received', { url, title, description, domain, platform })
+
     if (!url || typeof url !== 'string') {
+      console.log('AI enrichment API: Missing URL')
       return NextResponse.json(
         { error: 'URL is required' },
         { status: 400 }
@@ -38,6 +41,16 @@ export async function POST(request: NextRequest) {
 
     // Check if AI API key is configured
     const aiApiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY
+    const hasOpenAI = !!process.env.OPENAI_API_KEY
+    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY
+    
+    console.log('AI enrichment API: API key check', { 
+      hasOpenAI, 
+      hasAnthropic, 
+      hasKey: !!aiApiKey,
+      keyLength: aiApiKey ? aiApiKey.length : 0 
+    })
+    
     if (!aiApiKey) {
       // If no AI key, return empty suggestions (graceful degradation)
       console.log('AI enrichment: No API key configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to enable AI suggestions.')
@@ -54,6 +67,8 @@ export async function POST(request: NextRequest) {
         },
       })
     }
+    
+    console.log('AI enrichment API: API key found, proceeding with AI call')
 
     // Prepare context for AI
     const context = {
