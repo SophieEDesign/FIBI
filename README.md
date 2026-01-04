@@ -106,6 +106,12 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 OPENAI_API_KEY=your_openai_api_key
 # OR
 ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Optional: Instagram oEmbed (for rich Instagram link previews)
+# Get this from Facebook Developer Console - see FACEBOOK_INSTAGRAM_SETUP.md
+FACEBOOK_ACCESS_TOKEN=your_facebook_access_token
+# OR
+INSTAGRAM_ACCESS_TOKEN=your_instagram_access_token
 ```
 
 You can find the Supabase values in your Supabase project settings under **API**.
@@ -114,7 +120,12 @@ For AI enrichment:
 - **OpenAI**: Get an API key from [platform.openai.com](https://platform.openai.com/api-keys) (uses `gpt-4o-mini` model)
 - **Anthropic**: Get an API key from [console.anthropic.com](https://console.anthropic.com) (uses `claude-3-haiku` model)
 
-**Note**: AI enrichment is optional. The app works without it, but won't show AI suggestions for titles, locations, or categories.
+For Instagram link previews:
+- **Facebook/Instagram**: See `FACEBOOK_INSTAGRAM_SETUP.md` for detailed setup instructions
+- Requires creating a Facebook App and generating an access token
+- Without this, Instagram links will still work but won't show rich oEmbed previews
+
+**Note**: Both AI enrichment and Instagram oEmbed are optional. The app works without them, but won't show AI suggestions or rich Instagram previews.
 
 ### 4. Run the Development Server
 
