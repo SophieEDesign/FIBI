@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getHostname, uploadScreenshot } from '@/lib/utils'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
+import EmbedPreview from '@/components/EmbedPreview'
 
 interface ItemDetailProps {
   itemId: string
@@ -707,57 +708,69 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {/* Preview area */}
           <div className="aspect-video bg-gray-100 relative overflow-hidden">
-            {/* Preview priority: screenshot_url > thumbnail_url > placeholder */}
-            {(() => {
-              const previewImageUrl = item.screenshot_url || item.thumbnail_url || null
-              const hasImage = !!previewImageUrl
-              const isUserScreenshot = !!item.screenshot_url
-
-              if (hasImage) {
-                return (
-                  <>
-                    <img
-                      src={previewImageUrl}
-                      alt={title || item.title || getHostname(item.url)}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      referrerPolicy={isUserScreenshot ? undefined : "no-referrer"}
-                      onError={(e) => {
-                        // Fallback to placeholder on error
-                        const target = e.target as HTMLImageElement
-                        target.style.display = 'none'
-                        const placeholder = target.nextElementSibling as HTMLElement
-                        if (placeholder) placeholder.style.display = 'flex'
-                      }}
-                    />
-                    {isUserScreenshot && (
-                      <div className="absolute top-4 left-4 px-2 py-1 bg-black/70 text-white text-xs rounded">
-                        Your screenshot
-                      </div>
-                    )}
-                    <div className="hidden w-full h-full items-center justify-center bg-gray-50">
-                      <div className="text-center">
-                        <div className="text-gray-400 text-5xl mb-3">
-                          {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
-                        </div>
-                        <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
-                      </div>
+            {/* Preview priority: screenshot_url > embed preview (oEmbed/OG thumbnail) > placeholder */}
+            {item.screenshot_url ? (
+              // Show screenshot if uploaded
+              <>
+                <img
+                  src={item.screenshot_url}
+                  alt={title || item.title || getHostname(item.url)}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute top-4 left-4 px-2 py-1 bg-black/70 text-white text-xs rounded">
+                  Your screenshot
+                </div>
+                <div className="hidden w-full h-full items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-gray-400 text-5xl mb-3">
+                      {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
                     </div>
-                  </>
-                )
-              } else {
-                return (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                    <div className="text-center">
-                      <div className="text-gray-400 text-5xl mb-3">
-                        {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
-                      </div>
-                      <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
-                    </div>
+                    <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
                   </div>
-                )
-              }
-            })()}
+                </div>
+              </>
+            ) : item.thumbnail_url ? (
+              // Show embed preview (oEmbed thumbnail or OG thumbnail) if no screenshot but has thumbnail
+              <>
+                <EmbedPreview
+                  url={item.url}
+                  thumbnailUrl={item.thumbnail_url}
+                  platform={item.platform}
+                  displayTitle={title || item.title || getHostname(item.url)}
+                />
+                <div className="hidden w-full h-full items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-gray-400 text-5xl mb-3">
+                      {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                    </div>
+                    <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Show placeholder if no screenshot and no thumbnail (oEmbed will try to fetch)
+              <>
+                {/* Placeholder - positioned absolutely so image can overlay it */}
+                <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+                  <div className="text-center">
+                    <div className="text-gray-400 text-5xl mb-3">
+                      {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                    </div>
+                    <p className="text-sm text-gray-500 px-4">Preview unavailable</p>
+                  </div>
+                </div>
+                {/* EmbedPreview - will overlay placeholder if image loads */}
+                <div className="relative w-full h-full">
+                  <EmbedPreview
+                    url={item.url}
+                    thumbnailUrl={null}
+                    platform={item.platform}
+                    displayTitle={title || item.title || getHostname(item.url)}
+                  />
+                </div>
+              </>
+            )}
             
             {/* Platform badge - top right */}
             <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-lg text-sm font-medium ${

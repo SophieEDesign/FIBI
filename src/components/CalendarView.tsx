@@ -20,6 +20,7 @@ import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
 import { useRouter } from 'next/navigation'
+import EmbedPreview from '@/components/EmbedPreview'
 
 interface CalendarViewProps {
   user: any
@@ -560,19 +561,32 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
     : undefined
 
   const displayTitle = item.title || getHostname(item.url)
-  const imageUrl = item.screenshot_url || item.thumbnail_url
 
   if (overlay) {
     // Drag overlay - larger, more visible
     return (
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-48 opacity-90">
-        {imageUrl && (
+        {item.screenshot_url ? (
           <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
             <img
-              src={imageUrl}
+              src={item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
+          </div>
+        ) : (
+          <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100 relative">
+            <EmbedPreview
+              url={item.url}
+              thumbnailUrl={item.thumbnail_url}
+              platform={item.platform}
+              displayTitle={displayTitle}
+            />
+            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+              <span className="text-lg text-gray-400">
+                {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
+              </span>
+            </div>
           </div>
         )}
         <p className="text-sm font-medium text-gray-900 line-clamp-2">{displayTitle}</p>
@@ -592,17 +606,27 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
           isDragging ? 'opacity-50' : ''
         }`}
       >
-        {imageUrl ? (
+        {item.screenshot_url ? (
           <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100">
             <img
-              src={imageUrl}
+              src={item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
           </div>
         ) : (
-          <div className="aspect-video rounded mb-1 bg-gray-100 flex items-center justify-center">
-            <span className="text-xs text-gray-400">📌</span>
+          <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100 relative">
+            <EmbedPreview
+              url={item.url}
+              thumbnailUrl={item.thumbnail_url}
+              platform={item.platform}
+              displayTitle={displayTitle}
+            />
+            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+              <span className="text-xs text-gray-400">
+                {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
+              </span>
+            </div>
           </div>
         )}
         <p className="text-xs font-medium text-gray-900 line-clamp-1">{displayTitle}</p>
@@ -621,17 +645,27 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
         isDragging ? 'opacity-50' : ''
       }`}
     >
-      {imageUrl ? (
+      {item.screenshot_url ? (
         <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
           <img
-            src={imageUrl}
+            src={item.screenshot_url}
             alt={displayTitle}
             className="w-full h-full object-cover"
           />
         </div>
       ) : (
-        <div className="aspect-video rounded mb-2 bg-gray-100 flex items-center justify-center">
-          <span className="text-lg text-gray-400">📌</span>
+        <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100 relative">
+          <EmbedPreview
+            url={item.url}
+            thumbnailUrl={item.thumbnail_url}
+            platform={item.platform}
+            displayTitle={displayTitle}
+          />
+          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+            <span className="text-lg text-gray-400">
+              {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
+            </span>
+          </div>
         </div>
       )}
       <p className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">
