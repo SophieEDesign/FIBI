@@ -791,6 +791,7 @@ export default function AddItemForm() {
       metadataFetchedRef.current = true
 
       let finalTitle = title // Start with current title
+      let finalDescription = description // Track description for AI enrichment
 
       if (metadata) {
         const cleanedTitle = cleanOGTitle(metadata.title)
