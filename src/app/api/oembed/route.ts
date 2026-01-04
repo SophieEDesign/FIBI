@@ -189,10 +189,75 @@ export async function POST(request: NextRequest) {
         oembedData = await fetchYouTubeOEmbed(url)
         break
       default:
-        return NextResponse.json(
-          { error: 'Platform not supported for oEmbed' },
-          { status: 400 }
-        )
+        // For generic URLs (Facebook, Instagram, other sites), try to fetch metadata
+        // This makes previews work automatically when platforms publish proper meta tags
+        // When Meta/Facebook/Instagram add proper og:image tags, they'll automatically work
+        try {
+          // Fetch the URL and extract metadata directly
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 8000)
+          
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
+            },
+          })
+          
+          clearTimeout(timeoutId)
+          
+          if (response.ok) {
+            const html = await response.text()
+            
+            // Extract metadata using same logic as metadata API
+            let thumbnailUrl: string | null = null
+            let title: string | null = null
+            let description: string | null = null
+            
+            // Extract og:image
+            const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                   html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
+            if (ogImageMatch) {
+              thumbnailUrl = ogImageMatch[1].trim()
+            }
+            
+            // Extract og:title
+            const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
+            if (ogTitleMatch) {
+              title = ogTitleMatch[1].trim()
+            }
+            
+            // Extract og:description
+            const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                       html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
+            if (ogDescriptionMatch) {
+              description = ogDescriptionMatch[1].trim()
+            }
+            
+            // Return metadata in oEmbed format for consistency
+            return NextResponse.json({
+              html: null, // No HTML embed for generic URLs
+              thumbnail_url: thumbnailUrl,
+              author_name: null,
+              title: title,
+              provider_name: 'Generic',
+              // Include description as caption_text for consistency
+              caption_text: description,
+            })
+          }
+        } catch (error) {
+          console.debug('Generic metadata fetch failed (non-blocking):', error)
+        }
+        
+        // If metadata fetch fails, return empty response (not an error)
+        return NextResponse.json({
+          html: null,
+          thumbnail_url: null,
+          author_name: null,
+          title: null,
+          provider_name: null,
+        })
     }
 
     if (oembedData.error) {

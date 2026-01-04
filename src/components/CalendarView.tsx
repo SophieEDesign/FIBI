@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { SavedItem } from '@/types/database'
+import { SavedItem, Itinerary } from '@/types/database'
 import {
   DndContext,
   DragOverlay,
@@ -20,7 +20,7 @@ import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
 import { useRouter } from 'next/navigation'
-import EmbedPreview from '@/components/EmbedPreview'
+import LinkPreview from '@/components/LinkPreview'
 
 interface CalendarViewProps {
   user: any
@@ -35,6 +35,8 @@ interface CalendarDay {
 
 export default function CalendarView({ user }: CalendarViewProps) {
   const [items, setItems] = useState<SavedItem[]>([])
+  const [itineraries, setItineraries] = useState<Itinerary[]>([])
+  const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null) // null = "All"
   const [loading, setLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -43,6 +45,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [itemToDate, setItemToDate] = useState<SavedItem | null>(null)
+  const [showCreateItineraryModal, setShowCreateItineraryModal] = useState(false)
+  const [newItineraryName, setNewItineraryName] = useState('')
+  const [creatingItinerary, setCreatingItinerary] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -56,19 +61,26 @@ export default function CalendarView({ user }: CalendarViewProps) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Only enable drag sensors on desktop
+  // Enable drag sensors for both desktop and mobile
+  // TouchSensor has a delay to allow taps, but enables drag after brief hold
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
     }),
-    // Disable TouchSensor on mobile - we'll use tap instead
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // Slight delay allows taps, but enables drag after brief hold
+        tolerance: 8, // Small movement tolerance
+      },
+    })
   )
 
   useEffect(() => {
     if (user) {
       loadItems()
+      loadItineraries()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -77,9 +89,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
     if (!user) return
 
     try {
-      // Load items with planned_date (for calendar view)
-      // For now, we load all items regardless of itinerary_id (supporting future multi-itinerary)
-      // When multiple itineraries are implemented, we'll filter by selected itinerary_id
+      // Load all items - filtering by itinerary happens in useMemo
       const { data, error } = await supabase
         .from('saved_items')
         .select('*')
@@ -99,11 +109,83 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
+  const loadItineraries = async () => {
+    if (!user) return
+
+    try {
+      const { data, error } = await supabase
+        .from('itineraries')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading itineraries:', error)
+        setItineraries([])
+      } else {
+        setItineraries(data || [])
+      }
+    } catch (error) {
+      console.error('Error loading itineraries:', error)
+      setItineraries([])
+    }
+  }
+
+  const createItinerary = async (name: string) => {
+    if (!user || !name.trim()) return null
+
+    try {
+      const { data, error } = await supabase
+        .from('itineraries')
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setItineraries((prev) => [data, ...prev])
+        return data
+      }
+      return null
+    } catch (error) {
+      console.error('Error creating itinerary:', error)
+      return null
+    }
+  }
+
+  const handleCreateItinerary = async () => {
+    if (!newItineraryName.trim()) return
+
+    setCreatingItinerary(true)
+    const newItinerary = await createItinerary(newItineraryName)
+    setCreatingItinerary(false)
+
+    if (newItinerary) {
+      setSelectedItineraryId(newItinerary.id)
+      setShowCreateItineraryModal(false)
+      setNewItineraryName('')
+    }
+  }
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/login')
     router.refresh()
   }
+
+  // Filter items based on selected itinerary
+  const filteredItems = useMemo(() => {
+    if (selectedItineraryId === null) {
+      // "All" tab - show all items
+      return items
+    } else {
+      // Show only items in the selected itinerary
+      return items.filter((item) => item.itinerary_id === selectedItineraryId)
+    }
+  }, [items, selectedItineraryId])
 
   // Generate calendar days for current month
   const calendarDays = useMemo(() => {
@@ -125,7 +207,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
       const dateObj = new Date(date)
       dateObj.setHours(0, 0, 0, 0)
 
-      const dayItems = items.filter((item) => {
+      const dayItems = filteredItems.filter((item) => {
         if (!item.planned_date) return false
         const plannedDate = new Date(item.planned_date)
         plannedDate.setHours(0, 0, 0, 0)
@@ -141,12 +223,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
 
     return days
-  }, [currentMonth, items])
+  }, [currentMonth, filteredItems])
 
   // Get unplanned items (items without planned_date)
   const unplannedItems = useMemo(() => {
-    return items.filter((item) => !item.planned_date)
-  }, [items])
+    return filteredItems.filter((item) => !item.planned_date)
+  }, [filteredItems])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -312,7 +394,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 Map
               </Link>
               <Link
-                href="/app/add"
+                href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
                 className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
               >
                 Add Place
@@ -335,14 +417,51 @@ export default function CalendarView({ user }: CalendarViewProps) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-8">
-        {/* Conditionally wrap in DndContext only on desktop */}
-        {!isMobile ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
+        {/* Itinerary Tabs */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+            <button
+              onClick={() => setSelectedItineraryId(null)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                selectedItineraryId === null
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              All
+            </button>
+            {itineraries.map((itinerary) => (
+              <button
+                key={itinerary.id}
+                onClick={() => setSelectedItineraryId(itinerary.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedItineraryId === itinerary.id
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {itinerary.name}
+              </button>
+            ))}
+            <button
+              onClick={() => setShowCreateItineraryModal(true)}
+              className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New
+            </button>
+          </div>
+        </div>
+
+        {/* Drag and drop context - works on both desktop and mobile */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
             {/* Month Navigation */}
             <div className="mb-6 flex items-center justify-between">
             <button
@@ -487,165 +606,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           </div>
 
-            {/* Drag Overlay */}
-            <DragOverlay>
-              {draggedItem ? (
-                <PlaceCard item={draggedItem} isDragging={true} overlay />
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        ) : (
-          <>
-            {/* Mobile: No DndContext wrapper - drag is disabled */}
-            {/* Month Navigation */}
-            <div className="mb-6 flex items-center justify-between">
-              <button
-                onClick={() => navigateMonth('prev')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Previous month"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-
-              <div className="flex items-center gap-4">
-                <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
-                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                </h2>
-                <button
-                  onClick={goToToday}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Today
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleDownloadCalendar}
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  title="Download calendar"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Download</span>
-                </button>
-                <button
-                  onClick={() => navigateMonth('next')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  aria-label="Next month"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Unplanned Items Section */}
-            {unplannedItems.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Unplanned ({unplannedItems.length})
-                </h3>
-                <div className="min-h-[100px] p-4 bg-white rounded-xl border-2 border-dashed border-gray-300 flex flex-wrap gap-3">
-                  {unplannedItems.map((item) => (
-                    <PlaceCard
-                      key={item.id}
-                      item={item}
-                      isDragging={false}
-                      onSelect={() => setSelectedItem(item)}
-                      onAssignDate={() => handleItemTapForDate(item)}
-                      isMobile={isMobile}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Calendar Grid */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Week day headers */}
-              <div className="grid grid-cols-7 border-b border-gray-200">
-                {weekDays.map((day) => (
-                  <div
-                    key={day}
-                    className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700 bg-gray-50"
-                  >
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar days */}
-              <div className="grid grid-cols-7">
-                {calendarDays.map((day, index) => {
-                  return (
-                    <div
-                      key={index}
-                      className={`min-h-[80px] md:min-h-[120px] p-1 md:p-2 border-r border-b border-gray-200 ${
-                        day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                      } ${day.isToday ? 'bg-blue-50' : ''}`}
-                    >
-                      <div
-                        className={`text-xs md:text-sm font-medium mb-1 ${
-                          day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                        } ${day.isToday ? 'text-blue-600 font-bold' : ''}`}
-                      >
-                        {day.date.getDate()}
-                      </div>
-                      <div className="space-y-1">
-                        {day.items.map((item) => (
-                          <PlaceCard
-                            key={item.id}
-                            item={item}
-                            isDragging={false}
-                            compact
-                            onSelect={() => setSelectedItem(item)}
-                            onAssignDate={() => handleItemTapForDate(item)}
-                            isMobile={isMobile}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </>
-        )}
+          {/* Drag Overlay */}
+          <DragOverlay>
+            {draggedItem ? (
+              <PlaceCard item={draggedItem} isDragging={true} overlay />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         {/* Place Preview Modal */}
         {selectedItem && (
@@ -666,6 +633,62 @@ export default function CalendarView({ user }: CalendarViewProps) {
               setItemToDate(null)
             }}
           />
+        )}
+
+        {/* Create Itinerary Modal */}
+        {showCreateItineraryModal && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setShowCreateItineraryModal(false)
+                setNewItineraryName('')
+              }
+            }}
+          >
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Itinerary</h2>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="itinerary-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Name
+                  </label>
+                  <input
+                    id="itinerary-name"
+                    type="text"
+                    value={newItineraryName}
+                    onChange={(e) => setNewItineraryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newItineraryName.trim()) {
+                        handleCreateItinerary()
+                      }
+                    }}
+                    placeholder="e.g., Weekend Trip, Italy Ideas"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCreateItinerary}
+                    disabled={!newItineraryName.trim() || creatingItinerary}
+                    className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {creatingItinerary ? 'Creating...' : 'Create'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateItineraryModal(false)
+                      setNewItineraryName('')
+                    }}
+                    className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Empty States */}
@@ -719,11 +742,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {isMobile ? 'Tap places to plan them' : 'Drag places onto the calendar'}
+              {isMobile ? 'Tap or drag places to plan them' : 'Drag places onto the calendar'}
             </h3>
             <p className="text-sm text-gray-600 max-w-md mx-auto">
               {isMobile
-                ? 'Tap any place from the unplanned section above to assign it to a date. You can move places between dates or remove them from the calendar.'
+                ? 'Tap any place to assign it to a date, or hold and drag to move it directly. You can move places between dates or remove them by dragging back to unplanned.'
                 : 'Drag any place from the unplanned section above onto a date to plan it. You can move places between dates or remove them by dragging back to unplanned.'}
             </p>
           </div>
@@ -791,7 +814,7 @@ interface PlaceCardProps {
 function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelect, onAssignDate, isMobile = false }: PlaceCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: item.id,
-    disabled: isMobile, // Disable dragging on mobile
+    // Drag enabled on both desktop and mobile - TouchSensor handles mobile touch
   })
 
   const style = transform
@@ -804,13 +827,21 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
   const imageUrl = item.screenshot_url || item.thumbnail_url
 
   // Handle click/tap
+  // On mobile: tap shows date picker, drag (hold + move) enables drag-and-drop
+  // On desktop: click shows preview, drag enables drag-and-drop
   const handleClick = (e: React.MouseEvent) => {
+    // Only handle click if not currently dragging
+    if (isDragging) {
+      e.stopPropagation()
+      return
+    }
+    
     e.stopPropagation()
     
-    // On mobile, show date picker; on desktop, show preview
+    // On mobile, tap shows date picker; on desktop, tap shows preview
     if (isMobile && onAssignDate) {
       onAssignDate()
-    } else if (!isDragging && onSelect) {
+    } else if (onSelect) {
       onSelect()
     }
   }
@@ -819,29 +850,22 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
     // Drag overlay - larger, more visible
     return (
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-48 opacity-90">
-        {item.screenshot_url ? (
-          <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
+        <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
+          {item.screenshot_url ? (
             <img
               src={item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
-          </div>
-        ) : (
-          <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100 relative">
-            <EmbedPreview
+          ) : (
+            <LinkPreview
               url={item.url}
-              thumbnailUrl={item.thumbnail_url}
-              platform={item.platform}
-              displayTitle={displayTitle}
+              ogImage={item.thumbnail_url}
+              screenshotUrl={item.screenshot_url}
+              description={item.description}
             />
-            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
-              <span className="text-lg text-gray-400">
-                {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
-              </span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
         <p className="text-sm font-medium text-gray-900 line-clamp-2">{displayTitle}</p>
       </div>
     )
@@ -853,35 +877,29 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
       <div
         ref={setNodeRef}
         style={style}
-        {...(!isMobile ? { ...listeners, ...attributes } : {})} // Only enable drag listeners on desktop
+        {...listeners}
+        {...attributes}
         onClick={handleClick}
         className={`bg-white rounded border border-gray-200 p-1.5 cursor-pointer hover:shadow-sm transition-shadow ${
           isDragging ? 'opacity-50' : ''
         }`}
       >
-        {item.screenshot_url ? (
-          <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100">
+        <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100">
+          {item.screenshot_url ? (
             <img
               src={item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
-          </div>
-        ) : (
-          <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100 relative">
-            <EmbedPreview
+          ) : (
+            <LinkPreview
               url={item.url}
-              thumbnailUrl={item.thumbnail_url}
-              platform={item.platform}
-              displayTitle={displayTitle}
+              ogImage={item.thumbnail_url}
+              screenshotUrl={item.screenshot_url}
+              description={item.description}
             />
-            <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
-              <span className="text-xs text-gray-400">
-                {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
-              </span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
         <p className="text-xs font-medium text-gray-900 line-clamp-1">{displayTitle}</p>
       </div>
     )
@@ -892,35 +910,29 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
     <div
       ref={setNodeRef}
       style={style}
-      {...(!isMobile ? { ...listeners, ...attributes } : {})} // Only enable drag listeners on desktop
+      {...listeners}
+      {...attributes}
       onClick={handleClick}
       className={`bg-white rounded-lg border border-gray-200 p-2 w-32 md:w-40 cursor-pointer hover:shadow-md transition-shadow ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
-      {item.screenshot_url ? (
-        <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
+      <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
+        {item.screenshot_url ? (
           <img
             src={item.screenshot_url}
             alt={displayTitle}
             className="w-full h-full object-cover"
           />
-        </div>
-      ) : (
-        <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100 relative">
-          <EmbedPreview
+        ) : (
+          <LinkPreview
             url={item.url}
-            thumbnailUrl={item.thumbnail_url}
-            platform={item.platform}
-            displayTitle={displayTitle}
+            ogImage={item.thumbnail_url}
+            screenshotUrl={item.screenshot_url}
+            description={item.description}
           />
-          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
-            <span className="text-lg text-gray-400">
-              {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
-            </span>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
       <p className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">
         {displayTitle}
       </p>
@@ -1000,17 +1012,12 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
             </div>
           ) : (
             <div className="aspect-video w-full bg-gray-100 relative overflow-hidden">
-              <EmbedPreview
+              <LinkPreview
                 url={item.url}
-                thumbnailUrl={item.thumbnail_url}
-                platform={item.platform}
-                displayTitle={displayTitle}
+                ogImage={item.thumbnail_url}
+                screenshotUrl={item.screenshot_url}
+                description={item.description}
               />
-              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
-                <span className="text-4xl text-gray-400">
-                  {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
-                </span>
-              </div>
             </div>
           )}
           {/* Close button overlay */}

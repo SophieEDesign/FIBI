@@ -29,3 +29,10 @@ export const STATUSES = ['Want', 'Dream', 'Maybe', 'Been'] as const
 export type Category = typeof CATEGORIES[number]
 export type Status = typeof STATUSES[number]
 
+export interface Itinerary {
+  id: string
+  user_id: string
+  name: string
+  created_at: string
+}
+

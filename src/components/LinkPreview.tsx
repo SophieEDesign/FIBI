@@ -23,6 +23,16 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   const [oembedData, setOembedData] = useState<OEmbedData | null>(null)
   const [loading, setLoading] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
+  const [fetchedOgImage, setFetchedOgImage] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Use fetched OG image if ogImage prop not provided - makes previews default behavior
+  const effectiveOgImage = ogImage || fetchedOgImage
+
+  const platform = detectPlatform(url)
+  const isTikTok = platform === 'TikTok'
+  const isInstagram = platform === 'Instagram'
+  const isYouTube = platform === 'YouTube'
 
   // Debug logging
   useEffect(() => {
@@ -30,24 +40,48 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
       console.log('LinkPreview: Props received', {
         url,
         hasOGImage: !!ogImage,
+        hasFetchedOGImage: !!fetchedOgImage,
+        effectiveOgImage: !!effectiveOgImage,
         ogImage: ogImage?.substring(0, 100),
         hasScreenshot: !!screenshotUrl,
         screenshotUrl: screenshotUrl?.substring(0, 100),
       })
     }
-  }, [url, ogImage, screenshotUrl])
+  }, [url, ogImage, screenshotUrl, fetchedOgImage, effectiveOgImage])
+
+  // Fetch metadata if ogImage not provided - makes previews default behavior
+  useEffect(() => {
+    if (!url.trim() || ogImage) return // Skip if we already have ogImage or no URL
+    
+    const fetchMetadata = async () => {
+      try {
+        const response = await fetch('/api/metadata', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.image) {
+            setFetchedOgImage(data.image)
+          }
+        }
+      } catch (error) {
+        console.debug('Metadata fetch failed (non-blocking):', error)
+      }
+    }
+    
+    // Debounce metadata fetch
+    const timeoutId = setTimeout(fetchMetadata, 300)
+    return () => clearTimeout(timeoutId)
+  }, [url, ogImage])
 
   // Determine which preview to show (in priority order)
   const hasOEmbed = oembedData?.html || oembedData?.thumbnail_url
-  const hasOGImage = !!ogImage
+  const hasOGImage = !!effectiveOgImage
   const hasScreenshot = !!screenshotUrl
   const showPreview = hasOEmbed || hasOGImage || hasScreenshot
-
-  const platform = detectPlatform(url)
-  const isTikTok = platform === 'TikTok'
-  const isInstagram = platform === 'Instagram'
-  const isYouTube = platform === 'YouTube'
-  const [isMobile, setIsMobile] = useState(false)
 
   // Detect mobile device
   useEffect(() => {
@@ -60,23 +94,17 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   }, [])
 
   // Fetch oEmbed data when URL changes (only on desktop)
+  // On mobile, we'll still fetch oEmbed for thumbnail, but not for HTML embeds
   useEffect(() => {
     if (!url.trim()) {
       setOembedData(null)
       return
     }
 
-    // On mobile, skip oEmbed HTML fetch - we'll use static preview only
-    if (isMobile) {
-      setOembedData(null)
-      return
-    }
-
-    // Only fetch oEmbed for supported platforms
-    if (!isTikTok && !isInstagram && !isYouTube) {
-      setOembedData(null)
-      return
-    }
+    // Always try to fetch oEmbed data (including thumbnail_url) for all platforms
+    // This ensures we get previews when Meta/Facebook/Instagram publish proper meta tags
+    // On mobile, we'll use the thumbnail but not the HTML embed
+    // On desktop, we'll use HTML embeds when available for TikTok/Instagram/YouTube
 
     const fetchOEmbed = async () => {
       setLoading(true)
@@ -90,7 +118,9 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
 
         if (response.ok) {
           const data = await response.json()
-          if (data.html || data.thumbnail_url) {
+          // Always set oEmbed data if we get any response (html, thumbnail_url, or other data)
+          // This ensures we capture previews when they become available (e.g., when Meta publishes proper tags)
+          if (data.html || data.thumbnail_url || Object.keys(data).length > 0) {
             setOembedData(data)
           } else {
             setOembedData(null)
@@ -106,19 +136,22 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
       }
     }
 
+    // Try oEmbed for all URLs (not just TikTok/Instagram/YouTube)
+    // This makes previews work automatically when platforms add proper meta tags
     // Debounce oEmbed fetch
     const timeoutId = setTimeout(fetchOEmbed, 500)
     return () => clearTimeout(timeoutId)
-  }, [url, isTikTok, isInstagram, isYouTube, isMobile])
+  }, [url, isMobile])
 
   // Determine preview source and label (priority order)
   // Priority: Screenshot > Embedded link image (oEmbed thumbnail) > OG image > oEmbed HTML
   // Skip sources that have failed to load
+  // Use effectiveOgImage (fetched or provided) - makes previews default
   const previewSource = screenshotUrl && imageError !== 'screenshot'
     ? 'screenshot'
     : oembedData?.thumbnail_url && imageError !== 'oembed-thumbnail'
     ? 'oembed-thumbnail'
-    : ogImage && imageError !== 'og-image'
+    : effectiveOgImage && imageError !== 'og-image'
     ? 'og-image'
     : oembedData?.html
     ? 'oembed-html'
@@ -132,12 +165,12 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
         hasOEmbedHTML: !!oembedData?.html,
         hasOEmbedThumbnail: !!oembedData?.thumbnail_url,
         hasScreenshot: !!screenshotUrl,
-        hasOGImage: !!ogImage,
-        ogImageValue: ogImage,
+        hasOGImage: !!effectiveOgImage,
+        ogImageValue: effectiveOgImage,
         imageError,
       })
     }
-  }, [url, previewSource, oembedData, screenshotUrl, ogImage, imageError])
+  }, [url, previewSource, oembedData, screenshotUrl, effectiveOgImage, imageError])
 
   const previewLabel = oembedData?.provider_name
     ? `Preview from ${oembedData.provider_name}`
@@ -175,12 +208,13 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   }
 
   // Render thumbnail/image preview (static preview - used on mobile and as fallback on desktop)
+  // This is the default preview type - always try to show something
   if (previewSource === 'oembed-thumbnail' || previewSource === 'og-image' || previewSource === 'screenshot') {
     const imageUrl = previewSource === 'oembed-thumbnail'
       ? oembedData?.thumbnail_url
       : previewSource === 'screenshot'
       ? screenshotUrl
-      : ogImage
+      : effectiveOgImage // Use effectiveOgImage (fetched or provided)
 
     if (!imageUrl) {
       // Try next fallback
@@ -188,11 +222,41 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
         // Fallback to screenshot
         return null // Will be handled by next render cycle
       }
-      if (previewSource === 'oembed-thumbnail' && ogImage) {
+      if (previewSource === 'oembed-thumbnail' && effectiveOgImage) {
         // Fallback to OG image
         return null // Will be handled by next render cycle
       }
-      return null
+      // If no image available, show placeholder with link - always show something
+      return (
+        <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <p className="text-xs text-gray-600">{previewLabel}</p>
+          </div>
+          <div className="p-8 text-center">
+            <div className="text-gray-400 text-4xl mb-3">
+              {isTikTok ? '🎵' : isInstagram ? '📷' : isYouTube ? '▶️' : '🔗'}
+            </div>
+            <p className="text-sm text-gray-600 mb-3">No preview available</p>
+            {description && (
+              <div className="mb-4 text-left">
+                <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+              </div>
+            )}
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 underline"
+            >
+              View original content
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      )
     }
 
     return (
@@ -287,7 +351,8 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
 
   // Show placeholder if no preview available
   // Check if we have any potential sources (even if they failed)
-  const hasAnySource = oembedData?.html || oembedData?.thumbnail_url || screenshotUrl || ogImage
+  // Always show something - previews are default behavior
+  const hasAnySource = oembedData?.html || oembedData?.thumbnail_url || screenshotUrl || effectiveOgImage
   if (url.trim() && !loading && !previewSource && !hasAnySource) {
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
@@ -320,7 +385,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     )
   }
 
-  // If we have sources but all failed, show placeholder with caption
+  // If we have sources but all failed, show placeholder with caption - always show something
   if (url.trim() && !loading && !previewSource && hasAnySource) {
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">

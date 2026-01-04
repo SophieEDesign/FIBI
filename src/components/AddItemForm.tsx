@@ -51,6 +51,7 @@ export default function AddItemForm() {
   const [showClipboardPrompt, setShowClipboardPrompt] = useState(false)
   const [clipboardChecked, setClipboardChecked] = useState(false)
   const [clipboardTextUsed, setClipboardTextUsed] = useState(false)
+  const [itineraryId, setItineraryId] = useState<string | null>(null)
   
   // AI suggestions state
   const [aiSuggestions, setAiSuggestions] = useState<{
@@ -527,6 +528,12 @@ export default function AddItemForm() {
     const urlParam = searchParams.get('url')
     const textParam = searchParams.get('text')
     const titleParam = searchParams.get('title')
+    const itineraryIdParam = searchParams.get('itinerary_id')
+
+    // Set itinerary_id if present
+    if (itineraryIdParam) {
+      setItineraryId(itineraryIdParam)
+    }
 
     // Set URL if present
     if (urlParam) {
@@ -1249,6 +1256,7 @@ export default function AddItemForm() {
         ...locationData,
         category: finalCategory,
         status: finalStatus,
+        itinerary_id: itineraryId || null,
       }
 
       console.log('AddItemForm: Insert payload:', insertPayload)
