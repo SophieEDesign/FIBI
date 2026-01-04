@@ -7,6 +7,7 @@ interface LinkPreviewProps {
   url: string
   ogImage?: string | null
   screenshotUrl?: string | null
+  description?: string | null
   onImageLoad?: () => void
 }
 
@@ -18,7 +19,7 @@ interface OEmbedData {
   provider_name?: string | null
 }
 
-export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }: LinkPreviewProps) {
+export default function LinkPreview({ url, ogImage, screenshotUrl, description, onImageLoad }: LinkPreviewProps) {
   const [oembedData, setOembedData] = useState<OEmbedData | null>(null)
   const [loading, setLoading] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
@@ -145,6 +146,12 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }
           style={{ minHeight: isTikTok ? '600px' : isYouTube ? '450px' : '400px' }}
           dangerouslySetInnerHTML={{ __html: oembedData.html }}
         />
+        {description && (
+          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
+            <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+            <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+          </div>
+        )}
       </div>
     )
   }
@@ -193,9 +200,17 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }
             }}
           />
         </div>
-        {oembedData?.author_name && (
-          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
-            <p className="text-xs text-gray-600">@{oembedData.author_name}</p>
+        {(oembedData?.author_name || description) && (
+          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2">
+            {oembedData?.author_name && (
+              <p className="text-xs text-gray-600">@{oembedData.author_name}</p>
+            )}
+            {description && (
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

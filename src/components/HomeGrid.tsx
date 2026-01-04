@@ -539,9 +539,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         {!loading && filteredItems.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {filteredItems.map((item) => {
-              const previewImageUrl = item.screenshot_url || item.thumbnail_url || null
-              const hasImage = !!previewImageUrl
-              const isUserScreenshot = !!item.screenshot_url
               const displayTitle = item.title || getHostname(item.url)
               
               const getPlatformBadgeStyle = (platform: string) => {
@@ -579,16 +576,34 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   href={`/item/${item.id}`}
                   className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col"
                 >
-                  {/* Thumbnail area - Mobile: reduced height */}
+                  {/* Preview area - Screenshot OR embedded preview */}
                   <div className="aspect-[4/3] md:aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                    {hasImage ? (
+                    {item.screenshot_url ? (
+                      // Show screenshot if uploaded
                       <>
                         <img
-                          src={previewImageUrl}
+                          src={item.screenshot_url}
                           alt={displayTitle}
                           className="w-full h-full object-cover"
                           loading="lazy"
-                          referrerPolicy={isUserScreenshot ? undefined : "no-referrer"}
+                        />
+                        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
+                          Your screenshot
+                        </div>
+                        {/* Platform badge - inside card, bottom left on mobile */}
+                        <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformBadgeStyle(item.platform)}`}>
+                          {item.platform}
+                        </div>
+                      </>
+                    ) : item.thumbnail_url ? (
+                      // Show OG image/thumbnail if no screenshot
+                      <>
+                        <img
+                          src={item.thumbnail_url}
+                          alt={displayTitle}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement
                             target.style.display = 'none'
@@ -602,11 +617,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                               {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
                             </div>
                             <p className="text-xs text-gray-500">Preview unavailable</p>
-                            <p className="text-xs text-gray-400 mt-1">Add a screenshot to remember this place</p>
                           </div>
+                        </div>
+                        {/* Platform badge - inside card, bottom left on mobile */}
+                        <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium z-10 ${getPlatformBadgeStyle(item.platform)}`}>
+                          {item.platform}
                         </div>
                       </>
                     ) : (
+                      // Show placeholder if no screenshot and no thumbnail
                       <div className="w-full h-full flex items-center justify-center bg-gray-50">
                         <div className="text-center px-4">
                           <div className="text-gray-400 text-2xl md:text-3xl mb-2">
@@ -615,18 +634,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           <p className="text-xs text-gray-500">Preview unavailable</p>
                           <p className="text-xs text-gray-400 mt-1">Add a screenshot to remember this place</p>
                         </div>
-                      </div>
-                    )}
-                    
-                    {/* Platform badge - inside card, bottom left on mobile */}
-                    <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformBadgeStyle(item.platform)}`}>
-                      {item.platform}
-                    </div>
-                    
-                    {/* User screenshot indicator */}
-                    {isUserScreenshot && (
-                      <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
-                        Your screenshot
+                        {/* Platform badge - inside card, bottom left on mobile */}
+                        <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium z-10 ${getPlatformBadgeStyle(item.platform)}`}>
+                          {item.platform}
+                        </div>
                       </div>
                     )}
                   </div>
