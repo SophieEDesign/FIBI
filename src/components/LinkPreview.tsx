@@ -21,6 +21,20 @@ interface OEmbedData {
 export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }: LinkPreviewProps) {
   const [oembedData, setOembedData] = useState<OEmbedData | null>(null)
   const [loading, setLoading] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
+
+  // Debug logging
+  useEffect(() => {
+    if (url.trim()) {
+      console.log('LinkPreview: Props received', {
+        url,
+        hasOGImage: !!ogImage,
+        ogImage: ogImage?.substring(0, 100),
+        hasScreenshot: !!screenshotUrl,
+        screenshotUrl: screenshotUrl?.substring(0, 100),
+      })
+    }
+  }, [url, ogImage, screenshotUrl])
 
   // Determine which preview to show (in priority order)
   const hasOEmbed = oembedData?.html || oembedData?.thumbnail_url
@@ -80,15 +94,31 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }
   }, [url, isTikTok, isInstagram, isYouTube])
 
   // Determine preview source and label (priority order)
+  // Skip sources that have failed to load
   const previewSource = oembedData?.html
     ? 'oembed-html'
-    : oembedData?.thumbnail_url
+    : oembedData?.thumbnail_url && imageError !== 'oembed-thumbnail'
     ? 'oembed-thumbnail'
-    : screenshotUrl
+    : screenshotUrl && imageError !== 'screenshot'
     ? 'screenshot'
-    : ogImage
+    : ogImage && imageError !== 'og-image'
     ? 'og-image'
     : null
+
+  // Debug logging for preview source
+  useEffect(() => {
+    if (url.trim()) {
+      console.log('LinkPreview: Preview source determined', {
+        previewSource,
+        hasOEmbedHTML: !!oembedData?.html,
+        hasOEmbedThumbnail: !!oembedData?.thumbnail_url,
+        hasScreenshot: !!screenshotUrl,
+        hasOGImage: !!ogImage,
+        ogImageValue: ogImage,
+        imageError,
+      })
+    }
+  }, [url, previewSource, oembedData, screenshotUrl, ogImage, imageError])
 
   const previewLabel = oembedData?.provider_name
     ? `Preview from ${oembedData.provider_name}`
@@ -126,21 +156,38 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }
       ? screenshotUrl
       : ogImage
 
-    if (!imageUrl) return null
+    if (!imageUrl) {
+      // Try next fallback
+      if (previewSource === 'oembed-thumbnail' && screenshotUrl) {
+        // Fallback to screenshot
+        return null // Will be handled by next render cycle
+      }
+      if (previewSource === 'oembed-thumbnail' && ogImage) {
+        // Fallback to OG image
+        return null // Will be handled by next render cycle
+      }
+      return null
+    }
 
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
         <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
           <p className="text-xs text-gray-600">{previewLabel}</p>
         </div>
-        <div className="relative w-full" style={{ aspectRatio: '16/9', minHeight: '200px' }}>
+        <div className="relative w-full bg-gray-100" style={{ aspectRatio: '16/9', minHeight: '200px' }}>
           <img
-            src={imageUrl}
+            src={imageUrl || undefined}
             alt={oembedData?.title || previewLabel}
             className="w-full h-full object-cover"
-            onLoad={onImageLoad}
+            onLoad={() => {
+              console.log('LinkPreview: Image loaded successfully', { imageUrl, previewSource })
+              setImageError(null)
+              onImageLoad?.()
+            }}
             onError={(e) => {
-              // If image fails to load, hide preview (fallback handled by placeholder below)
+              console.warn('LinkPreview: Image failed to load', { imageUrl, previewSource })
+              // Mark this source as failed and trigger re-render to try next fallback
+              setImageError(previewSource)
               e.currentTarget.style.display = 'none'
             }}
           />
@@ -155,7 +202,20 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }
   }
 
   // Show placeholder if no preview available
-  if (url.trim() && !loading && !showPreview) {
+  // Check if we have any potential sources (even if they failed)
+  const hasAnySource = oembedData?.html || oembedData?.thumbnail_url || screenshotUrl || ogImage
+  if (url.trim() && !loading && !previewSource && !hasAnySource) {
+    return (
+      <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+        <p className="text-sm text-gray-500">
+          Preview not available · Add screenshot
+        </p>
+      </div>
+    )
+  }
+
+  // If we have sources but all failed, show placeholder
+  if (url.trim() && !loading && !previewSource && hasAnySource) {
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
         <p className="text-sm text-gray-500">
