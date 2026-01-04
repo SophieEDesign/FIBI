@@ -2,13 +2,12 @@ import SharedItineraryView from '@/components/SharedItineraryView'
 
 export const dynamic = 'force-dynamic'
 
-interface PageProps {
-  params: {
-    token: string
-  }
-}
-
-export default function SharedItineraryPage({ params }: PageProps) {
-  return <SharedItineraryView shareToken={params.token} />
+export default async function SharedItineraryPage({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}) {
+  const { token } = await params
+  return <SharedItineraryView shareToken={token} />
 }
 
