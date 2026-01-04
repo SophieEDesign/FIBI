@@ -51,11 +51,38 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
 
 async function fetchInstagramOEmbed(url: string): Promise<OEmbedResponse> {
   try {
-    // Instagram oEmbed requires access token, but we can try without it first
-    // For now, we'll return an error - Instagram requires authentication
-    // In production, you'd need to set up Facebook Graph API credentials
-    console.warn('Instagram oEmbed requires authentication (Facebook Graph API)')
-    return { error: 'Instagram oEmbed requires authentication' }
+    // Instagram oEmbed requires Facebook Graph API access token
+    const accessToken = process.env.FACEBOOK_ACCESS_TOKEN || process.env.INSTAGRAM_ACCESS_TOKEN
+    
+    if (!accessToken) {
+      console.warn('Instagram oEmbed requires Facebook Graph API access token (FACEBOOK_ACCESS_TOKEN or INSTAGRAM_ACCESS_TOKEN)')
+      return { error: 'Instagram oEmbed requires authentication' }
+    }
+
+    // Facebook Graph API Instagram oEmbed endpoint
+    // https://developers.facebook.com/docs/instagram/oembed
+    const oembedUrl = `https://graph.facebook.com/v18.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=${encodeURIComponent(accessToken)}`
+    
+    const response = await fetch(oembedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
+      },
+      next: { revalidate: 3600 }, // Cache for 1 hour
+    })
+
+    if (!response.ok) {
+      console.warn(`Instagram oEmbed failed: ${response.status}`)
+      return { error: 'Instagram oEmbed failed' }
+    }
+
+    const data = await response.json()
+    return {
+      html: data.html,
+      thumbnail_url: data.thumbnail_url,
+      author_name: data.author_name,
+      title: data.title,
+      provider_name: 'Instagram',
+    }
   } catch (error) {
     console.error('Instagram oEmbed error:', error)
     return { error: 'Instagram oEmbed error' }
