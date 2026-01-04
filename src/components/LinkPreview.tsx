@@ -94,15 +94,16 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, onImageLoad }
   }, [url, isTikTok, isInstagram, isYouTube])
 
   // Determine preview source and label (priority order)
+  // Priority: Screenshot > Embedded link image (oEmbed thumbnail) > OG image > oEmbed HTML
   // Skip sources that have failed to load
-  const previewSource = oembedData?.html
-    ? 'oembed-html'
+  const previewSource = screenshotUrl && imageError !== 'screenshot'
+    ? 'screenshot'
     : oembedData?.thumbnail_url && imageError !== 'oembed-thumbnail'
     ? 'oembed-thumbnail'
-    : screenshotUrl && imageError !== 'screenshot'
-    ? 'screenshot'
     : ogImage && imageError !== 'og-image'
     ? 'og-image'
+    : oembedData?.html
+    ? 'oembed-html'
     : null
 
   // Debug logging for preview source

@@ -13,7 +13,6 @@ import LinkPreview from '@/components/LinkPreview'
 export default function AddItemForm() {
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
-  const [notes, setNotes] = useState('')
   const [description, setDescription] = useState('')
   const [thumbnailUrl, setThumbnailUrl] = useState('')
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
@@ -71,7 +70,6 @@ export default function AddItemForm() {
   
   // Track user edits to prevent overwriting
   const userEditedTitle = useRef(false)
-  const userEditedNotes = useRef(false)
   const userEditedDescription = useRef(false)
   const userEditedLocation = useRef(false)
   const userEditedCategory = useRef(false)
@@ -468,13 +466,13 @@ export default function AddItemForm() {
     const trimmedText = clipboardText.trim()
     setClipboardTextUsed(true)
     
-    // Apply to Title if empty, otherwise to Notes
+    // Apply to Title if empty, otherwise to Description
     if (!title.trim() && !userEditedTitle.current) {
       setTitle(trimmedText)
       userEditedTitle.current = true
-    } else if (!userEditedNotes.current) {
-      setNotes(trimmedText)
-      userEditedNotes.current = true
+    } else if (!userEditedDescription.current) {
+      setDescription(trimmedText)
+      userEditedDescription.current = true
     }
 
     // Try to use clipboard text for location search if no location is set
@@ -535,12 +533,12 @@ export default function AddItemForm() {
       setUrl(urlParam)
     }
 
-    // Handle shared text (pre-fill notes)
-    if (textParam && textParam.trim() && !userEditedNotes.current) {
+    // Handle shared text (pre-fill description)
+    if (textParam && textParam.trim() && !userEditedDescription.current) {
       // Check if text is actually a URL (should go to url field instead)
       const urlMatch = textParam.match(/https?:\/\/[^\s]+/)
       if (!urlMatch) {
-        setNotes(textParam.trim())
+        setDescription(textParam.trim())
         setSharedTextImported(true)
       }
     }
@@ -753,8 +751,7 @@ export default function AddItemForm() {
       // Reset metadata fetch flag when URL is cleared so new URLs can trigger fetch
       metadataFetchedRef.current = false
       if (!userEditedTitle.current) setTitle('')
-      if (!userEditedNotes.current) setNotes('')
-      setDescription('')
+      if (!userEditedDescription.current) setDescription('')
       setThumbnailUrl('')
       setScreenshotUrl(null)
       // Clear location if URL is cleared
@@ -970,12 +967,6 @@ export default function AddItemForm() {
         searchPlaces(newTitle.trim())
       }, 1000) // Debounce
     }
-  }
-
-  // Track notes edits
-  const handleNotesChange = (newNotes: string) => {
-    setNotes(newNotes)
-    userEditedNotes.current = true
   }
 
   // Track description edits
@@ -1231,7 +1222,6 @@ export default function AddItemForm() {
         platform,
         title: finalTitle || null,
         description: description.trim() || null,
-        notes: notes.trim() || null,
         thumbnail_url: thumbnailUrl || null,
         screenshot_url: screenshotUrl,
         ...locationData,
@@ -1483,43 +1473,27 @@ export default function AddItemForm() {
               </div>
             </div>
 
-            {/* Notes - editable, pre-filled from shared text or clipboard */}
-            <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-2">
-                Notes
-                {notes && clipboardTextUsed && (
-                  <span className="ml-2 text-xs font-normal text-gray-500">(Copied text)</span>
-                )}
-              </label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                rows={4}
-                placeholder="Add your own notes about this place..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
-              />
-              {sharedTextImported && notes && (
-                <p className="mt-1 text-xs text-gray-500">Imported text</p>
-              )}
-            </div>
-
-            {/* Original post text / Description */}
+            {/* Description/Post Caption - merged field for both metadata and user input */}
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Original Post Text
+                Description / Post Caption
+                {description && (clipboardTextUsed || sharedTextImported) && (
+                  <span className="ml-2 text-xs font-normal text-gray-500">
+                    ({clipboardTextUsed ? 'Copied text' : 'Imported text'})
+                  </span>
+                )}
               </label>
               <textarea
                 id="description"
                 value={description}
                 onChange={(e) => handleDescriptionChange(e.target.value)}
                 rows={4}
-                placeholder="Original post text from the link (will be fetched automatically if available)..."
+                placeholder="Post caption or description (will be fetched automatically if available)..."
                 className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none ${
                   description ? 'bg-gray-50' : 'bg-white'
                 }`}
               />
-              {description && (
+              {description && !clipboardTextUsed && !sharedTextImported && (
                 <p className="mt-1 text-xs text-gray-500">Fetched from the original post. You can edit this.</p>
               )}
             </div>
