@@ -890,7 +890,7 @@ export default function AddItemForm() {
             const oembedData = await oembedResponse.json()
             if (oembedData.caption_text) {
               oembedCaption = oembedData.caption_text
-              console.log('AddItemForm: Extracted TikTok caption from oEmbed:', oembedCaption.substring(0, 100))
+              console.log('AddItemForm: Extracted TikTok caption from oEmbed:', oembedData.caption_text.substring(0, 100))
             }
           }
         } catch (err) {
