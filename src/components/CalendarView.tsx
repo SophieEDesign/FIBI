@@ -39,6 +39,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draggedItem, setDraggedItem] = useState<SavedItem | null>(null)
+  const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
   const supabase = createClient()
   const router = useRouter()
 
@@ -376,7 +377,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </h3>
               <UnplannedDropZone>
                 {unplannedItems.map((item) => (
-                  <PlaceCard key={item.id} item={item} isDragging={activeId === item.id} />
+                  <PlaceCard
+                    key={item.id}
+                    item={item}
+                    isDragging={activeId === item.id}
+                    onSelect={() => setSelectedItem(item)}
+                  />
                 ))}
               </UnplannedDropZone>
             </div>
@@ -416,6 +422,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           item={item}
                           isDragging={activeId === item.id}
                           compact
+                          onSelect={() => setSelectedItem(item)}
                         />
                       ))}
                     </div>
@@ -432,6 +439,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
             ) : null}
           </DragOverlay>
         </DndContext>
+
+        {/* Place Preview Modal */}
+        {selectedItem && (
+          <PlacePreviewModal
+            item={selectedItem}
+            onClose={() => setSelectedItem(null)}
+          />
+        )}
 
         {/* Empty States */}
         {!loading && items.length === 0 && (
@@ -547,9 +562,10 @@ interface PlaceCardProps {
   isDragging: boolean
   compact?: boolean
   overlay?: boolean
+  onSelect?: () => void
 }
 
-function PlaceCard({ item, isDragging, compact = false, overlay = false }: PlaceCardProps) {
+function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelect }: PlaceCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: item.id,
   })
@@ -561,6 +577,16 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
     : undefined
 
   const displayTitle = item.title || getHostname(item.url)
+  const imageUrl = item.screenshot_url || item.thumbnail_url
+
+  // Handle click (separate from drag)
+  const handleClick = (e: React.MouseEvent) => {
+    // Only trigger if not dragging
+    if (!isDragging && onSelect) {
+      e.stopPropagation()
+      onSelect()
+    }
+  }
 
   if (overlay) {
     // Drag overlay - larger, more visible
@@ -602,7 +628,8 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
         style={style}
         {...listeners}
         {...attributes}
-        className={`bg-white rounded border border-gray-200 p-1.5 cursor-move hover:shadow-sm transition-shadow ${
+        onClick={handleClick}
+        className={`bg-white rounded border border-gray-200 p-1.5 cursor-pointer hover:shadow-sm transition-shadow ${
           isDragging ? 'opacity-50' : ''
         }`}
       >
@@ -641,7 +668,8 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
       style={style}
       {...listeners}
       {...attributes}
-      className={`bg-white rounded-lg border border-gray-200 p-2 w-32 md:w-40 cursor-move hover:shadow-md transition-shadow ${
+      onClick={handleClick}
+      className={`bg-white rounded-lg border border-gray-200 p-2 w-32 md:w-40 cursor-pointer hover:shadow-md transition-shadow ${
         isDragging ? 'opacity-50' : ''
       }`}
     >
@@ -671,6 +699,171 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
       <p className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">
         {displayTitle}
       </p>
+    </div>
+  )
+}
+
+// Place Preview Modal Component
+interface PlacePreviewModalProps {
+  item: SavedItem
+  onClose: () => void
+}
+
+function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
+  const displayTitle = item.title || getHostname(item.url)
+  const imageUrl = item.screenshot_url || item.thumbnail_url
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
+        {/* Close button */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+          <h3 className="text-lg font-semibold text-gray-900">Place Preview</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close"
+          >
+            <svg
+              className="w-5 h-5 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          {/* Image */}
+          {imageUrl ? (
+            <div className="aspect-video rounded-lg mb-4 overflow-hidden bg-gray-100">
+              <img
+                src={imageUrl}
+                alt={displayTitle}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="aspect-video rounded-lg mb-4 bg-gray-100 relative overflow-hidden">
+              <EmbedPreview
+                url={item.url}
+                thumbnailUrl={item.thumbnail_url}
+                platform={item.platform}
+                displayTitle={displayTitle}
+              />
+              <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+                <span className="text-4xl text-gray-400">
+                  {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '📌'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Title */}
+          <h2 className="text-xl font-bold text-gray-900 mb-2">{displayTitle}</h2>
+
+          {/* Description */}
+          {item.description && (
+            <p className="text-sm text-gray-600 mb-4">{item.description}</p>
+          )}
+
+          {/* Location */}
+          {(item.place_name || item.formatted_address || item.location_city) && (
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-1">Location</p>
+              <p className="text-sm text-gray-600">
+                {item.place_name || item.formatted_address || 
+                 (item.location_city && item.location_country 
+                   ? `${item.location_city}, ${item.location_country}` 
+                   : item.location_city || item.location_country || '')}
+              </p>
+            </div>
+          )}
+
+          {/* Category and Status */}
+          {(item.category || item.status) && (
+            <div className="flex gap-4 mb-4">
+              {item.category && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Category</p>
+                  <p className="text-sm text-gray-900">{item.category}</p>
+                </div>
+              )}
+              {item.status && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Status</p>
+                  <p className="text-sm text-gray-900">{item.status}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Planned Date */}
+          {item.planned_date && (
+            <div className="mb-4">
+              <p className="text-xs font-medium text-gray-500 mb-1">Planned Date</p>
+              <p className="text-sm text-gray-600">
+                {new Date(item.planned_date).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-4 border-t border-gray-200">
+            <Link
+              href={`/item/${item.id}`}
+              className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors text-center"
+              onClick={onClose}
+            >
+              View Full Details
+            </Link>
+            {item.url && (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Open Link
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

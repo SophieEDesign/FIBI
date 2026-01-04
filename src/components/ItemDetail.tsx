@@ -31,7 +31,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
-  const [notes, setNotes] = useState('')
   
   // Location fields (edit mode only)
   const [description, setDescription] = useState('')
@@ -237,7 +236,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setCustomStatus('')
         setShowCustomCategoryInput(false)
         setShowCustomStatusInput(false)
-        setNotes(data.notes || '')
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load item')
@@ -351,14 +349,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     // Save to item
     await saveStatuses(newStatuses)
     setCustomStatus('')
-  }
-
-  // Handle notes save on blur
-  const handleNotesBlur = async () => {
-    const trimmedNotes = notes.trim() || null
-    if (trimmedNotes !== (item?.notes || null)) {
-      await saveField('notes', trimmedNotes)
-    }
   }
 
   // Handle screenshot upload
@@ -1015,21 +1005,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             </div>
 
             <div className="space-y-6">
-              {/* Notes - always editable */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  onBlur={handleNotesBlur}
-                  rows={4}
-                  placeholder="Why did you save this?"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
-                />
-              </div>
-
               {/* Description - always editable */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

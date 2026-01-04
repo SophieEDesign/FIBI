@@ -165,7 +165,7 @@ export default function LandingPage() {
                       Your context, your way
                     </h3>
                     <p className="text-gray-600">
-                      Add screenshots, notes, and locations so you remember why you saved it and where it is.
+                      Add screenshots and locations so you remember why you saved it and where it is.
                     </p>
                   </div>
                   <div>

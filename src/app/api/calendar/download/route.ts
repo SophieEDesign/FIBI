@@ -78,7 +78,6 @@ function generateICal(items: any[]): string {
       item.place_name && `Place: ${item.place_name}`,
       item.formatted_address && `Address: ${item.formatted_address}`,
       item.url && `URL: ${item.url}`,
-      item.notes && `Notes: ${item.notes}`,
     ]
       .filter(Boolean)
       .join('\\n')
