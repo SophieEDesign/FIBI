@@ -235,11 +235,11 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-8">
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-2xl mx-auto px-4 py-4 md:py-6">
         {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">My FiBi</h1>
-          <p className="text-sm text-gray-500 mt-1">Your personal travel space</p>
+        <header className="mb-6">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">My FiBi</h1>
+          <p className="text-xs md:text-sm text-gray-500 mt-0.5">Your personal travel space</p>
         </header>
 
         {/* Error Message */}
@@ -271,12 +271,12 @@ export default function ProfilePage() {
         )}
 
         {/* Identity Section */}
-        <section className="bg-white rounded-xl p-6 mb-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Identity</h2>
+        <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Identity</h2>
           
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-3 md:gap-4 mb-4">
             {/* Avatar */}
-            <div className="w-16 h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-xl font-semibold">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-base md:text-xl font-semibold flex-shrink-0">
               {getInitials(email || user.email || '')}
             </div>
             
@@ -345,30 +345,30 @@ export default function ProfilePage() {
         </section>
 
         {/* Stats Section */}
-        <section className="bg-white rounded-xl p-6 mb-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Stats</h2>
+        <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Stats</h2>
           
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{stats.totalPlaces}</div>
-              <div className="text-xs text-gray-500 mt-1">Saved Places</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.totalPlaces}</div>
+              <div className="text-xs text-gray-500 mt-0.5">Saved Places</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{stats.plannedPlaces}</div>
-              <div className="text-xs text-gray-500 mt-1">Planned</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.plannedPlaces}</div>
+              <div className="text-xs text-gray-500 mt-0.5">Planned</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">{stats.uniqueCountries}</div>
-              <div className="text-xs text-gray-500 mt-1">Countries</div>
+              <div className="text-xl md:text-2xl font-bold text-gray-900">{stats.uniqueCountries}</div>
+              <div className="text-xs text-gray-500 mt-0.5">Countries</div>
             </div>
           </div>
         </section>
 
         {/* Preferences Section */}
-        <section className="bg-white rounded-xl p-6 mb-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Preferences</h2>
+        <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Preferences</h2>
           
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Default View */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -444,10 +444,10 @@ export default function ProfilePage() {
         </section>
 
         {/* Actions Section */}
-        <section className="bg-white rounded-xl p-6 mb-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
+        <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Actions</h2>
           
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {/* Export */}
             <button
               onClick={() => {

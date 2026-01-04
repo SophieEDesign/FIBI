@@ -449,10 +449,47 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   // Assign date to item (used for both drag-and-drop and tap-based selection)
   // If an itinerary is selected, also assign the item to that itinerary
+  // When assigning a date: set status to "Planned"
+  // When removing date: set status to "To plan"
   const assignDateToItem = async (itemId: string, dateStr: string | null) => {
     try {
-      const updateData: { planned_date: string | null; itinerary_id?: string | null } = {
+      // Parse current status from item
+      const item = items.find(i => i.id === itemId)
+      let currentStatuses: string[] = []
+      if (item?.status) {
+        try {
+          const parsed = JSON.parse(item.status)
+          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
+        } catch {
+          currentStatuses = [item.status]
+        }
+      }
+
+      // Update status based on date assignment
+      let newStatuses: string[] = []
+      if (dateStr) {
+        // Assigning date: set status to "Planned"
+        // Remove "To plan" if present, add "Planned" if not present
+        newStatuses = currentStatuses.filter(s => s !== 'To plan')
+        if (!newStatuses.includes('Planned')) {
+          newStatuses.push('Planned')
+        }
+      } else {
+        // Removing date: revert to "To plan"
+        // Remove "Planned" if present, add "To plan" if not present
+        newStatuses = currentStatuses.filter(s => s !== 'Planned')
+        if (!newStatuses.includes('To plan')) {
+          newStatuses.push('To plan')
+        }
+      }
+
+      const updateData: { 
+        planned_date: string | null
+        itinerary_id?: string | null
+        status?: string | null
+      } = {
         planned_date: dateStr,
+        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
       }
       
       // If an itinerary is selected and we're assigning a date, also assign to itinerary
@@ -472,7 +509,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
       setItems((prev) =>
         prev.map((item) =>
           item.id === itemId 
-            ? { ...item, planned_date: dateStr, ...(selectedItineraryId && dateStr ? { itinerary_id: selectedItineraryId } : {}) }
+            ? { 
+                ...item, 
+                planned_date: dateStr, 
+                status: updateData.status || null,
+                ...(selectedItineraryId && dateStr ? { itinerary_id: selectedItineraryId } : {}) 
+              }
             : item
         )
       )
@@ -619,20 +661,20 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </button>
                 {selectedItineraryId === itinerary.id && (
                   <button
-                    onClick={handleShareItinerary}
-                    disabled={loadingShare}
-                    className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                    title="Share itinerary"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                    }}
+                    disabled={true}
+                    className="p-2 rounded-lg text-gray-400 cursor-not-allowed transition-colors relative group"
+                    title="Sharing coming soon"
                   >
-                    {loadingShare ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                      </svg>
-                    )}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Sharing coming soon
+                    </span>
                   </button>
                 )}
               </div>
@@ -905,7 +947,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
               {filterOptions.statuses.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-medium text-gray-700">Status</h4>
+                    <h4 className="text-sm font-medium text-gray-700">Stage</h4>
                     {unplannedStatusFilters.length > 0 && (
                       <span className="text-xs text-gray-500">({unplannedStatusFilters.length} selected)</span>
                     )}

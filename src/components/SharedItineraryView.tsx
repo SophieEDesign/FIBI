@@ -305,7 +305,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         {data && data.items.length > 0 && (
           <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+              <span className="text-sm font-medium text-gray-700 mr-2">Stage:</span>
               <CollapsibleOptions>
                 <button
                   onClick={() => setSelectedStatuses([])}

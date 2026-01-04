@@ -951,7 +951,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Stage</label>
                   <div className="flex flex-wrap gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
                     {STATUSES.map((stat) => {
                       const isSelected = statuses.includes(stat)

@@ -1891,7 +1891,7 @@ export default function AddItemForm() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
+                Stage
               </label>
               <CollapsibleOptions className="mb-2">
                 {STATUSES.map((stat) => {

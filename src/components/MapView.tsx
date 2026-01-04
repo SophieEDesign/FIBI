@@ -395,6 +395,8 @@ export default function MapView() {
   }, [items, selectedItineraryId])
 
   // Update markers when items change
+  // TODO: Add marker clustering for dense areas (when filtering by itinerary/stage)
+  // Future: Use @googlemaps/markerclusterer for better performance with many markers
   useEffect(() => {
     if (!isGoogleLoaded || !mapInstanceRef.current) {
       console.log('MapView: Waiting for Google Maps to load or map instance', { isGoogleLoaded, hasMapInstance: !!mapInstanceRef.current })
@@ -404,6 +406,7 @@ export default function MapView() {
     const map = mapInstanceRef.current
     
     // Filter items with valid coordinates (should already be filtered, but double-check)
+    // Future: Also filter by stage (e.g., show only "Planned" places)
     const itemsWithLocations = filteredItems.filter(item => {
       const lat = item.latitude
       const lng = item.longitude
