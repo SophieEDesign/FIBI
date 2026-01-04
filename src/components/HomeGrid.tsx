@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { getHostname } from '@/lib/utils'
@@ -25,8 +25,31 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+  const [showStageDropdown, setShowStageDropdown] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+  const [stageSearch, setStageSearch] = useState('')
+  const categoryDropdownRef = useRef<HTMLDivElement>(null)
+  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const router = useRouter()
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setShowCategoryDropdown(false)
+      }
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
+        setShowStageDropdown(false)
+      }
+    }
+
+    if (showCategoryDropdown || showStageDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCategoryDropdown, showStageDropdown])
 
   useEffect(() => {
     if (user) {
@@ -360,150 +383,241 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Filters - Desktop: inline (lightweight), Mobile: hidden (shown in modal) */}
+        {/* Filters - Desktop: dropdown multiselects in a row, Mobile: hidden (shown in modal) */}
         {filteredItems.length > 0 && (
-          <div className="mb-6 md:mb-8 hidden md:block">
-            <div className="space-y-3">
-              {/* Category Filter */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</span>
-                <div className="flex-1 flex items-center gap-2 overflow-x-auto pb-1">
-                  <CollapsibleOptions>
+          <div className="mb-6 md:mb-8 hidden md:flex md:items-center md:gap-3 md:flex-wrap">
+            {/* Category Filter Dropdown */}
+            <div className="relative" ref={categoryDropdownRef}>
+              <button
+                onClick={() => {
+                  setShowCategoryDropdown(!showCategoryDropdown)
+                  setShowStageDropdown(false)
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <span>Category</span>
+                {selectedCategories.length > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                    {selectedCategories.length}
+                  </span>
+                )}
+                <svg 
+                  className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showCategoryDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
+                  <div className="p-2 border-b border-gray-200">
+                    <input
+                      type="text"
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                      placeholder="Search categories..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-2">
                     <button
-                      onClick={() => setSelectedCategories([])}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                      onClick={() => {
+                        setSelectedCategories([])
+                        setCategorySearch('')
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
                         selectedCategories.length === 0
                           ? 'bg-gray-900 text-white'
-                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
+                          : 'hover:bg-gray-100 text-gray-700'
                       }`}
                     >
-                      All
+                      All Categories
                     </button>
-                    {sortedCategories.map((category) => {
-                      const isSelected = selectedCategories.includes(category)
-                      return (
-                        <button
-                          key={category}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedCategories(selectedCategories.filter(c => c !== category))
-                            } else {
-                              setSelectedCategories([...selectedCategories, category])
-                            }
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                          }`}
-                        >
-                          {category}
-                        </button>
+                    {[...sortedCategories, ...sortedUserCustomCategories]
+                      .filter((cat) => 
+                        cat.toLowerCase().includes(categorySearch.toLowerCase())
                       )
-                    })}
-                    {sortedUserCustomCategories.map((category) => {
-                      const isSelected = selectedCategories.includes(category)
-                      return (
-                        <button
-                          key={category}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedCategories(selectedCategories.filter(c => c !== category))
-                            } else {
-                              setSelectedCategories([...selectedCategories, category])
-                            }
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                          }`}
-                        >
-                          {category}
-                        </button>
-                      )
-                    })}
-                  </CollapsibleOptions>
-                </div>
-              </div>
-
-              {/* Stage Filter */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Stage</span>
-                <div className="flex-1 flex items-center gap-2 overflow-x-auto pb-1">
-                  <CollapsibleOptions>
-                    <button
-                      onClick={() => setSelectedStatuses([])}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                        selectedStatuses.length === 0
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                      }`}
-                    >
-                      All
-                    </button>
-                    {sortedStatuses.map((status) => {
-                      const isSelected = selectedStatuses.includes(status)
-                      return (
-                        <button
-                          key={status}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                            } else {
-                              setSelectedStatuses([...selectedStatuses, status])
-                            }
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                          }`}
-                        >
-                          {status}
-                        </button>
-                      )
-                    })}
-                    {sortedUserCustomStatuses.map((status) => {
-                      const isSelected = selectedStatuses.includes(status)
-                      return (
-                        <button
-                          key={status}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                            } else {
-                              setSelectedStatuses([...selectedStatuses, status])
-                            }
-                          }}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                          }`}
-                        >
-                          {status}
-                        </button>
-                      )
-                    })}
-                  </CollapsibleOptions>
-                </div>
-              </div>
-
-              {activeFiltersCount > 0 && (
-                <div className="pt-1">
-                  <button
-                    onClick={() => {
-                      setSelectedCategories([])
-                      setSelectedStatuses([])
-                    }}
-                    className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    Clear filters
-                  </button>
+                      .map((category) => {
+                        const isSelected = selectedCategories.includes(category)
+                        return (
+                          <button
+                            key={category}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedCategories(selectedCategories.filter(c => c !== category))
+                              } else {
+                                setSelectedCategories([...selectedCategories, category])
+                              }
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                              isSelected
+                                ? 'bg-gray-900 text-white'
+                                : 'hover:bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            <svg
+                              className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            {category}
+                          </button>
+                        )
+                      })}
+                  </div>
                 </div>
               )}
             </div>
+
+            {/* Stage Filter Dropdown */}
+            <div className="relative" ref={stageDropdownRef}>
+              <button
+                onClick={() => {
+                  setShowStageDropdown(!showStageDropdown)
+                  setShowCategoryDropdown(false)
+                }}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <span>Stage</span>
+                {selectedStatuses.length > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                    {selectedStatuses.length}
+                  </span>
+                )}
+                <svg 
+                  className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              
+              {showStageDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
+                  <div className="p-2 border-b border-gray-200">
+                    <input
+                      type="text"
+                      value={stageSearch}
+                      onChange={(e) => setStageSearch(e.target.value)}
+                      placeholder="Search stages..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-2">
+                    <button
+                      onClick={() => {
+                        setSelectedStatuses([])
+                        setStageSearch('')
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
+                        selectedStatuses.length === 0
+                          ? 'bg-gray-900 text-white'
+                          : 'hover:bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      All Stages
+                    </button>
+                    {[...sortedStatuses, ...sortedUserCustomStatuses]
+                      .filter((status) => 
+                        status.toLowerCase().includes(stageSearch.toLowerCase())
+                      )
+                      .map((status) => {
+                        const isSelected = selectedStatuses.includes(status)
+                        return (
+                          <button
+                            key={status}
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedStatuses(selectedStatuses.filter(s => s !== status))
+                              } else {
+                                setSelectedStatuses([...selectedStatuses, status])
+                              }
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                              isSelected
+                                ? 'bg-gray-900 text-white'
+                                : 'hover:bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            <svg
+                              className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            {status}
+                          </button>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Selected Filters Display */}
+            {(selectedCategories.length > 0 || selectedStatuses.length > 0) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                {selectedCategories.map((cat) => (
+                  <span
+                    key={cat}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                  >
+                    {cat}
+                    <button
+                      onClick={() => setSelectedCategories(selectedCategories.filter(c => c !== cat))}
+                      className="hover:text-gray-300"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {selectedStatuses.map((status) => (
+                  <span
+                    key={status}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                  >
+                    {status}
+                    <button
+                      onClick={() => setSelectedStatuses(selectedStatuses.filter(s => s !== status))}
+                      className="hover:text-gray-300"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <button
+                  onClick={() => {
+                    setSelectedCategories([])
+                    setSelectedStatuses([])
+                  }}
+                  className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -55,6 +55,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
+  const [showUnplannedFilters, setShowUnplannedFilters] = useState(false)
   const supabase = createClient()
 
   // Detect mobile device
@@ -633,7 +634,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 pb-24 md:pb-8">
         {/* Itinerary Tabs */}
         <div className="mb-6">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
@@ -788,6 +789,29 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </div>
               
               <div className="flex items-center gap-2">
+                {/* Filter Toggle Button */}
+                {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0 || filterOptions.locations.length > 0 || filterOptions.categories.length > 0 || filterOptions.statuses.length > 0) && (
+                  <button
+                    onClick={() => setShowUnplannedFilters(!showUnplannedFilters)}
+                    className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <svg 
+                      className={`w-4 h-4 transition-transform ${showUnplannedFilters ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <span>Filters</span>
+                    {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0) && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                        {unplannedLocationFilters.length + unplannedCategoryFilters.length + unplannedStatusFilters.length}
+                      </span>
+                    )}
+                  </button>
+                )}
+                
                 {/* View Mode Toggle */}
                 <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                   <button
@@ -821,6 +845,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
             
             {/* Filter Controls - Multiple filter types simultaneously */}
+            {showUnplannedFilters && (
             <div className="mb-4 space-y-4">
               {/* Clear all filters button */}
               {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0) && (
@@ -992,6 +1017,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </div>
               )}
             </div>
+            )}
             
             {/* Unplanned Items Display */}
             {unplannedItems.length > 0 ? (
