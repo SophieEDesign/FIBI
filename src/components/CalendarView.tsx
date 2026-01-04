@@ -352,34 +352,34 @@ export default function CalendarView({ user }: CalendarViewProps) {
     } else if (unplannedFilterType === 'category' && unplannedFilterValues.length > 0) {
       unplanned = unplanned.filter((item) => {
         if (!item.category) return false
+        const category = item.category // Store in local variable for type narrowing
         try {
-          const categories = JSON.parse(item.category)
+          const categories = JSON.parse(category)
           const categoryArray = Array.isArray(categories) ? categories : [categories]
           const itemCategories = categoryArray.map((cat: string) => cat.toLowerCase())
           return unplannedFilterValues.some((filterValue) =>
             itemCategories.includes(filterValue.toLowerCase())
           )
         } catch {
-          if (!item.category) return false
           return unplannedFilterValues.some((filterValue) =>
-            item.category.toLowerCase() === filterValue.toLowerCase()
+            category.toLowerCase() === filterValue.toLowerCase()
           )
         }
       })
     } else if (unplannedFilterType === 'status' && unplannedFilterValues.length > 0) {
       unplanned = unplanned.filter((item) => {
         if (!item.status) return false
+        const status = item.status // Store in local variable for type narrowing
         try {
-          const statuses = JSON.parse(item.status)
+          const statuses = JSON.parse(status)
           const statusArray = Array.isArray(statuses) ? statuses : [statuses]
           const itemStatuses = statusArray.map((stat: string) => stat.toLowerCase())
           return unplannedFilterValues.some((filterValue) =>
             itemStatuses.includes(filterValue.toLowerCase())
           )
         } catch {
-          if (!item.status) return false
           return unplannedFilterValues.some((filterValue) =>
-            item.status.toLowerCase() === filterValue.toLowerCase()
+            status.toLowerCase() === filterValue.toLowerCase()
           )
         }
       })
