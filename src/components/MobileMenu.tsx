@@ -130,6 +130,13 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
               >
                 Add Place
               </Link>
+              <Link
+                href="/profile"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200"
+              >
+                Profile
+              </Link>
               {!isInstalled && (
                 <button
                   onClick={handleInstall}

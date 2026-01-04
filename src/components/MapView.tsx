@@ -110,9 +110,27 @@ export default function MapView() {
       }
 
       // Filter for items with valid coordinates
+      // Handle both number and string types (PostgreSQL NUMERIC can come back as string)
       const itemsWithCoords = (allData || []).filter(item => {
-        const hasLat = item.latitude != null && item.latitude !== ''
-        const hasLng = item.longitude != null && item.longitude !== ''
+        // Check if latitude exists and is valid
+        const lat = item.latitude
+        const hasLat = lat != null && lat !== '' && !isNaN(Number(lat))
+        
+        // Check if longitude exists and is valid
+        const lng = item.longitude
+        const hasLng = lng != null && lng !== '' && !isNaN(Number(lng))
+        
+        if (!hasLat || !hasLng) {
+          console.log('MapView: Filtering out item without valid coordinates:', {
+            id: item.id,
+            title: item.title,
+            latitude: lat,
+            longitude: lng,
+            latType: typeof lat,
+            lngType: typeof lng,
+          })
+        }
+        
         return hasLat && hasLng
       })
 
@@ -297,8 +315,13 @@ export default function MapView() {
     
     const map = mapInstanceRef.current
     
-    // Filter items with valid coordinates
-    const itemsWithLocations = items.filter(item => item.latitude != null && item.longitude != null)
+    // Filter items with valid coordinates (should already be filtered, but double-check)
+    const itemsWithLocations = items.filter(item => {
+      const lat = item.latitude
+      const lng = item.longitude
+      return lat != null && lat !== '' && !isNaN(Number(lat)) &&
+             lng != null && lng !== '' && !isNaN(Number(lng))
+    })
     console.log('MapView: Updating markers with items', { totalItems: items.length, itemsWithLocations: itemsWithLocations.length })
     
     // Clear existing markers
@@ -315,36 +338,30 @@ export default function MapView() {
 
     itemsWithLocations.forEach((item) => {
       // Handle PostgreSQL numeric type (can be string or number)
-      let lat: number
-      let lng: number
+      // Convert to number, handling both string and number types
+      const latValue = item.latitude
+      const lngValue = item.longitude
       
-      if (typeof item.latitude === 'string') {
-        lat = parseFloat(item.latitude)
-      } else if (typeof item.latitude === 'number') {
-        lat = item.latitude
-      } else {
-        console.warn('MapView: Invalid latitude type for item:', item.id, { latitude: item.latitude, type: typeof item.latitude })
-        return
-      }
+      // Convert to number (handles both string and number types)
+      const lat = typeof latValue === 'string' ? parseFloat(latValue) : Number(latValue)
+      const lng = typeof lngValue === 'string' ? parseFloat(lngValue) : Number(lngValue)
       
-      if (typeof item.longitude === 'string') {
-        lng = parseFloat(item.longitude)
-      } else if (typeof item.longitude === 'number') {
-        lng = item.longitude
-      } else {
-        console.warn('MapView: Invalid longitude type for item:', item.id, { longitude: item.longitude, type: typeof item.longitude })
-        return
-      }
-      
+      // Validate that conversion was successful
       if (isNaN(lat) || isNaN(lng)) {
         console.warn('MapView: Invalid coordinates for item:', item.id, { 
-          latitude: item.latitude, 
-          longitude: item.longitude, 
+          latitude: latValue, 
+          longitude: lngValue, 
           lat, 
           lng,
-          latType: typeof item.latitude,
-          lngType: typeof item.longitude
+          latType: typeof latValue,
+          lngType: typeof lngValue
         })
+        return
+      }
+      
+      // Additional check: ensure values are finite numbers
+      if (!isFinite(lat) || !isFinite(lng)) {
+        console.warn('MapView: Non-finite coordinates for item:', item.id, { lat, lng })
         return
       }
 

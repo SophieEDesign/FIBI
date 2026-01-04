@@ -234,6 +234,33 @@ export default function CalendarView({ user }: CalendarViewProps) {
     setCurrentMonth(new Date())
   }
 
+  const handleDownloadCalendar = async () => {
+    try {
+      const response = await fetch('/api/calendar/download')
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          alert('Please sign in to download your calendar')
+          return
+        }
+        throw new Error('Failed to download calendar')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'fibi-calendar.ics'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading calendar:', error)
+      alert('Failed to download calendar. Please try again.')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -272,6 +299,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
               >
                 Add Place
+              </Link>
+              <Link
+                href="/profile"
+                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              >
+                Profile
               </Link>
               <button
                 onClick={handleSignOut}
@@ -326,9 +359,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
 
             <div className="flex items-center gap-2">
-              <a
-                href="/api/calendar/download"
-                download="fibi-calendar.ics"
+              <button
+                onClick={handleDownloadCalendar}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 title="Download calendar"
               >
@@ -346,7 +378,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   />
                 </svg>
                 <span className="hidden sm:inline">Download</span>
-              </a>
+              </button>
               <button
                 onClick={() => navigateMonth('next')}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -713,6 +745,32 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
   const displayTitle = item.title || getHostname(item.url)
   const imageUrl = item.screenshot_url || item.thumbnail_url
 
+  // Parse categories and statuses (support both single values and arrays)
+  const parseCategories = (cat: string | null): string[] => {
+    if (!cat) return []
+    try {
+      const parsed = JSON.parse(cat)
+      if (Array.isArray(parsed)) return parsed
+      return [parsed]
+    } catch {
+      return [cat]
+    }
+  }
+  
+  const parseStatuses = (stat: string | null): string[] => {
+    if (!stat) return []
+    try {
+      const parsed = JSON.parse(stat)
+      if (Array.isArray(parsed)) return parsed
+      return [parsed]
+    } catch {
+      return [stat]
+    }
+  }
+
+  const categories = parseCategories(item.category)
+  const statuses = parseStatuses(item.status)
+
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -830,18 +888,24 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
             )}
 
             {/* Category and Status */}
-            {(item.category || item.status) && (
+            {(categories.length > 0 || statuses.length > 0) && (
               <div className="flex flex-wrap gap-2">
-                {item.category && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    {item.category}
+                {categories.map((category, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                  >
+                    {category}
                   </span>
-                )}
-                {item.status && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {item.status}
+                ))}
+                {statuses.map((status, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                  >
+                    {status}
                   </span>
-                )}
+                ))}
               </div>
             )}
 

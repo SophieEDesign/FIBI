@@ -223,6 +223,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               >
                 Add Place
               </Link>
+              <Link
+                href="/profile"
+                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              >
+                Profile
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="text-gray-600 hover:text-gray-900 text-sm font-medium"
