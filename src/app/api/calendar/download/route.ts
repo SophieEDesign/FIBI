@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
  * Generates an iCal (.ics) file from the user's planned items.
  * Can be imported into Google Calendar, Apple Calendar, Outlook, etc.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient()
     
@@ -20,6 +20,7 @@ export async function GET() {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.error('Calendar download auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

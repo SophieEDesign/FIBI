@@ -14,9 +14,11 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (!user || authError) {
+      console.error('Share API auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

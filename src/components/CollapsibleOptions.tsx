@@ -97,9 +97,23 @@ export default function CollapsibleOptions({ children, className = '' }: Collaps
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="mt-2 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+          className="mt-3 px-4 py-2 text-base font-semibold text-gray-900 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-all duration-200 flex items-center gap-1.5 shadow-sm hover:shadow"
         >
-          {isExpanded ? 'Show less' : 'more...'}
+          {isExpanded ? (
+            <>
+              <span>Show less</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </>
+          ) : (
+            <>
+              <span>more...</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </>
+          )}
         </button>
       )}
     </div>

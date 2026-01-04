@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 export function middleware(req: NextRequest) {
   // This middleware does nothing - all routes pass through
   // Static files (manifest.json, sw.js, etc.) are served directly by Next.js
-  // The manifest.json route handler at src/app/manifest.json/route.ts handles that file
+  // The manifest.json is served as a static file from /public/manifest.json
   return NextResponse.next()
 }
 

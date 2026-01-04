@@ -340,6 +340,23 @@ export default function AddItemForm() {
     }
   }, [url])
 
+  // Populate Google Maps input field with suggested location
+  useEffect(() => {
+    if (aiSuggestions && (aiSuggestions.placeName || aiSuggestions.city || aiSuggestions.country)) {
+      // Only populate if user hasn't edited location and no place is selected
+      if (!userEditedLocation.current && !selectedPlace) {
+        const suggestedLocationText = aiSuggestions.placeName || 
+          [aiSuggestions.city, aiSuggestions.country].filter(Boolean).join(', ') || 
+          ''
+        if (suggestedLocationText && locationSearchValue !== suggestedLocationText) {
+          console.log('AddItemForm: Populating locationSearchValue with suggested location:', suggestedLocationText)
+          setLocationSearchValue(suggestedLocationText)
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiSuggestions, selectedPlace])
+
   // Trigger AI enrichment if URL is already present when component mounts
   // This handles the case where page loads with URL already in the field
   useEffect(() => {

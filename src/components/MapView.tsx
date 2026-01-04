@@ -28,6 +28,9 @@ export default function MapView() {
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
+  const [showCreateItineraryModal, setShowCreateItineraryModal] = useState(false)
+  const [newItineraryName, setNewItineraryName] = useState('')
+  const [creatingItinerary, setCreatingItinerary] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -97,6 +100,50 @@ export default function MapView() {
     } catch (error) {
       console.error('Error loading itineraries:', error)
       setItineraries([])
+    }
+  }
+
+  const createItinerary = async (name: string) => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user || !name.trim()) return null
+
+      const { data, error } = await supabase
+        .from('itineraries')
+        .insert({
+          user_id: user.id,
+          name: name.trim(),
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setItineraries((prev) => [data, ...prev])
+        return data
+      }
+      return null
+    } catch (error) {
+      console.error('Error creating itinerary:', error)
+      return null
+    }
+  }
+
+  const handleCreateItinerary = async () => {
+    if (!newItineraryName.trim()) return
+
+    setCreatingItinerary(true)
+    const newItinerary = await createItinerary(newItineraryName)
+    setCreatingItinerary(false)
+
+    if (newItinerary) {
+      setSelectedItineraryId(newItinerary.id)
+      setShowCreateItineraryModal(false)
+      setNewItineraryName('')
     }
   }
 
@@ -515,6 +562,15 @@ export default function MapView() {
                 {itinerary.name}
               </button>
             ))}
+            <button
+              onClick={() => setShowCreateItineraryModal(true)}
+              className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New
+            </button>
           </div>
         </div>
       </div>
@@ -652,6 +708,62 @@ export default function MapView() {
           <div>Loading: {loading ? 'yes' : 'no'}</div>
           <div>Google Loaded: {isGoogleLoaded ? 'yes' : 'no'}</div>
           <div>Map Instance: {mapInstanceRef.current ? 'yes' : 'no'}</div>
+        </div>
+      )}
+
+      {/* Create Itinerary Modal */}
+      {showCreateItineraryModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowCreateItineraryModal(false)
+              setNewItineraryName('')
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Itinerary</h2>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="itinerary-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Name
+                </label>
+                <input
+                  id="itinerary-name"
+                  type="text"
+                  value={newItineraryName}
+                  onChange={(e) => setNewItineraryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newItineraryName.trim()) {
+                      handleCreateItinerary()
+                    }
+                  }}
+                  placeholder="e.g., Weekend Trip, Italy Ideas"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCreateItinerary}
+                  disabled={!newItineraryName.trim() || creatingItinerary}
+                  className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creatingItinerary ? 'Creating...' : 'Create'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCreateItineraryModal(false)
+                    setNewItineraryName('')
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

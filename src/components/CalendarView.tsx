@@ -53,6 +53,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [copied, setCopied] = useState(false)
   const [unplannedFilterType, setUnplannedFilterType] = useState<'all' | 'location' | 'category' | 'status'>('all')
   const [unplannedFilterValue, setUnplannedFilterValue] = useState<string>('')
+  const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('list')
   const supabase = createClient()
 
   // Detect mobile device
@@ -696,71 +697,121 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           </div>
 
-          {/* Unplanned Items Section */}
-          {filteredItems.filter((item) => !item.planned_date).length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-700">
-                  {unplannedFilterType === 'all' 
-                    ? `Unplanned (${unplannedItems.length})`
-                    : `${unplannedFilterType === 'location' ? 'Location' : unplannedFilterType === 'category' ? 'Category' : 'Status'}: ${unplannedFilterValue} (${unplannedItems.length})`}
+          {/* Unplanned Items Section - Always Visible */}
+          <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 md:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Unplanned Places
                 </h3>
-                
-                {/* Filter Controls */}
-                <div className="flex items-center gap-2">
-                  <select
-                    value={unplannedFilterType}
-                    onChange={(e) => {
-                      setUnplannedFilterType(e.target.value as 'all' | 'location' | 'category' | 'status')
-                      setUnplannedFilterValue('')
-                    }}
-                    className="text-xs px-2 py-1 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                  >
-                    <option value="all">All</option>
-                    <option value="location">Location</option>
-                    <option value="category">Category</option>
-                    <option value="status">Status</option>
-                  </select>
-                  
-                  {unplannedFilterType !== 'all' && (
-                    <select
-                      value={unplannedFilterValue}
-                      onChange={(e) => setUnplannedFilterValue(e.target.value)}
-                      className="text-xs px-2 py-1 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                    >
-                      <option value="">Select {unplannedFilterType === 'location' ? 'location' : unplannedFilterType === 'category' ? 'category' : 'status'}...</option>
-                      {unplannedFilterType === 'location' && filterOptions.locations.map((loc) => (
-                        <option key={loc} value={loc}>{loc}</option>
-                      ))}
-                      {unplannedFilterType === 'category' && filterOptions.categories.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      {unplannedFilterType === 'status' && filterOptions.statuses.map((stat) => (
-                        <option key={stat} value={stat}>{stat}</option>
-                      ))}
-                    </select>
-                  )}
-                  
-                  {unplannedFilterType !== 'all' && unplannedFilterValue && (
-                    <button
-                      onClick={() => {
-                        setUnplannedFilterType('all')
-                        setUnplannedFilterValue('')
-                      }}
-                      className="text-xs px-2 py-1 text-gray-600 hover:text-gray-900"
-                      title="Clear filter"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
+                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                  {unplannedItems.length}
+                </span>
               </div>
               
-              {unplannedItems.length > 0 ? (
-                <UnplannedDropZone>
-                  {unplannedItems.map((item) => (
+              <div className="flex items-center gap-2">
+                {/* View Mode Toggle */}
+                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setUnplannedViewMode('list')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      unplannedViewMode === 'list'
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title="List view"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setUnplannedViewMode('grid')}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-300 ${
+                      unplannedViewMode === 'grid'
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title="Grid view"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Filter Controls */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <select
+                value={unplannedFilterType}
+                onChange={(e) => {
+                  setUnplannedFilterType(e.target.value as 'all' | 'location' | 'category' | 'status')
+                  setUnplannedFilterValue('')
+                }}
+                className="text-sm px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+              >
+                <option value="all">All Places</option>
+                <option value="location">Filter by Location</option>
+                <option value="category">Filter by Category</option>
+                <option value="status">Filter by Status</option>
+              </select>
+              
+              {unplannedFilterType !== 'all' && (
+                <select
+                  value={unplannedFilterValue}
+                  onChange={(e) => setUnplannedFilterValue(e.target.value)}
+                  className="text-sm px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                >
+                  <option value="">Select {unplannedFilterType === 'location' ? 'location' : unplannedFilterType === 'category' ? 'category' : 'status'}...</option>
+                  {unplannedFilterType === 'location' && filterOptions.locations.map((loc) => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                  {unplannedFilterType === 'category' && filterOptions.categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  {unplannedFilterType === 'status' && filterOptions.statuses.map((stat) => (
+                    <option key={stat} value={stat}>{stat}</option>
+                  ))}
+                </select>
+              )}
+              
+              {unplannedFilterType !== 'all' && unplannedFilterValue && (
+                <button
+                  onClick={() => {
+                    setUnplannedFilterType('all')
+                    setUnplannedFilterValue('')
+                  }}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-1"
+                  title="Clear filter"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Clear</span>
+                </button>
+              )}
+            </div>
+            
+            {/* Unplanned Items Display */}
+            {unplannedItems.length > 0 ? (
+              <UnplannedDropZone viewMode={unplannedViewMode}>
+                {unplannedViewMode === 'list' ? (
+                  <div className="space-y-2">
+                    {unplannedItems.map((item) => (
+                      <PlaceListItem
+                        key={item.id}
+                        item={item}
+                        isDragging={activeId === item.id}
+                        onSelect={() => setSelectedItem(item)}
+                        onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                        isMobile={isMobile}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  unplannedItems.map((item) => (
                     <PlaceCard
                       key={item.id}
                       item={item}
@@ -769,17 +820,19 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
                       isMobile={isMobile}
                     />
-                  ))}
-                </UnplannedDropZone>
-              ) : (
-                <div className="p-8 bg-white rounded-xl border-2 border-dashed border-gray-300 text-center">
-                  <p className="text-sm text-gray-500">
-                    No items match the selected filter
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+                  ))
+                )}
+              </UnplannedDropZone>
+            ) : (
+              <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                <p className="text-sm text-gray-500">
+                  {unplannedFilterType === 'all' 
+                    ? 'No unplanned places. All places are scheduled!'
+                    : 'No items match the selected filter'}
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Calendar Grid */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -1021,8 +1074,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </h3>
             <p className="text-sm text-gray-600 max-w-md mx-auto">
               {isMobile
-                ? 'Tap any place to assign it to a date, or hold and drag to move it directly. You can move places between dates or remove them by dragging back to unplanned.'
-                : 'Drag any place from the unplanned section above onto a date to plan it. You can move places between dates or remove them by dragging back to unplanned.'}
+                ? 'Tap any place in the Unplanned Places section above to assign it to a date, or hold and drag to move it directly onto a calendar date. You can move places between dates or remove them by dragging back to unplanned.'
+                : 'Drag any place from the Unplanned Places section above onto a date to plan it. You can move places between dates or remove them by dragging back to unplanned.'}
             </p>
           </div>
         )}
@@ -1032,7 +1085,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
 }
 
 // Unplanned Drop Zone Component
-function UnplannedDropZone({ children }: { children: React.ReactNode }) {
+function UnplannedDropZone({ children, viewMode }: { children: React.ReactNode; viewMode: 'grid' | 'list' }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'unplanned',
   })
@@ -1040,9 +1093,9 @@ function UnplannedDropZone({ children }: { children: React.ReactNode }) {
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[100px] p-4 bg-white rounded-xl border-2 border-dashed flex flex-wrap gap-3 transition-colors ${
-        isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'
-      }`}
+      className={`min-h-[100px] p-4 rounded-lg border-2 border-dashed transition-colors ${
+        isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 bg-gray-50'
+      } ${viewMode === 'grid' ? 'flex flex-wrap gap-3' : ''}`}
     >
       {children}
     </div>
@@ -1211,6 +1264,162 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
       <p className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">
         {displayTitle}
       </p>
+    </div>
+  )
+}
+
+// Place List Item Component (for list view in unplanned section)
+interface PlaceListItemProps {
+  item: SavedItem
+  isDragging: boolean
+  onSelect?: () => void
+  onAssignDate?: () => void
+  isMobile?: boolean
+}
+
+function PlaceListItem({ item, isDragging, onSelect, onAssignDate, isMobile = false }: PlaceListItemProps) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: item.id,
+  })
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+      }
+    : undefined
+
+  const displayTitle = item.title || getHostname(item.url)
+  const imageUrl = item.screenshot_url || item.thumbnail_url
+
+  // Parse categories and statuses
+  const parseCategories = (cat: string | null): string[] => {
+    if (!cat) return []
+    try {
+      const parsed = JSON.parse(cat)
+      if (Array.isArray(parsed)) return parsed
+      return [parsed]
+    } catch {
+      return [cat]
+    }
+  }
+  
+  const parseStatuses = (stat: string | null): string[] => {
+    if (!stat) return []
+    try {
+      const parsed = JSON.parse(stat)
+      if (Array.isArray(parsed)) return parsed
+      return [parsed]
+    } catch {
+      return [stat]
+    }
+  }
+
+  const categories = parseCategories(item.category)
+  const statuses = parseStatuses(item.status)
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isDragging) {
+      e.stopPropagation()
+      return
+    }
+    
+    e.stopPropagation()
+    
+    if (isMobile && onAssignDate) {
+      onAssignDate()
+    } else if (onSelect) {
+      onSelect()
+    }
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={handleClick}
+      className={`bg-white rounded-lg border border-gray-200 p-3 cursor-pointer hover:shadow-md hover:border-gray-300 transition-all ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {/* Thumbnail */}
+        <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={displayTitle}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <LinkPreview
+              url={item.url}
+              ogImage={item.thumbnail_url}
+              screenshotUrl={item.screenshot_url}
+              description={item.description}
+            />
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm md:text-base font-semibold text-gray-900 mb-1 line-clamp-1">
+            {displayTitle}
+          </h4>
+          
+          {item.description && (
+            <p className="text-xs md:text-sm text-gray-600 mb-2 line-clamp-2">
+              {item.description}
+            </p>
+          )}
+
+          {/* Location */}
+          {(item.place_name || item.formatted_address || item.location_city) && (
+            <div className="flex items-center gap-1 mb-2">
+              <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-xs text-gray-600 truncate">
+                {item.place_name || item.formatted_address || 
+                 (item.location_city && item.location_country 
+                   ? `${item.location_city}, ${item.location_country}` 
+                   : item.location_city || item.location_country || '')}
+              </p>
+            </div>
+          )}
+
+          {/* Categories and Statuses */}
+          {(categories.length > 0 || statuses.length > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              {categories.map((category, index) => (
+                <span
+                  key={`cat-${index}`}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                >
+                  {category}
+                </span>
+              ))}
+              {statuses.map((status, index) => (
+                <span
+                  key={`stat-${index}`}
+                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                >
+                  {status}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Drag Handle Indicator */}
+        <div className="flex-shrink-0 text-gray-400">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+      </div>
     </div>
   )
 }
