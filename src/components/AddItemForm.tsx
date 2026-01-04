@@ -209,11 +209,15 @@ export default function AddItemForm() {
       const metadata = await response.json()
       console.log('AddItemForm: Metadata fetched:', {
         hasTitle: !!metadata.title,
+        title: metadata.title?.substring(0, 100) || null,
         hasDescription: !!metadata.description,
-        hasImage: !!metadata.image,
-        hasScrapedContent: !!metadata.scrapedContent,
+        description: metadata.description?.substring(0, 200) || null,
         descriptionLength: metadata.description?.length || 0,
+        hasImage: !!metadata.image,
         imageUrl: metadata.image?.substring(0, 100) || null,
+        hasScrapedContent: !!metadata.scrapedContent,
+        scrapedContentLength: metadata.scrapedContent?.length || 0,
+        fullMetadata: metadata, // Show full object for debugging
       })
       return metadata
     } catch (err) {
@@ -658,21 +662,29 @@ export default function AddItemForm() {
 
           // Set description (OG description or scraped content)
           // Always set if we have metadata description and current description is empty
-          if (metadata.description) {
+          // Use scrapedContent as fallback if description is not available
+          const descriptionToUse = metadata.description || metadata.scrapedContent
+          if (descriptionToUse) {
             console.log('AddItemForm: Setting description from metadata', {
-              metadataDescription: metadata.description.substring(0, 100),
+              metadataDescription: metadata.description?.substring(0, 100) || null,
+              scrapedContent: metadata.scrapedContent?.substring(0, 100) || null,
+              usingScrapedContent: !metadata.description && !!metadata.scrapedContent,
               currentDescription: description.substring(0, 100),
               willSet: !description || description.trim() === '',
             })
             if (!description || description.trim() === '') {
-              setDescription(metadata.description)
-              finalDescription = metadata.description
+              setDescription(descriptionToUse)
+              finalDescription = descriptionToUse
             } else {
               // If description already exists, still track it for AI enrichment
               finalDescription = description
             }
           } else {
-            console.log('AddItemForm: No description in metadata')
+            console.log('AddItemForm: No description in metadata', {
+              hasDescription: !!metadata.description,
+              hasScrapedContent: !!metadata.scrapedContent,
+              scrapedContentLength: metadata.scrapedContent?.length || 0,
+            })
           }
 
           // Set thumbnail (OG image)
@@ -877,20 +889,28 @@ export default function AddItemForm() {
         }
 
         // Set description (always set if we have it and current is empty)
-        if (metadata.description) {
+        // Use scrapedContent as fallback if description is not available
+        const descriptionToUse = metadata.description || metadata.scrapedContent
+        if (descriptionToUse) {
           console.log('AddItemForm: Setting description from metadata (handleUrlChange)', {
-            metadataDescription: metadata.description.substring(0, 100),
+            metadataDescription: metadata.description?.substring(0, 100) || null,
+            scrapedContent: metadata.scrapedContent?.substring(0, 100) || null,
+            usingScrapedContent: !metadata.description && !!metadata.scrapedContent,
             currentDescription: description.substring(0, 100),
             willSet: !description || description.trim() === '',
           })
           if (!description || description.trim() === '') {
-            setDescription(metadata.description)
-            finalDescription = metadata.description
+            setDescription(descriptionToUse)
+            finalDescription = descriptionToUse
           } else {
             finalDescription = description
           }
         } else {
-          console.log('AddItemForm: No description in metadata (handleUrlChange)')
+          console.log('AddItemForm: No description in metadata (handleUrlChange)', {
+            hasDescription: !!metadata.description,
+            hasScrapedContent: !!metadata.scrapedContent,
+            scrapedContentLength: metadata.scrapedContent?.length || 0,
+          })
         }
         // Set image (always set if we have it and no screenshot)
         if (metadata.image && !screenshotUrl) {

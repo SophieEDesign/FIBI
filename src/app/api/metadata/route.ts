@@ -40,25 +40,31 @@ function extractMetadata(html: string): MetadataResponse {
     metadata.title = titleMatch[1].trim()
   }
 
-  // Extract Open Graph tags
-  const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)
+  // Extract Open Graph tags - handle both single and double quotes, and different attribute orders
+  const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) || 
+                       html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
   if (ogTitleMatch) {
     metadata.title = ogTitleMatch[1].trim()
   }
 
-  const ogDescriptionMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
+  const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                             html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
   if (ogDescriptionMatch) {
     metadata.description = ogDescriptionMatch[1].trim()
   }
 
-  const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+  const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                      html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
   if (ogImageMatch) {
     metadata.image = ogImageMatch[1].trim()
   }
 
   // Fallback to Twitter image if no og:image
   if (!metadata.image) {
-    const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i)
+    const twitterImageMatch = html.match(/<meta[^>]*name\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']twitter:image["']/i) ||
+                              html.match(/<meta[^>]*property\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']twitter:image["']/i)
     if (twitterImageMatch) {
       metadata.image = twitterImageMatch[1].trim()
     }
@@ -66,7 +72,8 @@ function extractMetadata(html: string): MetadataResponse {
 
   // Fallback to meta description if no og:description
   if (!metadata.description) {
-    const metaDescriptionMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)
+    const metaDescriptionMatch = html.match(/<meta[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']description["']/i)
     if (metaDescriptionMatch) {
       metadata.description = metaDescriptionMatch[1].trim()
     }
@@ -188,16 +195,35 @@ export async function POST(request: NextRequest) {
       }
 
       const html = await response.text()
+      
+      // Debug: Check if HTML contains OG tags
+      const hasOGDescription = /og:description/i.test(html)
+      const hasOGImage = /og:image/i.test(html)
+      const hasMetaDescription = /<meta[^>]*name\s*=\s*["']description["']/i.test(html)
+      const htmlLength = html.length
+      
+      console.log('Metadata extraction - HTML analysis:', {
+        url,
+        htmlLength,
+        hasOGDescription,
+        hasOGImage,
+        hasMetaDescription,
+        first500Chars: html.substring(0, 500),
+      })
+      
       const metadata = extractMetadata(html)
 
       console.log('Metadata extraction result:', {
         url,
         hasTitle: !!metadata.title,
+        title: metadata.title?.substring(0, 100) || null,
         hasDescription: !!metadata.description,
-        hasImage: !!metadata.image,
-        hasScrapedContent: !!metadata.scrapedContent,
+        description: metadata.description?.substring(0, 200) || null,
         descriptionLength: metadata.description?.length || 0,
+        hasImage: !!metadata.image,
         imageUrl: metadata.image?.substring(0, 100) || null,
+        hasScrapedContent: !!metadata.scrapedContent,
+        scrapedContentLength: metadata.scrapedContent?.length || 0,
       })
 
       return NextResponse.json(metadata)
