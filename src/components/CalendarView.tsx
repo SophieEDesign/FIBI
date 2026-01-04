@@ -256,7 +256,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           .select('share_token')
           .eq('itinerary_id', selectedItineraryId)
           .is('revoked_at', null)
-          .single()
+          .maybeSingle()
 
         if (!error && shares) {
           const url = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/share/itinerary/${shares.share_token}`
@@ -268,6 +268,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
         }
       } catch (error) {
         console.error('Error checking existing share:', error)
+        setShareUrl(null)
+        setShareToken(null)
       }
     }
 
