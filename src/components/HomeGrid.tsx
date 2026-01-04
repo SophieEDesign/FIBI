@@ -7,6 +7,7 @@ import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import MobileMenu from '@/components/MobileMenu'
+import EmbedPreview from '@/components/EmbedPreview'
 
 interface HomeGridProps {
   user: any
@@ -599,20 +600,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                         </div>
                       </>
                     ) : item.thumbnail_url ? (
-                      // Show OG image/thumbnail if no screenshot
+                      // Show embed preview (oEmbed thumbnail or OG thumbnail) if no screenshot but has thumbnail
                       <>
-                        <img
-                          src={item.thumbnail_url}
-                          alt={displayTitle}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement
-                            target.style.display = 'none'
-                            const placeholder = target.nextElementSibling as HTMLElement
-                            if (placeholder) placeholder.style.display = 'flex'
-                          }}
+                        <EmbedPreview
+                          url={item.url}
+                          thumbnailUrl={item.thumbnail_url}
+                          platform={item.platform}
+                          displayTitle={displayTitle}
                         />
                         <div className="hidden w-full h-full items-center justify-center bg-gray-50">
                           <div className="text-center px-4">
@@ -628,20 +622,32 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                         </div>
                       </>
                     ) : (
-                      // Show placeholder if no screenshot and no thumbnail
-                      <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                        <div className="text-center px-4">
-                          <div className="text-gray-400 text-2xl md:text-3xl mb-2">
-                            {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                      // Show placeholder if no screenshot and no thumbnail (oEmbed will try to fetch)
+                      <>
+                        {/* Placeholder - positioned absolutely so image can overlay it */}
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+                          <div className="text-center px-4">
+                            <div className="text-gray-400 text-2xl md:text-3xl mb-2">
+                              {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
+                            </div>
+                            <p className="text-xs text-gray-500">Preview unavailable</p>
+                            <p className="text-xs text-gray-400 mt-1">Add a screenshot to remember this place</p>
                           </div>
-                          <p className="text-xs text-gray-500">Preview unavailable</p>
-                          <p className="text-xs text-gray-400 mt-1">Add a screenshot to remember this place</p>
+                        </div>
+                        {/* EmbedPreview - will overlay placeholder if image loads */}
+                        <div className="relative w-full h-full">
+                          <EmbedPreview
+                            url={item.url}
+                            thumbnailUrl={null}
+                            platform={item.platform}
+                            displayTitle={displayTitle}
+                          />
                         </div>
                         {/* Platform badge - inside card, bottom left on mobile */}
                         <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium z-10 ${getPlatformBadgeStyle(item.platform)}`}>
                           {item.platform}
                         </div>
-                      </div>
+                      </>
                     )}
                   </div>
 

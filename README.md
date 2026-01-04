@@ -4,12 +4,68 @@ Fibi is a "save-first" app that captures travel places from social media before 
 
 ## Features
 
-- **Quick Save**: Paste a URL and Fibi automatically fetches metadata (title, description, thumbnail)
+- **Direct Share**: Share directly from TikTok, Instagram, YouTube, and other apps to Fibi — no copy-paste needed! Just tap Share → Fibi
+- **Quick Save**: URLs are automatically captured when shared, and Fibi fetches metadata (title, description, thumbnail)
 - **Visual Grid**: Pinterest-style grid view of all saved places
 - **Smart Platform Detection**: Automatically detects TikTok, Instagram, YouTube, or Other
 - **Optional Metadata**: Add location (city/country), category, and status
 - **Filtering**: Filter saved items by category and status
 - **Secure**: Row-level security ensures users can only access their own data
+
+## How to Use Fibi - User Guide
+
+### Installing Fibi as an App
+
+Fibi works best when installed as a Progressive Web App (PWA) on your phone. This allows you to share directly from other apps.
+
+**On Android (Chrome):**
+1. Open Fibi in Chrome on your Android device
+2. Tap the menu (⋮) in the top right corner
+3. Look for "Add to Home screen" or "Install app"
+4. Tap it and follow the prompts
+5. Fibi will now appear as an app on your home screen
+
+**On iPhone (Safari):**
+1. Open Fibi in Safari on your iPhone
+2. Tap the Share button (□↑) at the bottom of the screen
+3. Scroll down and tap "Add to Home Screen"
+4. Tap "Add" to confirm
+5. Fibi will now appear as an app on your home screen
+
+### Sharing Places to Fibi - Step by Step
+
+Once you've installed Fibi as an app, you can share directly from TikTok, Instagram, YouTube, and other apps. **This is a direct share — no need to copy and paste links!**
+
+#### Step 1: Find Something to Save
+- Open TikTok, Instagram, YouTube, or any app with a video or post you want to save
+- Find the specific post/video you're interested in
+
+#### Step 2: Share Directly to Fibi
+1. **Tap the Share button** on the post/video (usually a → or Share icon)
+2. **Look for "Fibi" in your Share Sheet** — it will appear alongside other apps like Messages, WhatsApp, etc.
+3. **Tap "Fibi"** — this directly opens Fibi with the link already loaded
+4. You'll be taken to the Add Place screen with the URL automatically filled in
+
+#### Step 3: Review and Save
+- Fibi automatically fetches the title, description, and thumbnail
+- Add any additional details (location, category, screenshot) if you want
+- Tap "Save" to add it to your collection
+
+**Important Notes:**
+- ✅ **Direct Share**: When you share to Fibi, the link is sent directly — no copy-paste needed
+- ✅ **Works in Share Sheet**: Fibi appears in your device's native Share Sheet as a shareable app
+- ✅ **Must be Installed**: Make sure you've installed Fibi as an app (see instructions above) for it to appear in Share Sheets
+- ❌ **Not Copy-Paste**: You don't need to copy the link and paste it manually — sharing is automatic
+
+### Alternative: Manual Entry
+
+If you prefer, you can also:
+1. Open Fibi
+2. Tap "Add" 
+3. Paste a URL manually
+4. Fibi will fetch the metadata automatically
+
+But for the best experience, install Fibi as an app and use direct sharing!
 
 ## Tech Stack
 

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import HomeGrid from '@/components/HomeGrid'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
+import SharingTutorial from '@/components/SharingTutorial'
 
 /**
  * App Home Page (Authenticated)
@@ -56,6 +57,7 @@ export default function AppHomePage() {
     <>
       <HomeGrid user={user} confirmed={confirmed} />
       <ServiceWorkerRegistration />
+      <SharingTutorial />
     </>
   )
 }

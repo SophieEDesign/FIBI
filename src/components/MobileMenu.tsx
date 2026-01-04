@@ -116,9 +116,13 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
               >
                 Map
               </Link>
-              <span className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-                Planner <span className="text-xs">(coming soon)</span>
-              </span>
+              <Link
+                href="/app/calendar"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Planner
+              </Link>
               <Link
                 href="/app/add"
                 onClick={() => setIsOpen(false)}
