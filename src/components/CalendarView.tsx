@@ -335,15 +335,16 @@ export default function CalendarView({ user }: CalendarViewProps) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-8">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          enabled={!isMobile} // Disable drag-and-drop on mobile
-        >
-          {/* Month Navigation */}
-          <div className="mb-6 flex items-center justify-between">
+        {/* Conditionally wrap in DndContext only on desktop */}
+        {!isMobile ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            {/* Month Navigation */}
+            <div className="mb-6 flex items-center justify-between">
             <button
               onClick={() => navigateMonth('prev')}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -486,13 +487,165 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           </div>
 
-          {/* Drag Overlay */}
-          <DragOverlay>
-            {draggedItem ? (
-              <PlaceCard item={draggedItem} isDragging={true} overlay />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+            {/* Drag Overlay */}
+            <DragOverlay>
+              {draggedItem ? (
+                <PlaceCard item={draggedItem} isDragging={true} overlay />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          <>
+            {/* Mobile: No DndContext wrapper - drag is disabled */}
+            {/* Month Navigation */}
+            <div className="mb-6 flex items-center justify-between">
+              <button
+                onClick={() => navigateMonth('prev')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Previous month"
+              >
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
+                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                </h2>
+                <button
+                  onClick={goToToday}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Today
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadCalendar}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  title="Download calendar"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline">Download</span>
+                </button>
+                <button
+                  onClick={() => navigateMonth('next')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Next month"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Unplanned Items Section */}
+            {unplannedItems.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Unplanned ({unplannedItems.length})
+                </h3>
+                <div className="min-h-[100px] p-4 bg-white rounded-xl border-2 border-dashed border-gray-300 flex flex-wrap gap-3">
+                  {unplannedItems.map((item) => (
+                    <PlaceCard
+                      key={item.id}
+                      item={item}
+                      isDragging={false}
+                      onSelect={() => setSelectedItem(item)}
+                      onAssignDate={() => handleItemTapForDate(item)}
+                      isMobile={isMobile}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Calendar Grid */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {/* Week day headers */}
+              <div className="grid grid-cols-7 border-b border-gray-200">
+                {weekDays.map((day) => (
+                  <div
+                    key={day}
+                    className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700 bg-gray-50"
+                  >
+                    {day}
+                  </div>
+                ))}
+              </div>
+
+              {/* Calendar days */}
+              <div className="grid grid-cols-7">
+                {calendarDays.map((day, index) => {
+                  return (
+                    <div
+                      key={index}
+                      className={`min-h-[80px] md:min-h-[120px] p-1 md:p-2 border-r border-b border-gray-200 ${
+                        day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                      } ${day.isToday ? 'bg-blue-50' : ''}`}
+                    >
+                      <div
+                        className={`text-xs md:text-sm font-medium mb-1 ${
+                          day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
+                        } ${day.isToday ? 'text-blue-600 font-bold' : ''}`}
+                      >
+                        {day.date.getDate()}
+                      </div>
+                      <div className="space-y-1">
+                        {day.items.map((item) => (
+                          <PlaceCard
+                            key={item.id}
+                            item={item}
+                            isDragging={false}
+                            compact
+                            onSelect={() => setSelectedItem(item)}
+                            onAssignDate={() => handleItemTapForDate(item)}
+                            isMobile={isMobile}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Place Preview Modal */}
         {selectedItem && (
