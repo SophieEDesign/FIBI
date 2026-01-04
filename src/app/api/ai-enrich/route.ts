@@ -146,11 +146,42 @@ Be conservative - if you're not confident, return null and set confidence to "lo
         }),
       })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('OpenAI API error:', response.status, errorText)
-        throw new Error(`OpenAI API error: ${response.status}`)
-      }
+        if (!response.ok) {
+          const errorText = await response.text()
+          let errorMessage = `OpenAI API error: ${response.status}`
+          
+          try {
+            const errorData = JSON.parse(errorText)
+            if (errorData.error?.message) {
+              errorMessage = `OpenAI API error: ${errorData.error.message}`
+            }
+          } catch {
+            // If parsing fails, use the raw error text
+            errorMessage = `OpenAI API error: ${response.status} - ${errorText}`
+          }
+          
+          console.error('OpenAI API error:', response.status, errorText)
+          
+          // For quota errors, return graceful degradation instead of throwing
+          if (response.status === 429) {
+            console.warn('OpenAI quota exceeded. Returning empty suggestions.')
+            return NextResponse.json({
+              suggestedTitle: null,
+              suggestedPlaceName: null,
+              suggestedCity: null,
+              suggestedCountry: null,
+              suggestedCategory: null,
+              confidence: {
+                title: 'low',
+                location: 'low',
+                category: 'low',
+              },
+              error: 'AI service temporarily unavailable (quota exceeded)',
+            })
+          }
+          
+          throw new Error(errorMessage)
+        }
 
       const data = await response.json()
       const content = data.choices?.[0]?.message?.content
@@ -186,11 +217,42 @@ Be conservative - if you're not confident, return null and set confidence to "lo
         }),
       })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Anthropic API error:', response.status, errorText)
-        throw new Error(`Anthropic API error: ${response.status}`)
-      }
+        if (!response.ok) {
+          const errorText = await response.text()
+          let errorMessage = `Anthropic API error: ${response.status}`
+          
+          try {
+            const errorData = JSON.parse(errorText)
+            if (errorData.error?.message) {
+              errorMessage = `Anthropic API error: ${errorData.error.message}`
+            }
+          } catch {
+            // If parsing fails, use the raw error text
+            errorMessage = `Anthropic API error: ${response.status} - ${errorText}`
+          }
+          
+          console.error('Anthropic API error:', response.status, errorText)
+          
+          // For quota errors, return graceful degradation instead of throwing
+          if (response.status === 429) {
+            console.warn('Anthropic quota exceeded. Returning empty suggestions.')
+            return NextResponse.json({
+              suggestedTitle: null,
+              suggestedPlaceName: null,
+              suggestedCity: null,
+              suggestedCountry: null,
+              suggestedCategory: null,
+              confidence: {
+                title: 'low',
+                location: 'low',
+                category: 'low',
+              },
+              error: 'AI service temporarily unavailable (quota exceeded)',
+            })
+          }
+          
+          throw new Error(errorMessage)
+        }
 
       const data = await response.json()
       const content = data.content?.[0]?.text

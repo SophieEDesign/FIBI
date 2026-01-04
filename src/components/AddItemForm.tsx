@@ -263,8 +263,22 @@ export default function AddItemForm() {
           const data = await response.json()
           console.log('AI enrichment response:', data)
           
+          // Check if there's an error message in the response (e.g., quota exceeded)
+          if (data.error) {
+            console.warn('AI enrichment: API returned error:', data.error)
+            // Don't set suggestions if there's an error, but don't block the form
+            return
+          }
+          
           // Only set suggestions if we have at least one non-null suggestion
           if (data.suggestedTitle || data.suggestedPlaceName || data.suggestedCity || data.suggestedCountry || data.suggestedCategory) {
+            console.log('AI enrichment: Setting suggestions', {
+              title: data.suggestedTitle,
+              placeName: data.suggestedPlaceName,
+              city: data.suggestedCity,
+              country: data.suggestedCountry,
+              category: data.suggestedCategory,
+            })
             setAiSuggestions({
               title: data.suggestedTitle,
               placeName: data.suggestedPlaceName,
@@ -278,10 +292,11 @@ export default function AddItemForm() {
               },
             })
           } else {
-            console.log('AI enrichment: No suggestions returned (likely no API key configured)')
+            console.log('AI enrichment: No suggestions returned - all fields are null. This could mean: API key not configured, quota exceeded, or AI found no suggestions.')
           }
         } else {
-          console.warn('AI enrichment: API returned error status:', response.status)
+          const errorText = await response.text()
+          console.warn('AI enrichment: API returned error status:', response.status, errorText)
         }
       } catch (err) {
         console.debug('AI enrichment failed (non-blocking):', err)
