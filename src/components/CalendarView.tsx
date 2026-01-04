@@ -13,6 +13,8 @@ import {
   closestCenter,
   DragEndEvent,
   DragStartEvent,
+  useDraggable,
+  useDroppable,
 } from '@dnd-kit/core'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
@@ -348,15 +350,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
               <h3 className="text-sm font-medium text-gray-700 mb-3">
                 Unplanned ({unplannedItems.length})
               </h3>
-              <div
-                id="unplanned"
-                data-dnd-id="unplanned"
-                className="min-h-[100px] p-4 bg-white rounded-xl border-2 border-dashed border-gray-300 flex flex-wrap gap-3"
-              >
+              <UnplannedDropZone>
                 {unplannedItems.map((item) => (
                   <PlaceCard key={item.id} item={item} isDragging={activeId === item.id} />
                 ))}
-              </div>
+              </UnplannedDropZone>
             </div>
           )}
 
@@ -379,14 +377,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
               {calendarDays.map((day, index) => {
                 const dateId = `date-${day.date.toISOString().split('T')[0]}`
                 return (
-                  <div
-                    key={index}
-                    id={dateId}
-                    data-dnd-id={dateId}
-                    className={`min-h-[80px] md:min-h-[120px] p-1 md:p-2 border-r border-b border-gray-200 ${
-                      day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                    } ${day.isToday ? 'bg-blue-50' : ''}`}
-                  >
+                  <CalendarDayDropZone key={index} dateId={dateId} day={day}>
                     <div
                       className={`text-xs md:text-sm font-medium mb-1 ${
                         day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
@@ -404,7 +395,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         />
                       ))}
                     </div>
-                  </div>
+                  </CalendarDayDropZone>
                 )
               })}
             </div>
@@ -482,6 +473,50 @@ export default function CalendarView({ user }: CalendarViewProps) {
   )
 }
 
+// Unplanned Drop Zone Component
+function UnplannedDropZone({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'unplanned',
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[100px] p-4 bg-white rounded-xl border-2 border-dashed flex flex-wrap gap-3 transition-colors ${
+        isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'
+      }`}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Calendar Day Drop Zone Component
+function CalendarDayDropZone({
+  dateId,
+  day,
+  children,
+}: {
+  dateId: string
+  day: CalendarDay
+  children: React.ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: dateId,
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[80px] md:min-h-[120px] p-1 md:p-2 border-r border-b border-gray-200 transition-colors ${
+        day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+      } ${day.isToday ? 'bg-blue-50' : ''} ${isOver ? 'bg-blue-100 border-blue-300' : ''}`}
+    >
+      {children}
+    </div>
+  )
+}
+
 // Place Card Component (draggable)
 interface PlaceCardProps {
   item: SavedItem
@@ -491,6 +526,16 @@ interface PlaceCardProps {
 }
 
 function PlaceCard({ item, isDragging, compact = false, overlay = false }: PlaceCardProps) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: item.id,
+  })
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+      }
+    : undefined
+
   const displayTitle = item.title || getHostname(item.url)
   const imageUrl = item.screenshot_url || item.thumbnail_url
 
@@ -516,7 +561,10 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
     // Compact version for calendar cells
     return (
       <div
-        data-dnd-id={item.id}
+        ref={setNodeRef}
+        style={style}
+        {...listeners}
+        {...attributes}
         className={`bg-white rounded border border-gray-200 p-1.5 cursor-move hover:shadow-sm transition-shadow ${
           isDragging ? 'opacity-50' : ''
         }`}
@@ -542,7 +590,10 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false }: Place
   // Full version for unplanned section
   return (
     <div
-      data-dnd-id={item.id}
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
       className={`bg-white rounded-lg border border-gray-200 p-2 w-32 md:w-40 cursor-move hover:shadow-md transition-shadow ${
         isDragging ? 'opacity-50' : ''
       }`}
