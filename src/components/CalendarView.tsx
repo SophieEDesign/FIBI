@@ -360,6 +360,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             itemCategories.includes(filterValue.toLowerCase())
           )
         } catch {
+          if (!item.category) return false
           return unplannedFilterValues.some((filterValue) =>
             item.category.toLowerCase() === filterValue.toLowerCase()
           )
@@ -376,6 +377,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             itemStatuses.includes(filterValue.toLowerCase())
           )
         } catch {
+          if (!item.status) return false
           return unplannedFilterValues.some((filterValue) =>
             item.status.toLowerCase() === filterValue.toLowerCase()
           )
