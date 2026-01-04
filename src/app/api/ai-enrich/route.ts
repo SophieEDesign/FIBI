@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     const aiApiKey = process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY
     if (!aiApiKey) {
       // If no AI key, return empty suggestions (graceful degradation)
+      console.log('AI enrichment: No API key configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to enable AI suggestions.')
       return NextResponse.json({
         suggestedTitle: null,
         suggestedPlaceName: null,

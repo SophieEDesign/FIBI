@@ -44,9 +44,21 @@ Create a `.env.local` file in the root directory:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional: AI Enrichment (for smart suggestions)
+# Add ONE of the following to enable AI-powered suggestions:
+OPENAI_API_KEY=your_openai_api_key
+# OR
+ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
-You can find these values in your Supabase project settings under **API**.
+You can find the Supabase values in your Supabase project settings under **API**.
+
+For AI enrichment:
+- **OpenAI**: Get an API key from [platform.openai.com](https://platform.openai.com/api-keys) (uses `gpt-4o-mini` model)
+- **Anthropic**: Get an API key from [console.anthropic.com](https://console.anthropic.com) (uses `claude-3-haiku` model)
+
+**Note**: AI enrichment is optional. The app works without it, but won't show AI suggestions for titles, locations, or categories.
 
 ### 4. Run the Development Server
 

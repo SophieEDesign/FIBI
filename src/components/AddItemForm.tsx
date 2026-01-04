@@ -249,18 +249,27 @@ export default function AddItemForm() {
         
         if (response.ok) {
           const data = await response.json()
-          setAiSuggestions({
-            title: data.suggestedTitle,
-            placeName: data.suggestedPlaceName,
-            city: data.suggestedCity,
-            country: data.suggestedCountry,
-            category: data.suggestedCategory,
-            confidence: data.confidence || {
-              title: 'low',
-              location: 'low',
-              category: 'low',
-            },
-          })
+          console.log('AI enrichment response:', data)
+          
+          // Only set suggestions if we have at least one non-null suggestion
+          if (data.suggestedTitle || data.suggestedPlaceName || data.suggestedCity || data.suggestedCountry || data.suggestedCategory) {
+            setAiSuggestions({
+              title: data.suggestedTitle,
+              placeName: data.suggestedPlaceName,
+              city: data.suggestedCity,
+              country: data.suggestedCountry,
+              category: data.suggestedCategory,
+              confidence: data.confidence || {
+                title: 'low',
+                location: 'low',
+                category: 'low',
+              },
+            })
+          } else {
+            console.log('AI enrichment: No suggestions returned (likely no API key configured)')
+          }
+        } else {
+          console.warn('AI enrichment: API returned error status:', response.status)
         }
       } catch (err) {
         console.debug('AI enrichment failed (non-blocking):', err)
@@ -635,6 +644,8 @@ export default function AddItemForm() {
     }
     
     if (!newUrl.trim()) {
+      // Reset metadata fetch flag when URL is cleared so new URLs can trigger fetch
+      metadataFetchedRef.current = false
       if (!userEditedTitle.current) setTitle('')
       if (!userEditedNotes.current) setNotes('')
       setDescription('')
