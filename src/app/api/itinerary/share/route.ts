@@ -44,9 +44,9 @@ export async function POST(request: NextRequest) {
       .select('id, share_token')
       .eq('itinerary_id', itinerary_id)
       .is('revoked_at', null)
-      .single()
+      .maybeSingle()
 
-    if (existingShare && !shareCheckError) {
+    if (!shareCheckError && existingShare) {
       // Get the base URL from request or environment variable
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                       (request.headers.get('origin') || 'http://localhost:3000')

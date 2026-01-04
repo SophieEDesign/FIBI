@@ -227,8 +227,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header - Mobile-first */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
+      {/* Header - Mobile only */}
+      <header className="md:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">FiBi</h1>
@@ -482,6 +482,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 })}
               </CollapsibleOptions>
             </div>
+            {activeFiltersCount > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => {
+                    setSelectedCategories([])
+                    setSelectedStatuses([])
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -905,8 +918,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </CollapsibleOptions>
               </div>
 
-              {/* Apply Button */}
-              <div className="pt-4 border-t border-gray-200">
+              {/* Clear and Apply Buttons */}
+              <div className="pt-4 border-t border-gray-200 space-y-2">
+                {activeFiltersCount > 0 && (
+                  <button
+                    onClick={() => {
+                      setSelectedCategories([])
+                      setSelectedStatuses([])
+                    }}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                )}
                 <button
                   onClick={() => setShowFilterModal(false)}
                   className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"

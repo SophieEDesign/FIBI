@@ -53,6 +53,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [shareToken, setShareToken] = useState<string | null>(null)
   const [loadingShare, setLoadingShare] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [unplannedFilterType, setUnplannedFilterType] = useState<'all' | 'location' | 'category' | 'status'>('all')
+  const [unplannedFilterValue, setUnplannedFilterValue] = useState<string>('')
   const supabase = createClient()
   const router = useRouter()
 
@@ -188,16 +190,18 @@ export default function CalendarView({ user }: CalendarViewProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to generate share link')
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Share API error:', response.status, errorData)
+        throw new Error(errorData.error || 'Failed to generate share link')
       }
 
       const data = await response.json()
       setShareUrl(data.share_url)
       setShareToken(data.share_token)
       setShowShareModal(true)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sharing itinerary:', error)
-      alert('Failed to generate share link. Please try again.')
+      alert(error.message || 'Failed to generate share link. Please try again.')
     } finally {
       setLoadingShare(false)
     }
@@ -327,9 +331,94 @@ export default function CalendarView({ user }: CalendarViewProps) {
     return days
   }, [currentMonth, filteredItems])
 
-  // Get unplanned items (items without planned_date)
+  // Get unplanned items (items without planned_date) with filtering
   const unplannedItems = useMemo(() => {
-    return filteredItems.filter((item) => !item.planned_date)
+    let items = filteredItems.filter((item) => !item.planned_date)
+    
+    // Apply filter based on selected filter type
+    if (unplannedFilterType === 'location' && unplannedFilterValue) {
+      items = items.filter((item) => {
+        const filterLower = unplannedFilterValue.toLowerCase()
+        return (
+          (item.location_city && item.location_city.toLowerCase() === filterLower) ||
+          (item.location_country && item.location_country.toLowerCase() === filterLower) ||
+          (item.place_name && item.place_name.toLowerCase() === filterLower) ||
+          (item.formatted_address && item.formatted_address.toLowerCase().includes(filterLower))
+        )
+      })
+    } else if (unplannedFilterType === 'category' && unplannedFilterValue) {
+      items = items.filter((item) => {
+        if (!item.category) return false
+        try {
+          const categories = JSON.parse(item.category)
+          const categoryArray = Array.isArray(categories) ? categories : [categories]
+          return categoryArray.some((cat: string) => 
+            cat.toLowerCase() === unplannedFilterValue.toLowerCase()
+          )
+        } catch {
+          return item.category.toLowerCase() === unplannedFilterValue.toLowerCase()
+        }
+      })
+    } else if (unplannedFilterType === 'status' && unplannedFilterValue) {
+      items = items.filter((item) => {
+        if (!item.status) return false
+        try {
+          const statuses = JSON.parse(item.status)
+          const statusArray = Array.isArray(statuses) ? statuses : [statuses]
+          return statusArray.some((stat: string) => 
+            stat.toLowerCase() === unplannedFilterValue.toLowerCase()
+          )
+        } catch {
+          return item.status.toLowerCase() === unplannedFilterValue.toLowerCase()
+        }
+      })
+    }
+    
+    return items
+  }, [filteredItems, unplannedFilterType, unplannedFilterValue])
+
+  // Extract unique filter values from unplanned items
+  const filterOptions = useMemo(() => {
+    const locations = new Set<string>()
+    const categories = new Set<string>()
+    const statuses = new Set<string>()
+    
+    filteredItems
+      .filter((item) => !item.planned_date)
+      .forEach((item) => {
+        // Extract locations
+        if (item.location_city) locations.add(item.location_city)
+        if (item.location_country) locations.add(item.location_country)
+        if (item.place_name) locations.add(item.place_name)
+        
+        // Extract categories
+        if (item.category) {
+          try {
+            const cats = JSON.parse(item.category)
+            const catArray = Array.isArray(cats) ? cats : [cats]
+            catArray.forEach((cat: string) => categories.add(cat))
+          } catch {
+            categories.add(item.category)
+          }
+        }
+        
+        // Extract statuses
+        if (item.status) {
+          try {
+            const stats = JSON.parse(item.status)
+            const statArray = Array.isArray(stats) ? stats : [stats]
+            statArray.forEach((stat: string) => statuses.add(stat))
+          } catch {
+            statuses.add(item.status)
+          }
+        }
+      })
+    
+    return {
+      locations: Array.from(locations).sort(),
+      categories: Array.from(categories).sort(),
+      statuses: Array.from(statuses).sort(),
+    }
   }, [filteredItems])
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -661,23 +750,87 @@ export default function CalendarView({ user }: CalendarViewProps) {
           </div>
 
           {/* Unplanned Items Section */}
-          {unplannedItems.length > 0 && (
+          {filteredItems.filter((item) => !item.planned_date).length > 0 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Unplanned ({unplannedItems.length})
-              </h3>
-              <UnplannedDropZone>
-                {unplannedItems.map((item) => (
-                  <PlaceCard
-                    key={item.id}
-                    item={item}
-                    isDragging={activeId === item.id}
-                    onSelect={() => setSelectedItem(item)}
-                    onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
-                    isMobile={isMobile}
-                  />
-                ))}
-              </UnplannedDropZone>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">
+                  {unplannedFilterType === 'all' 
+                    ? `Unplanned (${unplannedItems.length})`
+                    : `${unplannedFilterType === 'location' ? 'Location' : unplannedFilterType === 'category' ? 'Category' : 'Status'}: ${unplannedFilterValue} (${unplannedItems.length})`}
+                </h3>
+                
+                {/* Filter Controls */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={unplannedFilterType}
+                    onChange={(e) => {
+                      setUnplannedFilterType(e.target.value as 'all' | 'location' | 'category' | 'status')
+                      setUnplannedFilterValue('')
+                    }}
+                    className="text-xs px-2 py-1 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  >
+                    <option value="all">All</option>
+                    <option value="location">Location</option>
+                    <option value="category">Category</option>
+                    <option value="status">Status</option>
+                  </select>
+                  
+                  {unplannedFilterType !== 'all' && (
+                    <select
+                      value={unplannedFilterValue}
+                      onChange={(e) => setUnplannedFilterValue(e.target.value)}
+                      className="text-xs px-2 py-1 border border-gray-300 rounded-lg bg-white text-gray-700 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    >
+                      <option value="">Select {unplannedFilterType === 'location' ? 'location' : unplannedFilterType === 'category' ? 'category' : 'status'}...</option>
+                      {unplannedFilterType === 'location' && filterOptions.locations.map((loc) => (
+                        <option key={loc} value={loc}>{loc}</option>
+                      ))}
+                      {unplannedFilterType === 'category' && filterOptions.categories.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      {unplannedFilterType === 'status' && filterOptions.statuses.map((stat) => (
+                        <option key={stat} value={stat}>{stat}</option>
+                      ))}
+                    </select>
+                  )}
+                  
+                  {unplannedFilterType !== 'all' && unplannedFilterValue && (
+                    <button
+                      onClick={() => {
+                        setUnplannedFilterType('all')
+                        setUnplannedFilterValue('')
+                      }}
+                      className="text-xs px-2 py-1 text-gray-600 hover:text-gray-900"
+                      title="Clear filter"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {unplannedItems.length > 0 ? (
+                <UnplannedDropZone>
+                  {unplannedItems.map((item) => (
+                    <PlaceCard
+                      key={item.id}
+                      item={item}
+                      isDragging={activeId === item.id}
+                      onSelect={() => setSelectedItem(item)}
+                      onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                      isMobile={isMobile}
+                    />
+                  ))}
+                </UnplannedDropZone>
+              ) : (
+                <div className="p-8 bg-white rounded-xl border-2 border-dashed border-gray-300 text-center">
+                  <p className="text-sm text-gray-500">
+                    No items match the selected filter
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
