@@ -220,12 +220,39 @@ export default function CalendarView({ user }: CalendarViewProps) {
     if (!shareUrl) return
 
     try {
-      await navigator.clipboard.writeText(shareUrl)
+      // Fallback for older browsers
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl)
+      } else {
+        // Fallback: create temporary textarea element
+        const textarea = document.createElement('textarea')
+        textarea.value = shareUrl
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Error copying link:', error)
-      alert('Failed to copy link. Please try again.')
+      // Try fallback method
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = shareUrl
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (fallbackError) {
+        alert('Failed to copy link. Please select and copy it manually.')
+      }
     }
   }
 
@@ -693,16 +720,24 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
+                      handleShareItinerary()
                     }}
-                    disabled={true}
-                    className="p-2 rounded-lg text-gray-400 cursor-not-allowed transition-colors relative group"
-                    title="Sharing coming soon"
+                    disabled={loadingShare}
+                    className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Share itinerary"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                    </svg>
+                    {loadingShare ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                      </svg>
+                    )}
                     <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                      Sharing coming soon
+                      Share itinerary
                     </span>
                   </button>
                 )}
@@ -1387,7 +1422,28 @@ export default function CalendarView({ user }: CalendarViewProps) {
             }}
           >
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Share Itinerary</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Share Itinerary</h2>
+                <button
+                  onClick={() => setShowShareModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Close"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1398,20 +1454,61 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       type="text"
                       value={shareUrl || ''}
                       readOnly
-                      className="flex-1 px-4 py-2 border border-gray-400 rounded-lg bg-gray-50 text-sm text-gray-900"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      onClick={(e) => {
+                        const target = e.target as HTMLInputElement
+                        target.select()
+                      }}
                     />
                     <button
                       onClick={handleCopyLink}
-                      className="px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                      className="px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!shareUrl}
                     >
-                      {copied ? 'Copied!' : 'Copy'}
+                      {copied ? (
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Copied!
+                        </span>
+                      ) : (
+                        'Copy'
+                      )}
                     </button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
                     Anyone with this link can view your itinerary. They won&apos;t be able to edit it.
                   </p>
                 </div>
-                <div className="flex gap-3">
+                
+                {/* Native Share Button for Mobile */}
+                {typeof navigator !== 'undefined' && navigator.share && shareUrl && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.share({
+                          title: 'Shared Itinerary',
+                          text: 'Check out this travel itinerary',
+                          url: shareUrl,
+                        })
+                      } catch (error: any) {
+                        // User cancelled or error occurred
+                        if (error.name !== 'AbortError') {
+                          console.error('Error sharing:', error)
+                        }
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    Share via...
+                  </button>
+                )}
+                
+                <div className="flex gap-3 pt-2 border-t border-gray-200">
                   <button
                     onClick={handleRevokeShare}
                     className="flex-1 px-4 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors"
