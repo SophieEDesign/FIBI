@@ -8,6 +8,7 @@ interface LinkPreviewProps {
   ogImage?: string | null
   screenshotUrl?: string | null
   description?: string | null
+  platform?: string | null
   onImageLoad?: () => void
 }
 
@@ -19,7 +20,7 @@ interface OEmbedData {
   provider_name?: string | null
 }
 
-export default function LinkPreview({ url, ogImage, screenshotUrl, description, onImageLoad }: LinkPreviewProps) {
+export default function LinkPreview({ url, ogImage, screenshotUrl, description, platform: platformProp, onImageLoad }: LinkPreviewProps) {
   const [oembedData, setOembedData] = useState<OEmbedData | null>(null)
   const [loading, setLoading] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
@@ -29,7 +30,8 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   // Use fetched OG image if ogImage prop not provided - makes previews default behavior
   const effectiveOgImage = ogImage || fetchedOgImage
 
-  const platform = detectPlatform(url)
+  // Use provided platform if available, otherwise detect from URL
+  const platform = platformProp || detectPlatform(url)
   const isTikTok = platform === 'TikTok'
   const isInstagram = platform === 'Instagram'
   const isYouTube = platform === 'YouTube'
@@ -182,10 +184,16 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     }
   }, [url, previewSource, oembedData, screenshotUrl, effectiveOgImage, imageError])
 
-  // Determine preview label - prioritize oEmbed provider_name, then detected platform, then generic
-  const previewLabel = oembedData?.provider_name
-    ? `Preview from ${oembedData.provider_name}`
-    : platform && platform !== 'Other'
+  // Determine preview label - prioritize provided platform, then oEmbed provider_name, then detected platform, then generic
+  // If provider_name is "Generic" or similar, prefer the detected/platform prop
+  const providerName = oembedData?.provider_name
+  const isGenericProvider = providerName && (providerName.toLowerCase() === 'generic' || providerName.toLowerCase() === 'other')
+  
+  const previewLabel = (platform && platform !== 'Other' && !isGenericProvider)
+    ? `Preview from ${platform}`
+    : (providerName && !isGenericProvider)
+    ? `Preview from ${providerName}`
+    : (platform && platform !== 'Other')
     ? `Preview from ${platform}`
     : 'Preview'
 

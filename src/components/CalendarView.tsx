@@ -1702,6 +1702,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
               ogImage={item.thumbnail_url}
               screenshotUrl={item.screenshot_url}
               description={item.description}
+              platform={item.platform}
             />
           )}
         </div>
@@ -1736,6 +1737,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
               ogImage={item.thumbnail_url}
               screenshotUrl={item.screenshot_url}
               description={item.description}
+              platform={item.platform}
             />
           )}
         </div>
@@ -1769,6 +1771,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
             ogImage={item.thumbnail_url}
             screenshotUrl={item.screenshot_url}
             description={item.description}
+            platform={item.platform}
           />
         )}
       </div>
@@ -1869,6 +1872,7 @@ function PlaceListItem({ item, isDragging, onSelect, onAssignDate, isMobile = fa
               ogImage={item.thumbnail_url}
               screenshotUrl={item.screenshot_url}
               description={item.description}
+              platform={item.platform}
             />
           )}
         </div>
@@ -1997,10 +2001,10 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
       <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
         {/* Image Header */}
         <div className="relative">
-          {imageUrl ? (
+          {item.screenshot_url ? (
             <div className="aspect-video w-full overflow-hidden bg-gray-100">
               <img
-                src={imageUrl}
+                src={item.screenshot_url}
                 alt={displayTitle}
                 className="w-full h-full object-cover"
               />
@@ -2012,6 +2016,7 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
                 ogImage={item.thumbnail_url}
                 screenshotUrl={item.screenshot_url}
                 description={item.description}
+                platform={item.platform}
               />
             </div>
           )}
