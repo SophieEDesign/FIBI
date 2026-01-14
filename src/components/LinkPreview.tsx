@@ -198,9 +198,9 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
           dangerouslySetInnerHTML={{ __html: oembedData.html }}
         />
         {description && (
-          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
+          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 select-text">
             <p className="text-xs text-gray-500 mb-1">Post caption:</p>
-            <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+            <p className="text-sm text-gray-900 whitespace-pre-wrap break-words select-text">{description}</p>
           </div>
         )}
       </div>
@@ -284,14 +284,14 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
         </div>
         {/* Caption always shown as plain text below image - first class data */}
         {(oembedData?.author_name || description) && (
-          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2">
+          <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 space-y-2 select-text">
             {oembedData?.author_name && (
               <p className="text-xs text-gray-600">@{oembedData.author_name}</p>
             )}
             {description && (
-              <div>
+              <div className="select-text">
                 <p className="text-xs text-gray-500 mb-1">Post caption:</p>
-                <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+                <p className="text-sm text-gray-900 whitespace-pre-wrap break-words select-text">{description}</p>
               </div>
             )}
           </div>

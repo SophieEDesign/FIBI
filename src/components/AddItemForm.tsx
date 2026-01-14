@@ -1613,9 +1613,9 @@ export default function AddItemForm() {
                   </div>
                   {/* Show description text below screenshot for copying */}
                   {description && (
-                    <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
+                    <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 select-text">
                       <p className="text-xs text-gray-500 mb-1">Post caption:</p>
-                      <p className="text-sm text-gray-900 whitespace-pre-wrap break-words">{description}</p>
+                      <p className="text-sm text-gray-900 whitespace-pre-wrap break-words select-text">{description}</p>
                     </div>
                   )}
                 </div>

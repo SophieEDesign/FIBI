@@ -11,16 +11,16 @@ export const dynamic = 'force-dynamic'
  * This page demonstrates how FiBi uses Instagram oEmbed to display rich previews
  */
 export default function OEmbedTestPage() {
-  const [testUrl, setTestUrl] = useState('')
-  const [oembedResult, setOembedResult] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   // Example Instagram URLs for testing
   const exampleUrls = [
     'https://www.instagram.com/p/Cx123456789/', // Replace with actual public Instagram post
     'https://www.instagram.com/reel/Cx123456789/', // Replace with actual public Instagram reel
   ]
+  
+  const [testUrl, setTestUrl] = useState(exampleUrls[1]) // Pre-fill with reel URL
+  const [oembedResult, setOembedResult] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const testOEmbed = async (url: string) => {
     setLoading(true)
@@ -126,46 +126,66 @@ export default function OEmbedTestPage() {
           </div>
         )}
 
-        {oembedResult && (
-          <div className="space-y-6">
-            {/* oEmbed Response */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                oEmbed Response
-              </h2>
-              <pre className="bg-gray-50 rounded-lg p-4 overflow-x-auto text-sm">
-                {JSON.stringify(oembedResult, null, 2)}
-              </pre>
-            </div>
+        <div className="space-y-6">
+          {/* oEmbed Response */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              oEmbed Response
+            </h2>
+            <pre className="bg-gray-50 rounded-lg p-4 overflow-x-auto text-sm">
+              {oembedResult ? JSON.stringify(oembedResult, null, 2) : '{}'}
+            </pre>
+          </div>
 
-            {/* Preview Display */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Preview Display (How it appears in FiBi)
-              </h2>
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+          {/* Preview Display */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Preview Display (How it appears in FiBi)
+            </h2>
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              {testUrl ? (
                 <LinkPreview
                   url={testUrl}
-                  ogImage={oembedResult.thumbnail_url}
-                  description={oembedResult.title || oembedResult.caption_text}
+                  ogImage={oembedResult?.thumbnail_url}
+                  description={oembedResult?.title || oembedResult?.caption_text}
                 />
-              </div>
+              ) : (
+                <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+                    <p className="text-xs text-gray-600">Preview from Instagram</p>
+                  </div>
+                  <div className="p-8 text-center">
+                    <p className="text-sm text-gray-500 mb-3">
+                      Preview not available · Add screenshot
+                    </p>
+                    <a
+                      href="#"
+                      className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 underline"
+                    >
+                      View original content
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* oEmbed HTML Embed (if available) */}
-            {oembedResult.html && (
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Embedded Content (oEmbed HTML)
-                </h2>
-                <div
-                  className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-                  dangerouslySetInnerHTML={{ __html: oembedResult.html }}
-                />
-              </div>
-            )}
           </div>
-        )}
+
+          {/* oEmbed HTML Embed (if available) */}
+          {oembedResult?.html && (
+            <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                Embedded Content (oEmbed HTML)
+              </h2>
+              <div
+                className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+                dangerouslySetInnerHTML={{ __html: oembedResult.html }}
+              />
+            </div>
+          )}
+        </div>
 
         {/* Instructions */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
