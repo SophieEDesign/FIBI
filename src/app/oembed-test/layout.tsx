@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 function getSiteUrl(): string {
   if (typeof process !== 'undefined') {
     if (process.env.NEXT_PUBLIC_SITE_URL) {

@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import LinkPreview from '@/components/LinkPreview'
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 /**
  * Test page for Meta oEmbed verification
  * This page demonstrates how FiBi uses Instagram oEmbed to display rich previews
