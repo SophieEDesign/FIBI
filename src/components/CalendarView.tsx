@@ -656,10 +656,20 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }, [showLocationDropdown, showCategoryDropdown, showStageDropdown])
 
-  const handleDownloadCalendar = async () => {
+  const handleDownloadCalendar = async (e?: React.MouseEvent) => {
+    // Prevent any default behavior (form submission, navigation, etc.)
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     try {
       const response = await fetch('/api/calendar/download', {
+        method: 'GET',
         credentials: 'include',
+        headers: {
+          'Accept': 'text/calendar, application/octet-stream, */*',
+        },
       })
       
       if (!response.ok) {
@@ -675,15 +685,29 @@ export default function CalendarView({ user }: CalendarViewProps) {
         throw new Error(errorData.error || 'Failed to download calendar')
       }
 
+      // Check if response is actually a blob/ICS file
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('calendar') && !contentType.includes('octet-stream')) {
+        // If we got HTML or JSON instead of ICS, something went wrong
+        const text = await response.text()
+        console.error('Unexpected response type:', contentType, text.substring(0, 200))
+        throw new Error('Server returned unexpected content type')
+      }
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       a.download = 'fibi-calendar.ics'
+      a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      }, 100)
     } catch (error) {
       console.error('Error downloading calendar:', error)
       alert('Failed to download calendar. Please try again.')
@@ -801,6 +825,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={handleDownloadCalendar}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 title="Download calendar"

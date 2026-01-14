@@ -18,28 +18,9 @@ export async function createClient(request?: NextRequest) {
     )
   }
 
-  // For API routes, try to use Next.js cookies() helper first, fallback to manual parsing
+  // For API routes, use manual cookie parsing from request headers
+  // This is more reliable than cookies() in API routes
   if (request) {
-    // Try to use Next.js cookies() helper (works in API routes in Next.js 13+)
-    try {
-      const cookieStore = await cookies()
-      return createServerClient(url, key, {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
-            // In API routes, we can't set cookies directly in the response
-            // They need to be set via NextResponse
-            // This is handled by the caller if needed
-          },
-        },
-      })
-    } catch {
-      // Fallback to manual cookie parsing if cookies() doesn't work
-    }
-    
-    // Fallback: manual cookie parsing from request headers
     return createServerClient(url, key, {
       cookies: {
         getAll() {

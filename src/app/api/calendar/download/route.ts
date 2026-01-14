@@ -9,11 +9,9 @@ export const dynamic = 'force-dynamic'
  * Generates an iCal (.ics) file from the user's planned items.
  * Can be imported into Google Calendar, Apple Calendar, Outlook, etc.
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Convert Request to NextRequest for cookie handling
-    const nextRequest = request as unknown as NextRequest
-    const supabase = await createClient(nextRequest)
+    const supabase = await createClient(request)
     
     // Try getSession first (more reliable for API routes)
     const {
