@@ -50,6 +50,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   }, [url, ogImage, screenshotUrl, fetchedOgImage, effectiveOgImage])
 
   // Fetch metadata if ogImage not provided - makes previews default behavior
+  // Always fetch metadata to get OG image, even if oEmbed provides HTML but no thumbnail
   useEffect(() => {
     if (!url.trim() || ogImage) return // Skip if we already have ogImage or no URL
     
@@ -72,7 +73,8 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
       }
     }
     
-    // Debounce metadata fetch
+    // Fetch metadata even if oEmbed data exists (oEmbed might have HTML but no thumbnail)
+    // This ensures we always try to get an image preview
     const timeoutId = setTimeout(fetchMetadata, 300)
     return () => clearTimeout(timeoutId)
   }, [url, ogImage])
@@ -147,13 +149,14 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   // Priority: Screenshot > Embedded link image (oEmbed thumbnail) > OG image > oEmbed HTML
   // Skip sources that have failed to load
   // Use effectiveOgImage (fetched or provided) - makes previews default
+  // IMPORTANT: Always prefer image previews over HTML embeds for better UX
   const previewSource = screenshotUrl && imageError !== 'screenshot'
     ? 'screenshot'
     : oembedData?.thumbnail_url && imageError !== 'oembed-thumbnail'
     ? 'oembed-thumbnail'
     : effectiveOgImage && imageError !== 'og-image'
     ? 'og-image'
-    : oembedData?.html
+    : oembedData?.html && !isMobile
     ? 'oembed-html'
     : null
 
@@ -184,7 +187,9 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
 
   // Render oEmbed HTML (TikTok, Instagram, YouTube return embeddable HTML)
   // Only on desktop - mobile always uses static preview
-  if (!isMobile && previewSource === 'oembed-html' && oembedData?.html) {
+  // Only show HTML embed if we don't have any image preview available
+  // This ensures images are always preferred over HTML embeds
+  if (!isMobile && previewSource === 'oembed-html' && oembedData?.html && !effectiveOgImage && !oembedData?.thumbnail_url) {
     // TikTok oEmbed HTML includes a blockquote and script tag
     // Instagram and YouTube oEmbed HTML are iframes
     return (

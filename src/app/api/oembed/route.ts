@@ -103,9 +103,12 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedResponse> {
     }
 
     const data = await response.json()
+    
+    // Instagram oEmbed might not always return thumbnail_url
+    // The LinkPreview component will fetch OG metadata as fallback
     return {
       html: data.html,
-      thumbnail_url: data.thumbnail_url,
+      thumbnail_url: data.thumbnail_url || undefined, // Explicitly set to undefined if not present
       author_name: data.author_name,
       title: data.title,
       provider_name: 'Instagram',
