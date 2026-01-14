@@ -225,9 +225,9 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
           
           // Return metadata in oEmbed format for consistency
           return {
-            html: null, // No HTML embed for generic URLs
+            html: undefined, // No HTML embed for generic URLs
             thumbnail_url: thumbnailUrl || undefined,
-            author_name: null,
+            author_name: undefined,
             title: title || undefined,
             provider_name: 'Generic',
             // Include description as caption_text for consistency
@@ -240,22 +240,22 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
       
       // If metadata fetch fails, return empty response (not an error)
       return {
-        html: null,
-        thumbnail_url: null,
-        author_name: null,
-        title: null,
-        provider_name: null,
+        html: undefined,
+        thumbnail_url: undefined,
+        author_name: undefined,
+        title: undefined,
+        provider_name: undefined,
       }
   }
 
   if (oembedData.error) {
     // Return empty response (not an error) - fallback to OG metadata
     return {
-      html: null,
-      thumbnail_url: null,
-      author_name: null,
-      title: null,
-      provider_name: null,
+      html: undefined,
+      thumbnail_url: undefined,
+      author_name: undefined,
+      title: undefined,
+      provider_name: undefined,
     }
   }
 
@@ -293,11 +293,11 @@ export async function GET(request: NextRequest) {
     if (oembedData.error) {
       // Return empty response (not an error) - fallback to OG metadata
       return NextResponse.json({
-        html: null,
-        thumbnail_url: null,
-        author_name: null,
-        title: null,
-        provider_name: null,
+        html: undefined,
+        thumbnail_url: undefined,
+        author_name: undefined,
+        title: undefined,
+        provider_name: undefined,
       })
     }
 
@@ -311,11 +311,11 @@ export async function GET(request: NextRequest) {
     console.error('oEmbed GET API error:', error)
     // Return empty response instead of error - fallback gracefully
     return NextResponse.json({
-      html: null,
-      thumbnail_url: null,
-      author_name: null,
-      title: null,
-      provider_name: null,
+      html: undefined,
+      thumbnail_url: undefined,
+      author_name: undefined,
+      title: undefined,
+      provider_name: undefined,
     }, {
       headers: {
         'Content-Type': 'application/json',
@@ -345,11 +345,11 @@ export async function POST(request: NextRequest) {
     if (oembedData.error) {
       // Return empty response (not an error) - fallback to OG metadata
       return NextResponse.json({
-        html: null,
-        thumbnail_url: null,
-        author_name: null,
-        title: null,
-        provider_name: null,
+        html: undefined,
+        thumbnail_url: undefined,
+        author_name: undefined,
+        title: undefined,
+        provider_name: undefined,
       })
     }
 
@@ -358,11 +358,11 @@ export async function POST(request: NextRequest) {
     console.error('oEmbed POST API error:', error)
     // Return empty response instead of error - fallback gracefully
     return NextResponse.json({
-      html: null,
-      thumbnail_url: null,
-      author_name: null,
-      title: null,
-      provider_name: null,
+      html: undefined,
+      thumbnail_url: undefined,
+      author_name: undefined,
+      title: undefined,
+      provider_name: undefined,
     })
   }
 }

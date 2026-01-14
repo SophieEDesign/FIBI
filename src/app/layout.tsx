@@ -1,6 +1,20 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+function getSiteUrl(): string {
+  if (typeof process !== 'undefined') {
+    if (process.env.NEXT_PUBLIC_SITE_URL) {
+      return process.env.NEXT_PUBLIC_SITE_URL
+    }
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`
+    }
+  }
+  return 'https://fibi.world'
+}
+
+const siteUrl = getSiteUrl()
+
 export const metadata: Metadata = {
   title: "FiBi - Save Your Travel Places",
   description: "Save travel places from social media before you lose them",
@@ -8,9 +22,10 @@ export const metadata: Metadata = {
     title: "FiBi - Save Your Travel Places",
     description: "Save travel places from social media before you lose them",
     type: "website",
+    url: siteUrl,
     images: [
       {
-        url: "/hero-image.png",
+        url: `${siteUrl}/hero-image.png`,
         width: 1200,
         height: 630,
         alt: "FiBi - Save Your Travel Places",
@@ -21,7 +36,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "FiBi - Save Your Travel Places",
     description: "Save travel places from social media before you lose them",
-    images: ["/hero-image.png"],
+    images: [`${siteUrl}/hero-image.png`],
   },
   appleWebApp: {
     capable: true,
