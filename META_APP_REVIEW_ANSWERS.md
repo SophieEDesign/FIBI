@@ -6,6 +6,7 @@
 ```
 https://fibi.world
 ```
+(Also accessible at: https://www.fibi.world)
 
 **Verification:**
 You can verify this URL is accessible using Meta's debugger tool. The app is a Progressive Web App (PWA) that works in any modern web browser. No app store download is required.
@@ -35,45 +36,56 @@ You can verify this URL is accessible using Meta's debugger tool. The app is a P
 1. Visit: **https://fibi.world/api/oembed?url={instagram_post_url}&format=json**
    - Replace `{instagram_post_url}` with any public Instagram post URL
    - Example: `https://fibi.world/api/oembed?url=https://www.instagram.com/p/ABC123xyz/&format=json`
-2. The endpoint will return JSON with oEmbed data including:
+2. **Note:** During the review process, the endpoint may return an empty object `{}` because Meta App Review access has not been granted yet. This is expected behavior. Once access is approved and the `FACEBOOK_ACCESS_TOKEN` is configured, the endpoint will return JSON with oEmbed data including:
    - `html`: Embeddable HTML code
    - `thumbnail_url`: Image thumbnail URL
    - `author_name`: Instagram username
    - `title`: Post caption/title
    - `provider_name`: "Instagram"
+3. **Alternative Test (TikTok - Works Immediately):** You can also test with a TikTok URL to see the endpoint structure working:
+   - Example: `https://fibi.world/api/oembed?url=https://www.tiktok.com/@otherworldescapes/video/7579740659783863574&format=json`
+   - TikTok oEmbed works without Meta approval, so you can see the full response format
 
 **Option B: Interactive Test Page**
 1. Visit: **https://fibi.world/oembed-test**
 2. This page provides an interactive interface to test the oEmbed endpoint
-3. Enter any public Instagram post URL in the input field
+3. Enter any public Instagram post URL or TikTok video URL in the input field
+   - The page includes example URLs you can click to test
+   - TikTok examples will work immediately (no Meta approval needed)
+   - Instagram examples will show the expected response format once access is granted
 4. Click "Test" to see:
    - The raw oEmbed JSON response
    - How the preview appears in the app
-   - The embedded Instagram content
+   - The embedded Instagram or TikTok content
+   - Expected response format examples (shown when response is empty)
 
 **Option C: Full App Context (Complete Use Case)**
 1. After logging in, navigate to **https://fibi.world/add** (or click "Add" in the bottom navigation)
-2. In the URL input field, paste an Instagram post URL
-   - Example: `https://www.instagram.com/p/ABC123xyz/`
+2. In the URL input field, paste an Instagram post URL or TikTok video URL
+   - Instagram Example: `https://www.instagram.com/p/ABC123xyz/`
+   - TikTok Example: `https://www.tiktok.com/@otherworldescapes/video/7579740659783863574`
 3. The app will automatically:
-   - Detect it's an Instagram URL
-   - Call the Meta Instagram oEmbed API via our endpoint
+   - Detect it's an Instagram or TikTok URL
+   - Call the oEmbed API endpoint (Instagram via Meta Graph API, TikTok via TikTok oEmbed API)
    - Fetch preview data (thumbnail, caption, author)
-   - Display a rich preview of the Instagram post
+   - Display a rich preview of the post/video
 4. Verify oEmbed data is displayed:
-   - ✅ Thumbnail image from the Instagram post appears
-   - ✅ Post caption/description is shown
+   - ✅ Thumbnail image from the post/video appears
+   - ✅ Post/video caption/description is shown
    - ✅ Author information is visible
-   - ✅ Preview matches the Instagram post content
+   - ✅ Preview matches the content
 5. Click "Save" to save the item to your collection
-6. The saved item will appear in your main feed with the Instagram preview
+6. The saved item will appear in your main feed with the preview
 
 #### 4. Additional Testing Steps
-- View saved items: Navigate to the home page to see all saved items with their Instagram previews
+- View saved items: Navigate to the home page to see all saved items with their previews
 - Test with different Instagram post types:
   - Regular posts: `https://www.instagram.com/p/{POST_ID}/`
   - Reels: `https://www.instagram.com/reel/{REEL_ID}/`
   - IGTV: `https://www.instagram.com/tv/{TV_ID}/`
+- Test with TikTok videos:
+  - Example: `https://www.tiktok.com/@otherworldescapes/video/7579740659783863574`
+  - TikTok oEmbed works immediately (no Meta approval needed) and demonstrates the endpoint structure
 
 ---
 
@@ -145,7 +157,7 @@ This app is a **Progressive Web App (PWA)** accessible via web browser at **http
 - ✅ No VPN or special access required
 
 **Access Instructions:**
-Simply visit **https://fibi.world** from any location worldwide. No special steps or bypass instructions are needed.
+Simply visit **https://fibi.world** (or **https://www.fibi.world**) from any location worldwide. No special steps or bypass instructions are needed.
 
 ---
 

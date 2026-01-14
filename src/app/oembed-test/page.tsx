@@ -11,13 +11,26 @@ export const dynamic = 'force-dynamic'
  * This page demonstrates how FiBi uses Instagram oEmbed to display rich previews
  */
 export default function OEmbedTestPage() {
-  // Example Instagram URLs for testing
+  // Example URLs for testing
   const exampleUrls = [
-    'https://www.instagram.com/p/Cx123456789/', // Replace with actual public Instagram post
-    'https://www.instagram.com/reel/Cx123456789/', // Replace with actual public Instagram reel
+    {
+      platform: 'Instagram',
+      url: 'https://www.instagram.com/p/Cx123456789/',
+      label: 'Instagram Post'
+    },
+    {
+      platform: 'Instagram',
+      url: 'https://www.instagram.com/reel/Cx123456789/',
+      label: 'Instagram Reel'
+    },
+    {
+      platform: 'TikTok',
+      url: 'https://www.tiktok.com/@otherworldescapes/video/7579740659783863574',
+      label: 'TikTok Video'
+    },
   ]
   
-  const [testUrl, setTestUrl] = useState(exampleUrls[1]) // Pre-fill with reel URL
+  const [testUrl, setTestUrl] = useState(exampleUrls[1].url) // Pre-fill with reel URL
   const [oembedResult, setOembedResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -56,14 +69,17 @@ export default function OEmbedTestPage() {
             FiBi oEmbed Test Page
           </h1>
           <p className="text-gray-600 mb-4">
-            This page demonstrates how FiBi uses Instagram oEmbed API to display
-            rich previews of Instagram content. This is for Meta App Review verification.
+            This page demonstrates how FiBi uses oEmbed API to display
+            rich previews of Instagram and TikTok content. This is for Meta App Review verification.
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h2 className="font-semibold text-blue-900 mb-2">oEmbed Endpoint</h2>
             <code className="text-sm text-blue-800 break-all">
-              GET /api/oembed?url={'{instagram_url}'}&format=json
+              GET /api/oembed?url={'{url}'}&format=json
             </code>
+            <p className="text-xs text-blue-700 mt-2">
+              Supports Instagram and TikTok URLs
+            </p>
           </div>
         </div>
 
@@ -76,14 +92,14 @@ export default function OEmbedTestPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Instagram URL
+                Instagram or TikTok URL
               </label>
               <div className="flex gap-2">
                 <input
                   type="url"
                   value={testUrl}
                   onChange={(e) => setTestUrl(e.target.value)}
-                  placeholder="https://www.instagram.com/p/..."
+                  placeholder="https://www.instagram.com/p/... or https://www.tiktok.com/@user/video/..."
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                 />
                 <button
@@ -101,16 +117,16 @@ export default function OEmbedTestPage() {
                 Example URLs (click to test)
               </label>
               <div className="space-y-2">
-                {exampleUrls.map((url, idx) => (
+                {exampleUrls.map((example, idx) => (
                   <button
                     key={idx}
                     onClick={() => {
-                      setTestUrl(url)
-                      testOEmbed(url)
+                      setTestUrl(example.url)
+                      testOEmbed(example.url)
                     }}
                     className="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
                   >
-                    {url}
+                    <span className="font-medium">{example.platform}:</span> {example.url}
                   </button>
                 ))}
               </div>
@@ -135,6 +151,45 @@ export default function OEmbedTestPage() {
             <pre className="bg-gray-50 rounded-lg p-4 overflow-x-auto text-sm">
               {oembedResult ? JSON.stringify(oembedResult, null, 2) : '{}'}
             </pre>
+            {!oembedResult && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-900 mb-2">
+                  <strong>Note:</strong> The endpoint currently returns an empty response because Meta App Review access has not been granted yet. Once access is approved, the endpoint will return data in the following format:
+                </p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-sm font-medium text-blue-800 hover:text-blue-900">
+                    View Expected Response Format
+                  </summary>
+                  <div className="mt-2 space-y-3">
+                    <div>
+                      <p className="text-xs font-medium text-blue-900 mb-1">Instagram Example:</p>
+                      <pre className="text-xs bg-white border border-blue-200 rounded p-3 overflow-x-auto">
+{`{
+  "html": "<blockquote class=\\"instagram-media\\" data-instgrm-permalink=\\"...\\" ...></blockquote><script async src=\\"//www.instagram.com/embed.js\\"></script>",
+  "thumbnail_url": "https://scontent.cdninstagram.com/v/...",
+  "author_name": "instagram_username",
+  "title": "Post caption text...",
+  "provider_name": "Instagram"
+}`}
+                      </pre>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-blue-900 mb-1">TikTok Example:</p>
+                      <pre className="text-xs bg-white border border-blue-200 rounded p-3 overflow-x-auto">
+{`{
+  "html": "<blockquote class=\\"tiktok-embed\\" data-video-id=\\"7579740659783863574\\" ...></blockquote><script async src=\\"https://www.tiktok.com/embed.js\\"></script>",
+  "thumbnail_url": "https://p16-sign-va.tiktokcdn.com/...",
+  "author_name": "otherworldescapes",
+  "title": "Video caption text...",
+  "provider_name": "TikTok",
+  "caption_text": "Video caption extracted from HTML"
+}`}
+                      </pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            )}
           </div>
 
           {/* Preview Display */}
@@ -159,7 +214,9 @@ export default function OEmbedTestPage() {
                       Preview not available · Add screenshot
                     </p>
                     <a
-                      href="#"
+                      href={testUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 underline"
                     >
                       View original content
@@ -194,11 +251,11 @@ export default function OEmbedTestPage() {
           </h2>
           <ol className="list-decimal list-inside space-y-3 text-gray-700">
             <li>
-              When a user adds an Instagram URL to FiBi, the app calls the oEmbed
+              When a user adds an Instagram or TikTok URL to FiBi, the app calls the oEmbed
               endpoint
             </li>
             <li>
-              The endpoint fetches rich metadata from Instagram via Facebook Graph API
+              The endpoint fetches rich metadata from Instagram (via Facebook Graph API) or TikTok (via TikTok oEmbed API)
             </li>
             <li>
               The response includes thumbnail, title, author, and embeddable HTML
