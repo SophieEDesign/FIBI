@@ -31,7 +31,14 @@ export function detectPlatform(url: string): string {
     if (hostname.includes('tiktok.com')) return 'TikTok'
     if (hostname.includes('instagram.com')) return 'Instagram'
     if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'YouTube'
-    return 'Other'
+    if (hostname.includes('facebook.com') || hostname.includes('fb.com')) return 'Facebook'
+    if (hostname.includes('twitter.com') || hostname.includes('x.com')) return 'Twitter'
+    if (hostname.includes('pinterest.com')) return 'Pinterest'
+    if (hostname.includes('reddit.com')) return 'Reddit'
+    if (hostname.includes('linkedin.com')) return 'LinkedIn'
+    // Extract domain name for better display
+    const domain = hostname.replace('www.', '').split('.')[0]
+    return domain.charAt(0).toUpperCase() + domain.slice(1)
   } catch {
     return 'Other'
   }

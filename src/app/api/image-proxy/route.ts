@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
       'cdninstagram.com',
       'instagram.com',
       'facebook.com',
+      'tiktokcdn.com',
+      'tiktok.com',
     ]
     
     const hostname = parsedUrl.hostname.toLowerCase()

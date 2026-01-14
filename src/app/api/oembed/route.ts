@@ -83,7 +83,14 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedResponse> {
     
     if (!accessToken) {
       console.warn('Instagram oEmbed requires Facebook Graph API access token (FACEBOOK_ACCESS_TOKEN or INSTAGRAM_ACCESS_TOKEN)')
-      return { error: 'Instagram oEmbed requires authentication' }
+      // Return empty response (not an error) - will fallback to generic metadata extraction
+      return {
+        html: undefined,
+        thumbnail_url: undefined,
+        author_name: undefined,
+        title: undefined,
+        provider_name: undefined,
+      }
     }
 
     // Facebook Graph API Instagram oEmbed endpoint
@@ -98,8 +105,38 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedResponse> {
     })
 
     if (!response.ok) {
-      console.warn(`Instagram oEmbed failed: ${response.status}`)
-      return { error: 'Instagram oEmbed failed' }
+      // Check for specific error codes that indicate API not approved
+      const errorText = await response.text().catch(() => '')
+      let errorData: any = {}
+      try {
+        errorData = JSON.parse(errorText)
+      } catch {
+        // If parsing fails, use empty object
+      }
+      
+      // Common error codes:
+      // - 190: Invalid OAuth access token
+      // - 10: Permission denied (app not approved)
+      // - 200: Permissions error
+      const isApiNotApproved = errorData.error?.code === 10 || 
+                               errorData.error?.code === 200 ||
+                               errorData.error?.message?.toLowerCase().includes('permission') ||
+                               errorData.error?.message?.toLowerCase().includes('not approved')
+      
+      if (isApiNotApproved) {
+        console.warn(`Instagram oEmbed API not approved or permission denied: ${response.status}`, errorData.error)
+      } else {
+        console.warn(`Instagram oEmbed failed: ${response.status}`, errorData.error?.message || errorText.substring(0, 100))
+      }
+      
+      // Return empty response (not an error) - will fallback to generic metadata extraction
+      return {
+        html: undefined,
+        thumbnail_url: undefined,
+        author_name: undefined,
+        title: undefined,
+        provider_name: undefined,
+      }
     }
 
     const data = await response.json()
@@ -115,7 +152,14 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedResponse> {
     }
   } catch (error) {
     console.error('Instagram oEmbed error:', error)
-    return { error: 'Instagram oEmbed error' }
+    // Return empty response (not an error) - will fallback to generic metadata extraction
+    return {
+      html: undefined,
+      thumbnail_url: undefined,
+      author_name: undefined,
+      title: undefined,
+      provider_name: undefined,
+    }
   }
 }
 
@@ -167,8 +211,9 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
   }
 
   const platform = detectPlatformFromUrl(url)
-  let oembedData: OEmbedResponse
+  let oembedData: OEmbedResponse | null = null
 
+  // Try platform-specific oEmbed first
   switch (platform) {
     case 'tiktok':
       oembedData = await fetchTikTokOEmbed(url)
@@ -180,18 +225,36 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
       oembedData = await fetchYouTubeOEmbed(url)
       break
     default:
+      oembedData = null
+  }
+
+  // If platform-specific oEmbed succeeded, return it
+  if (oembedData && !oembedData.error && (oembedData.html || oembedData.thumbnail_url)) {
+    return oembedData
+  }
+
+  // If platform-specific oEmbed failed or returned no data, try generic metadata extraction
+  // This is especially important for Instagram/Facebook when API isn't approved yet
+  {
       // For generic URLs (Facebook, Instagram, other sites), try to fetch metadata
       // This makes previews work automatically when platforms publish proper meta tags
       // When Meta/Facebook/Instagram add proper og:image tags, they'll automatically work
+      // This is especially important when the API isn't approved yet
       try {
         // Fetch the URL and extract metadata directly
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 8000)
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // Increased timeout for slower sites
         
         const response = await fetch(url, {
           signal: controller.signal,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
           },
         })
         
@@ -205,11 +268,22 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
           let title: string | null = null
           let description: string | null = null
           
-          // Extract og:image
+          // Extract og:image (try multiple patterns)
           const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
+                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i) ||
+                                 html.match(/<meta[^>]*property\s*=\s*["']og:image:secure_url["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image:secure_url["']/i)
           if (ogImageMatch) {
             thumbnailUrl = ogImageMatch[1].trim()
+            // Handle relative URLs
+            if (thumbnailUrl && !thumbnailUrl.startsWith('http')) {
+              try {
+                const baseUrl = new URL(url)
+                thumbnailUrl = new URL(thumbnailUrl, baseUrl.origin).toString()
+              } catch {
+                // If URL construction fails, use original
+              }
+            }
           }
           
           // Extract og:title
@@ -250,19 +324,6 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
         provider_name: undefined,
       }
   }
-
-  if (oembedData.error) {
-    // Return empty response (not an error) - fallback to OG metadata
-    return {
-      html: undefined,
-      thumbnail_url: undefined,
-      author_name: undefined,
-      title: undefined,
-      provider_name: undefined,
-    }
-  }
-
-  return oembedData
 }
 
 /**

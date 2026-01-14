@@ -7,6 +7,8 @@ import { join } from 'path'
  * Serves the manifest.json file from the public folder
  * This ensures it's always accessible without authentication
  */
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     // Read the manifest.json file from the public folder
@@ -15,10 +17,13 @@ export async function GET() {
     const manifest = JSON.parse(manifestContent)
 
     return NextResponse.json(manifest, {
+      status: 200,
       headers: {
         'Content-Type': 'application/manifest+json',
         'Cache-Control': 'public, max-age=3600, must-revalidate',
         'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Content-Type',
       },
     })
   } catch (error) {

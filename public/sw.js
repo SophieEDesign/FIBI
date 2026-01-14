@@ -104,6 +104,13 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
+  // CRITICAL: Don't intercept external domain requests (CDNs, third-party services)
+  // External domains often have CORS restrictions and don't allow service worker caching
+  // This prevents 403 errors from Facebook CDN, Instagram CDN, etc.
+  if (url.origin !== self.location.origin) {
+    return
+  }
+
   // Skip API routes, auth routes, and service worker itself
   // Always bypass cache for version endpoint to get latest version
   if (
