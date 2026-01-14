@@ -46,7 +46,7 @@ export default function GooglePlacesInput({
   disabled = false,
 }: GooglePlacesInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const autocompleteRef = useRef<InstanceType<typeof window.google.maps.places.Autocomplete> | null>(null)
+  const autocompleteRef = useRef<any>(null) // Use any to avoid type errors when places API isn't loaded yet
   const [isGoogleLoaded, setIsGoogleLoaded] = useState(false)
   const [hasSelectedPlace, setHasSelectedPlace] = useState(false)
   const [manualCity, setManualCity] = useState(propManualCity)
@@ -131,8 +131,8 @@ export default function GooglePlacesInput({
       return
     }
 
-    // Check if script is already loaded
-    if (window.google?.maps?.places) {
+    // Check if script is already loaded and Places API is available
+    if (window.google?.maps?.places?.Autocomplete) {
       setIsGoogleLoaded(true)
       return
     }
@@ -142,10 +142,13 @@ export default function GooglePlacesInput({
     if (existingScript) {
       // Wait for it to load
       existingScript.addEventListener('load', () => {
-        setIsGoogleLoaded(true)
+        // Check if Places API is available after script loads
+        if (window.google?.maps?.places?.Autocomplete) {
+          setIsGoogleLoaded(true)
+        }
       })
       // Also check if it's already loaded (in case event already fired)
-      if (window.google?.maps?.places) {
+      if (window.google?.maps?.places?.Autocomplete) {
         setIsGoogleLoaded(true)
       }
       return
@@ -157,7 +160,17 @@ export default function GooglePlacesInput({
     script.async = true
     script.defer = true
     script.onload = () => {
-      setIsGoogleLoaded(true)
+      // Check if Places API is available after script loads
+      // Sometimes the script loads but the API isn't ready yet
+      const checkPlacesAPI = () => {
+        if (window.google?.maps?.places?.Autocomplete) {
+          setIsGoogleLoaded(true)
+        } else {
+          // Retry after a short delay if Places API isn't ready yet
+          setTimeout(checkPlacesAPI, 100)
+        }
+      }
+      checkPlacesAPI()
     }
     script.onerror = (error) => {
       console.error('Failed to load Google Maps script:', error)
@@ -177,6 +190,12 @@ export default function GooglePlacesInput({
 
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) return
+
+    // Check if Google Maps Places API is fully loaded
+    if (!window.google?.maps?.places?.Autocomplete) {
+      console.warn('GooglePlacesInput: Google Maps Places API not fully loaded yet')
+      return
+    }
 
     // Initialize Autocomplete
     const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {

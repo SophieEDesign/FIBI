@@ -44,8 +44,19 @@ export default function MapView() {
       return
     }
 
-    // Check if script is already loaded
-    if (window.google?.maps?.Map) {
+    // Helper function to check if Google Maps is fully loaded
+    const checkGoogleMapsLoaded = () => {
+      return !!(
+        window.google?.maps?.Map &&
+        window.google?.maps?.MapTypeId &&
+        window.google?.maps?.Marker &&
+        window.google?.maps?.LatLng &&
+        window.google?.maps?.LatLngBounds
+      )
+    }
+
+    // Check if script is already loaded and fully initialized
+    if (checkGoogleMapsLoaded()) {
       setIsGoogleLoaded(true)
       return
     }
@@ -53,11 +64,32 @@ export default function MapView() {
     // Check if script tag already exists
     const existingScript = document.querySelector('script[src*="maps.googleapis.com"]')
     if (existingScript) {
-      existingScript.addEventListener('load', () => {
+      const checkAndSetLoaded = () => {
+        // Wait a bit for the API to fully initialize
+        const checkInterval = setInterval(() => {
+          if (checkGoogleMapsLoaded()) {
+            clearInterval(checkInterval)
+            setIsGoogleLoaded(true)
+          }
+        }, 50)
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval)
+          if (checkGoogleMapsLoaded()) {
+            setIsGoogleLoaded(true)
+          } else {
+            console.warn('Google Maps script loaded but API not fully initialized')
+          }
+        }, 5000)
+      }
+      
+      existingScript.addEventListener('load', checkAndSetLoaded)
+      // Also check immediately in case it's already loaded
+      if (checkGoogleMapsLoaded()) {
         setIsGoogleLoaded(true)
-      })
-      if (window.google?.maps?.Map) {
-        setIsGoogleLoaded(true)
+      } else {
+        checkAndSetLoaded()
       }
       return
     }
@@ -68,7 +100,24 @@ export default function MapView() {
     script.async = true
     script.defer = true
     script.onload = () => {
-      setIsGoogleLoaded(true)
+      // Wait for the API to fully initialize
+      const checkInterval = setInterval(() => {
+        if (checkGoogleMapsLoaded()) {
+          clearInterval(checkInterval)
+          setIsGoogleLoaded(true)
+        }
+      }, 50)
+      
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        clearInterval(checkInterval)
+        if (checkGoogleMapsLoaded()) {
+          setIsGoogleLoaded(true)
+        } else {
+          console.error('Google Maps script loaded but API not fully initialized')
+          setLoading(false)
+        }
+      }, 5000)
     }
     script.onerror = () => {
       console.error('Failed to load Google Maps script')
@@ -326,6 +375,15 @@ export default function MapView() {
       return
     }
 
+    // Ensure Google Maps API is fully loaded and MapTypeId is available
+    if (!window.google?.maps?.Map || !window.google?.maps?.MapTypeId) {
+      console.log('MapView: Google Maps API not fully initialized yet', {
+        hasMap: !!window.google?.maps?.Map,
+        hasMapTypeId: !!window.google?.maps?.MapTypeId
+      })
+      return
+    }
+
     console.log('MapView: Creating map instance')
     // Calm, desaturated map style
     const mapStyle: Array<{
@@ -358,10 +416,11 @@ export default function MapView() {
     ]
 
     // Create map (only once)
+    // Use string literal 'roadmap' instead of MapTypeId.ROADMAP for better compatibility
     const map = new window.google.maps.Map(mapRef.current, {
       zoom: 2,
       center: { lat: 20, lng: 0 },
-      mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+      mapTypeId: window.google.maps.MapTypeId?.ROADMAP || 'roadmap',
       styles: mapStyle,
       disableDefaultUI: false,
       zoomControl: true,
@@ -468,7 +527,7 @@ export default function MapView() {
 
       // Create custom pin icon (soft, aesthetic)
       const pinIcon = {
-        path: window.google.maps.SymbolPath.CIRCLE,
+        path: window.google.maps.SymbolPath?.CIRCLE || 0, // CIRCLE = 0
         scale: 8,
         fillColor: '#8B5CF6', // Soft purple
         fillOpacity: 0.8,
@@ -482,7 +541,7 @@ export default function MapView() {
         map,
         icon: pinIcon,
         title: item.title || 'Saved place',
-        animation: window.google.maps.Animation.DROP,
+        animation: window.google.maps.Animation?.DROP || undefined, // Animation is optional
       })
 
       // Add click listener - show modal
