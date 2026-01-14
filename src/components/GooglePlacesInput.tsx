@@ -159,8 +159,10 @@ export default function GooglePlacesInput({
     script.onload = () => {
       setIsGoogleLoaded(true)
     }
-    script.onerror = () => {
-      console.error('Failed to load Google Maps script')
+    script.onerror = (error) => {
+      console.error('Failed to load Google Maps script:', error)
+      // Don't set isGoogleLoaded to true on error - manual entry will still work
+      // The component will show a message that manual entry is available
     }
     document.head.appendChild(script)
 

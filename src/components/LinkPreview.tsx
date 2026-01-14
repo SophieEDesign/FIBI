@@ -212,14 +212,44 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     )
   }
 
+  // Helper function to get proxied image URL for Facebook/Instagram CDN images
+  const getProxiedImageUrl = (url: string | null | undefined): string | null => {
+    if (!url) return null
+    
+    try {
+      // Validate URL format
+      const parsedUrl = new URL(url)
+      const hostname = parsedUrl.hostname.toLowerCase()
+      
+      // Check if URL is from Facebook/Instagram CDN (likely to be blocked)
+      const needsProxy = hostname.includes('fbcdn.net') || 
+                        hostname.includes('cdninstagram.com') ||
+                        (hostname.includes('instagram.com') && url.includes('/p/')) ||
+                        (hostname.includes('facebook.com') && url.includes('/photos/'))
+      
+      if (needsProxy) {
+        return `/api/image-proxy?url=${encodeURIComponent(url)}`
+      }
+      
+      return url
+    } catch (error) {
+      // If URL is invalid, return null
+      console.warn('LinkPreview: Invalid image URL', { url, error })
+      return null
+    }
+  }
+
   // Render thumbnail/image preview (static preview - used on mobile and as fallback on desktop)
   // This is the default preview type - always try to show something
   if (previewSource === 'oembed-thumbnail' || previewSource === 'og-image' || previewSource === 'screenshot') {
-    const imageUrl = previewSource === 'oembed-thumbnail'
+    const rawImageUrl = previewSource === 'oembed-thumbnail'
       ? oembedData?.thumbnail_url
       : previewSource === 'screenshot'
       ? screenshotUrl
       : effectiveOgImage // Use effectiveOgImage (fetched or provided)
+    
+    // Use proxied URL for Facebook/Instagram images to avoid 403 errors
+    const imageUrl = getProxiedImageUrl(rawImageUrl)
 
     if (!imageUrl) {
       // Try next fallback
@@ -280,10 +310,16 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
               onImageLoad?.()
             }}
             onError={(e) => {
-              console.warn('LinkPreview: Image failed to load', { imageUrl, previewSource })
+              console.warn('LinkPreview: Image failed to load', { imageUrl, previewSource, rawImageUrl })
+              const img = e.currentTarget
+              // If proxied image fails, try original URL as fallback
+              if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && img.src !== rawImageUrl) {
+                img.src = rawImageUrl
+                return // Don't mark as error yet, try original URL
+              }
               // Mark this source as failed and trigger re-render to try next fallback
               setImageError(previewSource)
-              e.currentTarget.style.display = 'none'
+              img.style.display = 'none'
             }}
           />
         </div>
