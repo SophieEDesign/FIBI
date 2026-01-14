@@ -19,6 +19,7 @@ import {
 import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
+import { useRouter } from 'next/navigation'
 
 interface CalendarViewProps {
   user: any
@@ -65,6 +66,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const categoryDropdownRef = useRef<HTMLDivElement>(null)
   const stageDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
+  const router = useRouter()
 
   // Detect mobile device
   useEffect(() => {
@@ -664,7 +666,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
         if (response.status === 401) {
           const errorData = await response.json().catch(() => ({}))
           console.error('Authentication error:', errorData)
-          alert('Please sign in to download your calendar')
+          // Redirect to login with redirect parameter to return to calendar after sign-in
+          router.push('/login?redirect=/app/calendar')
           return
         }
         const errorData = await response.json().catch(() => ({}))

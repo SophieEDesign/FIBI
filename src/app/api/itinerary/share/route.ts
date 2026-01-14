@@ -12,14 +12,31 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient(request)
+    
+    // Try getSession first (more reliable for API routes)
     const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
 
-    if (!user || authError) {
-      console.error('Share API auth error:', authError)
-      console.error('Request cookies:', request.headers.get('cookie'))
+    let user = session?.user
+
+    if (!user) {
+      // Fallback to getUser if getSession doesn't return user
+      const {
+        data: { user: fetchedUser },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (!fetchedUser || authError) {
+        console.error('Share API auth error:', authError || sessionError)
+        console.error('Request cookies:', request.headers.get('cookie'))
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      user = fetchedUser
+    }
+
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

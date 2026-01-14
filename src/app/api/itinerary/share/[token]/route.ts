@@ -79,13 +79,31 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createClient(request)
+    
+    // Try getSession first (more reliable for API routes)
     const {
-      data: { user },
-    } = await supabase.auth.getUser()
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    let user = session?.user
 
     if (!user) {
-      console.error('Revoke share auth error - no user')
-      console.error('Request cookies:', request.headers.get('cookie'))
+      // Fallback to getUser if getSession doesn't return user
+      const {
+        data: { user: fetchedUser },
+        error: authError,
+      } = await supabase.auth.getUser()
+
+      if (!fetchedUser || authError) {
+        console.error('Revoke share auth error:', authError || sessionError)
+        console.error('Request cookies:', request.headers.get('cookie'))
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      user = fetchedUser
+    }
+
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

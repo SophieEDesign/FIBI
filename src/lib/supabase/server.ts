@@ -18,8 +18,28 @@ export async function createClient(request?: NextRequest) {
     )
   }
 
-  // For API routes, read cookies from request headers
+  // For API routes, try to use Next.js cookies() helper first, fallback to manual parsing
   if (request) {
+    // Try to use Next.js cookies() helper (works in API routes in Next.js 13+)
+    try {
+      const cookieStore = await cookies()
+      return createServerClient(url, key, {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+            // In API routes, we can't set cookies directly in the response
+            // They need to be set via NextResponse
+            // This is handled by the caller if needed
+          },
+        },
+      })
+    } catch {
+      // Fallback to manual cookie parsing if cookies() doesn't work
+    }
+    
+    // Fallback: manual cookie parsing from request headers
     return createServerClient(url, key, {
       cookies: {
         getAll() {
@@ -37,7 +57,14 @@ export async function createClient(request?: NextRequest) {
               if (equalIndex === -1) return
               
               const name = trimmed.substring(0, equalIndex).trim()
-              const value = trimmed.substring(equalIndex + 1).trim()
+              let value = trimmed.substring(equalIndex + 1).trim()
+              
+              // Decode URL-encoded values (handles %20, %3D, etc.)
+              try {
+                value = decodeURIComponent(value)
+              } catch {
+                // If decoding fails, use original value
+              }
               
               if (name) {
                 cookies.push({
