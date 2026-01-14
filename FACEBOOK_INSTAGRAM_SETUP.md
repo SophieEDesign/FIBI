@@ -79,7 +79,28 @@ Your code checks for both variables (see `src/app/api/oembed/route.ts` line 82).
 
 ### 5. Test the Setup
 
-Test the Instagram oEmbed endpoint:
+#### Test via Your App's oEmbed Endpoint
+
+Your app provides an oEmbed endpoint that supports both GET and POST:
+
+**GET (Standard oEmbed format - for Meta discovery):**
+```bash
+curl "https://fibi.world/api/oembed?url=https://www.instagram.com/p/EXAMPLE&format=json"
+```
+
+**POST (For internal app use):**
+```bash
+curl -X POST "https://fibi.world/api/oembed" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://www.instagram.com/p/EXAMPLE"}'
+```
+
+**Test Page:**
+Visit `https://fibi.world/oembed-test` to interactively test the oEmbed endpoint with any Instagram URL.
+
+#### Test Facebook Graph API Directly
+
+You can also test the Facebook Graph API directly:
 
 ```bash
 curl "https://graph.facebook.com/v18.0/instagram_oembed?url=https://www.instagram.com/p/EXAMPLE&access_token=YOUR_TOKEN"
@@ -148,9 +169,12 @@ If you want to access Instagram Business account content:
 - [ ] Access token generated (App Access Token recommended)
 - [ ] Environment variable set (`FACEBOOK_ACCESS_TOKEN`)
 - [ ] Tested with real Instagram URLs
+- [ ] oEmbed GET endpoint tested (`/api/oembed?url=...&format=json`)
+- [ ] Test page verified (`/oembed-test`)
 - [ ] App domains configured in Facebook settings
 - [ ] Privacy policy URL added (if required)
 - [ ] Monitoring set up for API usage
+- [ ] Meta App Review test instructions prepared (see `META_OEMBED_TEST_INSTRUCTIONS.md`)
 
 ## Resources
 

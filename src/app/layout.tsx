@@ -4,6 +4,25 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "FiBi - Save Your Travel Places",
   description: "Save travel places from social media before you lose them",
+  openGraph: {
+    title: "FiBi - Save Your Travel Places",
+    description: "Save travel places from social media before you lose them",
+    type: "website",
+    images: [
+      {
+        url: "/hero-image.png",
+        width: 1200,
+        height: 630,
+        alt: "FiBi - Save Your Travel Places",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FiBi - Save Your Travel Places",
+    description: "Save travel places from social media before you lose them",
+    images: ["/hero-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

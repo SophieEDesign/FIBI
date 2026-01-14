@@ -280,39 +280,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
             </div>
 
-            {/* Desktop buttons */}
-            <div className="hidden md:flex items-center gap-4">
-              <Link
-                href="/app/map"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Map
-              </Link>
-              <Link
-                href="/app/calendar"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Planner
-              </Link>
-              <Link
-                href="/app/add"
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                Add Place
-              </Link>
-              <Link
-                href="/profile"
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Profile
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-              >
-                Sign out
-              </button>
-            </div>
           </div>
         </div>
       </header>

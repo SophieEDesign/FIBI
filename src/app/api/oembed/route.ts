@@ -145,6 +145,189 @@ async function fetchYouTubeOEmbed(url: string): Promise<OEmbedResponse> {
   }
 }
 
+/**
+ * Process oEmbed request for a given URL
+ * Shared logic for both GET and POST handlers
+ */
+async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
+  // Validate URL format
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
+    return { error: 'Invalid URL format' }
+  }
+
+  // Only allow http/https
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return { error: 'Only HTTP and HTTPS URLs are allowed' }
+  }
+
+  const platform = detectPlatformFromUrl(url)
+  let oembedData: OEmbedResponse
+
+  switch (platform) {
+    case 'tiktok':
+      oembedData = await fetchTikTokOEmbed(url)
+      break
+    case 'instagram':
+      oembedData = await fetchInstagramOEmbed(url)
+      break
+    case 'youtube':
+      oembedData = await fetchYouTubeOEmbed(url)
+      break
+    default:
+      // For generic URLs (Facebook, Instagram, other sites), try to fetch metadata
+      // This makes previews work automatically when platforms publish proper meta tags
+      // When Meta/Facebook/Instagram add proper og:image tags, they'll automatically work
+      try {
+        // Fetch the URL and extract metadata directly
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 8000)
+        
+        const response = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
+          },
+        })
+        
+        clearTimeout(timeoutId)
+        
+        if (response.ok) {
+          const html = await response.text()
+          
+          // Extract metadata using same logic as metadata API
+          let thumbnailUrl: string | null = null
+          let title: string | null = null
+          let description: string | null = null
+          
+          // Extract og:image
+          const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
+          if (ogImageMatch) {
+            thumbnailUrl = ogImageMatch[1].trim()
+          }
+          
+          // Extract og:title
+          const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
+          if (ogTitleMatch) {
+            title = ogTitleMatch[1].trim()
+          }
+          
+          // Extract og:description
+          const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                                     html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
+          if (ogDescriptionMatch) {
+            description = ogDescriptionMatch[1].trim()
+          }
+          
+          // Return metadata in oEmbed format for consistency
+          return {
+            html: null, // No HTML embed for generic URLs
+            thumbnail_url: thumbnailUrl || undefined,
+            author_name: null,
+            title: title || undefined,
+            provider_name: 'Generic',
+            // Include description as caption_text for consistency
+            caption_text: description || undefined,
+          }
+        }
+      } catch (error) {
+        console.debug('Generic metadata fetch failed (non-blocking):', error)
+      }
+      
+      // If metadata fetch fails, return empty response (not an error)
+      return {
+        html: null,
+        thumbnail_url: null,
+        author_name: null,
+        title: null,
+        provider_name: null,
+      }
+  }
+
+  if (oembedData.error) {
+    // Return empty response (not an error) - fallback to OG metadata
+    return {
+      html: null,
+      thumbnail_url: null,
+      author_name: null,
+      title: null,
+      provider_name: null,
+    }
+  }
+
+  return oembedData
+}
+
+/**
+ * GET handler - Standard oEmbed format for Meta discovery
+ * Supports: ?url=...&format=json
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const url = searchParams.get('url')
+    const format = searchParams.get('format') || 'json'
+
+    if (!url || typeof url !== 'string') {
+      return NextResponse.json(
+        { error: 'URL parameter is required' },
+        { status: 400 }
+      )
+    }
+
+    // Only support JSON format (standard oEmbed)
+    if (format !== 'json') {
+      return NextResponse.json(
+        { error: 'Only JSON format is supported' },
+        { status: 400 }
+      )
+    }
+
+    const oembedData = await processOEmbedRequest(url)
+
+    // If there's an error in the response, return it gracefully
+    if (oembedData.error) {
+      // Return empty response (not an error) - fallback to OG metadata
+      return NextResponse.json({
+        html: null,
+        thumbnail_url: null,
+        author_name: null,
+        title: null,
+        provider_name: null,
+      })
+    }
+
+    return NextResponse.json(oembedData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*', // Allow CORS for oEmbed discovery
+      },
+    })
+  } catch (error: any) {
+    console.error('oEmbed GET API error:', error)
+    // Return empty response instead of error - fallback gracefully
+    return NextResponse.json({
+      html: null,
+      thumbnail_url: null,
+      author_name: null,
+      title: null,
+      provider_name: null,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    })
+  }
+}
+
+/**
+ * POST handler - For internal app use
+ */
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json()
@@ -156,110 +339,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate URL format
-    let parsedUrl: URL
-    try {
-      parsedUrl = new URL(url)
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid URL format' },
-        { status: 400 }
-      )
-    }
+    const oembedData = await processOEmbedRequest(url)
 
-    // Only allow http/https
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      return NextResponse.json(
-        { error: 'Only HTTP and HTTPS URLs are allowed' },
-        { status: 400 }
-      )
-    }
-
-    const platform = detectPlatformFromUrl(url)
-    let oembedData: OEmbedResponse
-
-    switch (platform) {
-      case 'tiktok':
-        oembedData = await fetchTikTokOEmbed(url)
-        break
-      case 'instagram':
-        oembedData = await fetchInstagramOEmbed(url)
-        break
-      case 'youtube':
-        oembedData = await fetchYouTubeOEmbed(url)
-        break
-      default:
-        // For generic URLs (Facebook, Instagram, other sites), try to fetch metadata
-        // This makes previews work automatically when platforms publish proper meta tags
-        // When Meta/Facebook/Instagram add proper og:image tags, they'll automatically work
-        try {
-          // Fetch the URL and extract metadata directly
-          const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 8000)
-          
-          const response = await fetch(url, {
-            signal: controller.signal,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
-            },
-          })
-          
-          clearTimeout(timeoutId)
-          
-          if (response.ok) {
-            const html = await response.text()
-            
-            // Extract metadata using same logic as metadata API
-            let thumbnailUrl: string | null = null
-            let title: string | null = null
-            let description: string | null = null
-            
-            // Extract og:image
-            const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                   html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
-            if (ogImageMatch) {
-              thumbnailUrl = ogImageMatch[1].trim()
-            }
-            
-            // Extract og:title
-            const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
-            if (ogTitleMatch) {
-              title = ogTitleMatch[1].trim()
-            }
-            
-            // Extract og:description
-            const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                       html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
-            if (ogDescriptionMatch) {
-              description = ogDescriptionMatch[1].trim()
-            }
-            
-            // Return metadata in oEmbed format for consistency
-            return NextResponse.json({
-              html: null, // No HTML embed for generic URLs
-              thumbnail_url: thumbnailUrl,
-              author_name: null,
-              title: title,
-              provider_name: 'Generic',
-              // Include description as caption_text for consistency
-              caption_text: description,
-            })
-          }
-        } catch (error) {
-          console.debug('Generic metadata fetch failed (non-blocking):', error)
-        }
-        
-        // If metadata fetch fails, return empty response (not an error)
-        return NextResponse.json({
-          html: null,
-          thumbnail_url: null,
-          author_name: null,
-          title: null,
-          provider_name: null,
-        })
-    }
-
+    // If there's an error in the response, return it gracefully
     if (oembedData.error) {
       // Return empty response (not an error) - fallback to OG metadata
       return NextResponse.json({
@@ -273,7 +355,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(oembedData)
   } catch (error: any) {
-    console.error('oEmbed API error:', error)
+    console.error('oEmbed POST API error:', error)
     // Return empty response instead of error - fallback gracefully
     return NextResponse.json({
       html: null,
