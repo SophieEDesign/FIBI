@@ -41,6 +41,12 @@ export default function AddItemForm() {
   const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+  const [showStageDropdown, setShowStageDropdown] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+  const [stageSearch, setStageSearch] = useState('')
+  const categoryDropdownRef = useRef<HTMLDivElement>(null)
+  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
@@ -758,6 +764,26 @@ export default function AddItemForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, searchParams])
+
+  // Handle click outside dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setShowCategoryDropdown(false)
+      }
+      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
+        setShowStageDropdown(false)
+      }
+    }
+
+    if (showCategoryDropdown || showStageDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCategoryDropdown, showStageDropdown])
 
   // Handle URL changes (when user types)
   const handleUrlChange = async (newUrl: string) => {
@@ -1775,7 +1801,112 @@ export default function AddItemForm() {
                   </button>
                 </div>
               )}
-              <CollapsibleOptions className="mb-2">
+              
+              {/* Mobile Dropdown */}
+              <div className="md:hidden relative mb-2" ref={categoryDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCategoryDropdown(!showCategoryDropdown)
+                    setShowStageDropdown(false)
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <span>
+                    {categories.length > 0 
+                      ? `${categories.length} selected` 
+                      : 'Select category'}
+                  </span>
+                  <svg 
+                    className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {showCategoryDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-40 max-h-64 overflow-y-auto">
+                    <div className="p-2 border-b border-gray-200">
+                      <input
+                        type="text"
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        placeholder="Search categories..."
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="p-2">
+                      {[...CATEGORIES, ...userCustomCategories]
+                        .filter((cat) => 
+                          cat.toLowerCase().includes(categorySearch.toLowerCase())
+                        )
+                        .map((cat) => {
+                          const isSelected = categories.includes(cat)
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setCategories(categories.filter(c => c !== cat))
+                                } else {
+                                  setCategories([...categories, cat])
+                                }
+                                userEditedCategory.current = true
+                                setShowCustomCategoryInput(false)
+                                setCustomCategory('')
+                                if (aiSuggestions?.category) {
+                                  setAiSuggestions(prev => prev ? { ...prev, category: null } : null)
+                                }
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                                isSelected
+                                  ? 'bg-gray-900 text-white'
+                                  : 'hover:bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              <svg
+                                className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              {cat}
+                            </button>
+                          )
+                        })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomCategoryInput(!showCustomCategoryInput)
+                          setShowCategoryDropdown(false)
+                          if (!showCustomCategoryInput) {
+                            setCustomCategory('')
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm rounded-md transition-colors hover:bg-gray-100 text-gray-700 flex items-center gap-2"
+                      >
+                        <span className="text-lg">+</span>
+                        Custom
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop CollapsibleOptions */}
+              <CollapsibleOptions className="mb-2 hidden md:block">
                 {CATEGORIES.map((cat) => {
                   const isSelected = categories.includes(cat)
                   return (
@@ -1853,6 +1984,7 @@ export default function AddItemForm() {
                   + Custom
                 </button>
               </CollapsibleOptions>
+              
               {showCustomCategoryInput && (
                 <div className="flex gap-2">
                   <input
@@ -1893,7 +2025,108 @@ export default function AddItemForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Stage
               </label>
-              <CollapsibleOptions className="mb-2">
+              
+              {/* Mobile Dropdown */}
+              <div className="md:hidden relative mb-2" ref={stageDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStageDropdown(!showStageDropdown)
+                    setShowCategoryDropdown(false)
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <span>
+                    {statuses.length > 0 
+                      ? `${statuses.length} selected` 
+                      : 'Select stage'}
+                  </span>
+                  <svg 
+                    className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {showStageDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-40 max-h-64 overflow-y-auto">
+                    <div className="p-2 border-b border-gray-200">
+                      <input
+                        type="text"
+                        value={stageSearch}
+                        onChange={(e) => setStageSearch(e.target.value)}
+                        placeholder="Search stages..."
+                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="p-2">
+                      {[...STATUSES, ...userCustomStatuses]
+                        .filter((stat) => 
+                          stat.toLowerCase().includes(stageSearch.toLowerCase())
+                        )
+                        .map((stat) => {
+                          const isSelected = statuses.includes(stat)
+                          return (
+                            <button
+                              key={stat}
+                              type="button"
+                              onClick={() => {
+                                if (isSelected) {
+                                  setStatuses(statuses.filter(s => s !== stat))
+                                } else {
+                                  setStatuses([...statuses, stat])
+                                }
+                                setShowCustomStatusInput(false)
+                                setCustomStatus('')
+                              }}
+                              className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                                isSelected
+                                  ? 'bg-gray-900 text-white'
+                                  : 'hover:bg-gray-100 text-gray-700'
+                              }`}
+                            >
+                              <svg
+                                className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              {stat}
+                            </button>
+                          )
+                        })}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowCustomStatusInput(!showCustomStatusInput)
+                          setShowStageDropdown(false)
+                          if (!showCustomStatusInput) {
+                            setCustomStatus('')
+                          }
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm rounded-md transition-colors hover:bg-gray-100 text-gray-700 flex items-center gap-2"
+                      >
+                        <span className="text-lg">+</span>
+                        Custom
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop CollapsibleOptions */}
+              <CollapsibleOptions className="mb-2 hidden md:block">
                 {STATUSES.map((stat) => {
                   const isSelected = statuses.includes(stat)
                   return (
