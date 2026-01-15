@@ -21,7 +21,13 @@ export default function LandingPage() {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">FiBi</h1>
+            <Link href="/" className="flex items-center">
+              <img
+                src="/FIBI Logo.png"
+                alt="FiBi"
+                className="h-8 w-auto"
+              />
+            </Link>
             <Link
               href="/login"
               className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
@@ -42,7 +48,7 @@ export default function LandingPage() {
                 Save places before you lose them
               </h2>
               <p className="text-xl text-gray-600 leading-relaxed">
-                From TikTok, Instagram, and the web — without the chaos.
+                Share from TikTok, Instagram, or any app. Visual previews pull through automatically — or add your own.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Link
@@ -57,14 +63,21 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Hero Image */}
+            {/* Hero Video */}
             <div className="relative">
               <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-50">
-                <img
-                  src="/hero-image.png"
-                  alt="Travel places saved from social media"
+                <video
+                  src="/FiBi__Save_Your_Places.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  controls
                   className="w-full h-full object-cover"
-                />
+                  aria-label="FiBi - Save Your Places video"
+                >
+                  Your browser does not support the video tag.
+                </video>
               </div>
             </div>
           </div>
@@ -90,7 +103,7 @@ export default function LandingPage() {
                   Save it
                 </h3>
                 <p className="text-gray-600">
-                  Share a link to Fibi from anywhere.
+                  Just click share from the app. Fibi automatically pulls through a visual preview.
                 </p>
               </div>
 
@@ -107,7 +120,7 @@ export default function LandingPage() {
                   Make it yours
                 </h3>
                 <p className="text-gray-600">
-                  Add a screenshot, name it, choose a location.
+                  Optional: add your own screenshot. Name it and choose a location.
                 </p>
               </div>
 
@@ -126,6 +139,17 @@ export default function LandingPage() {
                 <p className="text-gray-600">
                   Everything organised in one calm place.
                 </p>
+              </div>
+            </div>
+            
+            {/* Infographic */}
+            <div className="mt-16 lg:mt-24">
+              <div className="rounded-lg overflow-hidden bg-white shadow-sm border border-gray-200">
+                <img
+                  src="/unnamed.png"
+                  alt="FiBi: Save Your Travel Places - Complete guide"
+                  className="w-full h-auto object-contain"
+                />
               </div>
             </div>
           </div>
@@ -186,7 +210,7 @@ export default function LandingPage() {
         <section className="bg-gray-50 py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p className="text-center text-gray-600 max-w-2xl mx-auto">
-              Some apps don&apos;t share previews. Fibi helps you save the context instead.
+              Share from TikTok, Instagram, or any app. Fibi automatically pulls through a visual preview — or add your own.
             </p>
           </div>
         </section>

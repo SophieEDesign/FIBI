@@ -13,30 +13,16 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient(request)
     
-    // Try getSession first (more reliable for API routes)
+    // Use getUser() which is more reliable for API routes
+    // It validates the session and refreshes if needed
     const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    let user = session?.user
-
-    if (!user) {
-      // Fallback to getUser if getSession doesn't return user
-      const {
-        data: { user: fetchedUser },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (!fetchedUser || authError) {
-        console.error('Calendar download auth error:', authError || sessionError)
-        console.error('Request cookies:', request.headers.get('cookie'))
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      user = fetchedUser
-    }
-
-    if (!user) {
+    if (!user || authError) {
+      console.error('Calendar download auth error:', authError)
+      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 100))
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

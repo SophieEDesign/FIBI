@@ -30,6 +30,7 @@ export async function createClient(request?: NextRequest) {
           
           if (cookieHeader) {
             // Parse cookies properly, handling URL-encoded values
+            // Split by ';' first, then handle each cookie
             cookieHeader.split(';').forEach((cookie) => {
               const trimmed = cookie.trim()
               if (!trimmed) return
@@ -39,6 +40,12 @@ export async function createClient(request?: NextRequest) {
               
               const name = trimmed.substring(0, equalIndex).trim()
               let value = trimmed.substring(equalIndex + 1).trim()
+              
+              // Remove quotes if present
+              if ((value.startsWith('"') && value.endsWith('"')) ||
+                  (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.slice(1, -1)
+              }
               
               // Decode URL-encoded values (handles %20, %3D, etc.)
               try {
@@ -60,8 +67,10 @@ export async function createClient(request?: NextRequest) {
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
           // In API routes, we can't set cookies directly in the response
-          // They need to be set via NextResponse
-          // This is handled by the caller if needed
+          // Supabase SSR may try to refresh the session, but for read operations
+          // like getUser(), this is not required. If session refresh is needed,
+          // it should be handled by the client-side code.
+          // This is a no-op by design for API routes.
         },
       },
     })

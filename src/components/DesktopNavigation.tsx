@@ -40,8 +40,12 @@ export default function DesktopNavigation({ user, onSignOut }: DesktopNavigation
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
         <div className="flex items-center justify-between h-12">
           {/* Logo */}
-          <Link href="/app" className="flex items-center space-x-2">
-            <span className="text-xl font-bold text-gray-900">FiBi</span>
+          <Link href="/app" className="flex items-center">
+            <img
+              src="/FIBI Logo.png"
+              alt="FiBi"
+              className="h-7 w-auto"
+            />
           </Link>
 
           {/* Main Navigation */}
@@ -75,6 +79,16 @@ export default function DesktopNavigation({ user, onSignOut }: DesktopNavigation
               }`}
             >
               Planner
+            </Link>
+            <Link
+              href="/app/how-to"
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive('/app/how-to')
+                  ? 'bg-gray-900 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              How to Use
             </Link>
             <Link
               href="/profile"

@@ -117,16 +117,16 @@ export default function SharingTutorial() {
                 </div>
                 <div>
                   <p className="text-gray-700 font-medium">Review and save</p>
-                  <p className="text-sm text-gray-500">Fibi opens with the link automatically loaded. Add any details you want, then save!</p>
+                  <p className="text-sm text-gray-500">Fibi automatically pulls through a visual preview. Optional: add your own screenshot or details, then save!</p>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <p className="text-sm font-semibold text-gray-900">✨ Direct Share</p>
+            <p className="text-sm font-semibold text-gray-900">✨ Visual Previews</p>
             <p className="text-sm text-gray-600">
-              When you share to Fibi, the link is sent directly — no need to copy and paste. The URL is automatically captured and loaded into Fibi.
+              When you share to Fibi, a visual preview is automatically pulled through — no need to copy and paste or add screenshots manually. You can optionally add your own screenshot if you want.
             </p>
           </div>
 

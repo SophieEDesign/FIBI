@@ -59,6 +59,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [showStageDropdown, setShowStageDropdown] = useState(false)
+  const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
   const [locationSearch, setLocationSearch] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
   const [stageSearch, setStageSearch] = useState('')
@@ -869,7 +870,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
           {/* Unplanned Items Section - Always Visible */}
           <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-            <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={() => isMobile && setIsUnplannedExpanded(!isUnplannedExpanded)}
+              className={`w-full flex items-center justify-between mb-4 ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
+            >
               <div className="flex items-center gap-3">
                 <h3 className="text-lg font-semibold text-gray-900">
                   Unplanned Places
@@ -880,40 +884,60 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </div>
               
               <div className="flex items-center gap-2">
+                {/* Mobile dropdown arrow */}
+                {isMobile && (
+                  <svg 
+                    className={`w-5 h-5 text-gray-600 transition-transform ${isUnplannedExpanded ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
                 
-                {/* View Mode Toggle */}
-                <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setUnplannedViewMode('list')}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                      unplannedViewMode === 'list'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                    title="List view"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setUnplannedViewMode('grid')}
-                    className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-300 ${
-                      unplannedViewMode === 'grid'
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                    title="Grid view"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                  </button>
-                </div>
+                {/* View Mode Toggle - Hidden on mobile when collapsed */}
+                {(!isMobile || isUnplannedExpanded) && (
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setUnplannedViewMode('list')
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                        unplannedViewMode === 'list'
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                      title="List view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setUnplannedViewMode('grid')
+                      }}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-300 ${
+                        unplannedViewMode === 'grid'
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                      title="Grid view"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
+            </button>
 
-            {/* Filter Controls - Dropdown multiselects in a row */}
+            {/* Filter Controls - Dropdown multiselects in a row - Hidden on mobile when collapsed */}
+            {(!isMobile || isUnplannedExpanded) && (
             <div className="mb-4 flex items-center gap-3 flex-wrap">
               {/* Location Filter Dropdown */}
               {filterOptions.locations.length > 0 && (
@@ -1267,44 +1291,49 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </div>
               )}
             </div>
+            )}
             
-            {/* Unplanned Items Display */}
-            {unplannedItems.length > 0 ? (
-              <UnplannedDropZone viewMode={unplannedViewMode}>
-                {unplannedViewMode === 'list' ? (
-                  <div className="space-y-2">
-                    {unplannedItems.map((item) => (
-                      <PlaceListItem
-                        key={item.id}
-                        item={item}
-                        isDragging={activeId === item.id}
-                        onSelect={() => setSelectedItem(item)}
-                        onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
-                        isMobile={isMobile}
-                      />
-                    ))}
-                  </div>
+            {/* Unplanned Items Display - Hidden on mobile when collapsed */}
+            {(!isMobile || isUnplannedExpanded) && (
+              <>
+                {unplannedItems.length > 0 ? (
+                  <UnplannedDropZone viewMode={unplannedViewMode}>
+                    {unplannedViewMode === 'list' ? (
+                      <div className="space-y-2">
+                        {unplannedItems.map((item) => (
+                          <PlaceListItem
+                            key={item.id}
+                            item={item}
+                            isDragging={activeId === item.id}
+                            onSelect={() => setSelectedItem(item)}
+                            onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                            isMobile={isMobile}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      unplannedItems.map((item) => (
+                        <PlaceCard
+                          key={item.id}
+                          item={item}
+                          isDragging={activeId === item.id}
+                          onSelect={() => setSelectedItem(item)}
+                          onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                          isMobile={isMobile}
+                        />
+                      ))
+                    )}
+                  </UnplannedDropZone>
                 ) : (
-                  unplannedItems.map((item) => (
-                    <PlaceCard
-                      key={item.id}
-                      item={item}
-                      isDragging={activeId === item.id}
-                      onSelect={() => setSelectedItem(item)}
-                      onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
-                      isMobile={isMobile}
-                    />
-                  ))
+                  <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
+                    <p className="text-sm text-gray-500">
+                      {(unplannedLocationFilters.length === 0 && unplannedCategoryFilters.length === 0 && unplannedStatusFilters.length === 0)
+                        ? 'No unplanned places. All places are scheduled!'
+                        : 'No items match the selected filters'}
+                    </p>
+                  </div>
                 )}
-              </UnplannedDropZone>
-            ) : (
-              <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                <p className="text-sm text-gray-500">
-                  {(unplannedLocationFilters.length === 0 && unplannedCategoryFilters.length === 0 && unplannedStatusFilters.length === 0)
-                    ? 'No unplanned places. All places are scheduled!'
-                    : 'No items match the selected filters'}
-                </p>
-              </div>
+              </>
             )}
           </div>
 
