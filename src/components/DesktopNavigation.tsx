@@ -32,7 +32,7 @@ export default function DesktopNavigation({ user, onSignOut }: DesktopNavigation
     return pathname?.startsWith(path)
   }
 
-  // Don't show on login page
+  // Don't show if no user
   if (!user) return null
 
   return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES } from '@/types/database'
 import { getHostname } from '@/lib/utils'
@@ -8,7 +8,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
-import CollapsibleOptions from '@/components/CollapsibleOptions'
 
 interface HomeGridProps {
   user: any
@@ -18,38 +17,13 @@ interface HomeGridProps {
 export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+  const [filters, setFilters] = useState({ categories: [] as string[], statuses: [] as string[] })
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
-  const [showInstructions, setShowInstructions] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
-  const [showStageDropdown, setShowStageDropdown] = useState(false)
-  const [categorySearch, setCategorySearch] = useState('')
-  const [stageSearch, setStageSearch] = useState('')
-  const categoryDropdownRef = useRef<HTMLDivElement>(null)
-  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const router = useRouter()
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-        setShowCategoryDropdown(false)
-      }
-      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
-        setShowStageDropdown(false)
-      }
-    }
-
-    if (showCategoryDropdown || showStageDropdown) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showCategoryDropdown, showStageDropdown])
 
   useEffect(() => {
     if (user) {
@@ -59,22 +33,17 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  // Listen for auth state changes (e.g., after login)
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        // Reload items when auth state changes
         if (session?.user) {
           loadItems()
         }
       }
     })
-
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -140,128 +109,90 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     router.refresh()
   }
 
-  // Helper function to parse categories/statuses from item (supports both single string and array)
-  const parseItemCategories = (item: SavedItem): string[] => {
-    if (!item.category) return []
-    // If it's already an array, return it
-    if (Array.isArray(item.category)) return item.category
-    // If it's a JSON string, parse it
+  // Parse categories/statuses from item (supports both single string and array)
+  const parseItemField = (field: string | null): string[] => {
+    if (!field) return []
+    if (Array.isArray(field)) return field
     try {
-      const parsed = JSON.parse(item.category)
+      const parsed = JSON.parse(field)
       if (Array.isArray(parsed)) return parsed
-    } catch {
-      // Not JSON, treat as single value
-    }
-    // Single value
-    return [item.category]
+    } catch {}
+    return [field]
   }
 
-  const parseItemStatuses = (item: SavedItem): string[] => {
-    if (!item.status) return []
-    // If it's already an array, return it
-    if (Array.isArray(item.status)) return item.status
-    // If it's a JSON string, parse it
-    try {
-      const parsed = JSON.parse(item.status)
-      if (Array.isArray(parsed)) return parsed
-    } catch {
-      // Not JSON, treat as single value
-    }
-    // Single value
-    return [item.status]
-  }
-
-  // Calculate popularity (usage count) for categories and statuses
-  const calculatePopularity = () => {
+  // Calculate usage counts and sort options by popularity
+  const { sortedCategories, sortedStatuses, sortedUserCustomCategories, sortedUserCustomStatuses } = useMemo(() => {
     const categoryCounts: Record<string, number> = {}
     const statusCounts: Record<string, number> = {}
 
     items.forEach((item) => {
-      const itemCategories = parseItemCategories(item)
-      const itemStatuses = parseItemStatuses(item)
-
-      itemCategories.forEach((cat) => {
+      parseItemField(item.category).forEach((cat) => {
         categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
       })
-
-      itemStatuses.forEach((stat) => {
+      parseItemField(item.status).forEach((stat) => {
         statusCounts[stat] = (statusCounts[stat] || 0) + 1
       })
     })
 
-    return { categoryCounts, statusCounts }
+    const sortByPopularity = (arr: string[], counts: Record<string, number>) =>
+      [...arr].sort((a, b) => {
+        const diff = (counts[b] || 0) - (counts[a] || 0)
+        return diff !== 0 ? diff : a.localeCompare(b)
+      })
+
+    return {
+      sortedCategories: sortByPopularity([...CATEGORIES], categoryCounts),
+      sortedStatuses: sortByPopularity([...STATUSES], statusCounts),
+      sortedUserCustomCategories: sortByPopularity([...userCustomCategories], categoryCounts),
+      sortedUserCustomStatuses: sortByPopularity([...userCustomStatuses], statusCounts),
+    }
+  }, [items, userCustomCategories, userCustomStatuses])
+
+  // Filter items based on selected filters
+  const filteredItems = useMemo(() => {
+    if (filters.categories.length === 0 && filters.statuses.length === 0) return items
+    
+    return items.filter((item) => {
+      const itemCategories = parseItemField(item.category)
+      const itemStatuses = parseItemField(item.status)
+      
+      if (filters.categories.length > 0 && !filters.categories.some(cat => itemCategories.includes(cat))) {
+        return false
+      }
+      if (filters.statuses.length > 0 && !filters.statuses.some(status => itemStatuses.includes(status))) {
+        return false
+      }
+      return true
+    })
+  }, [items, filters])
+
+  const activeFiltersCount = filters.categories.length + filters.statuses.length
+
+  const toggleFilter = (type: 'categories' | 'statuses', value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: prev[type].includes(value)
+        ? prev[type].filter(v => v !== value)
+        : [...prev[type], value]
+    }))
   }
 
-  const { categoryCounts, statusCounts } = calculatePopularity()
-
-  // Sort categories and statuses by popularity (most used first), then by name
-  const sortedCategories = [...CATEGORIES].sort((a, b) => {
-    const countA = categoryCounts[a] || 0
-    const countB = categoryCounts[b] || 0
-    if (countA !== countB) return countB - countA
-    return a.localeCompare(b)
-  })
-
-  const sortedStatuses = [...STATUSES].sort((a, b) => {
-    const countA = statusCounts[a] || 0
-    const countB = statusCounts[b] || 0
-    if (countA !== countB) return countB - countA
-    return a.localeCompare(b)
-  })
-
-  // Sort user custom categories and statuses by popularity
-  const sortedUserCustomCategories = [...userCustomCategories].sort((a, b) => {
-    const countA = categoryCounts[a] || 0
-    const countB = categoryCounts[b] || 0
-    if (countA !== countB) return countB - countA
-    return a.localeCompare(b)
-  })
-
-  const sortedUserCustomStatuses = [...userCustomStatuses].sort((a, b) => {
-    const countA = statusCounts[a] || 0
-    const countB = statusCounts[b] || 0
-    if (countA !== countB) return countB - countA
-    return a.localeCompare(b)
-  })
-
-  const filteredItems = items.filter((item) => {
-    // If no filters selected, show all
-    if (selectedCategories.length === 0 && selectedStatuses.length === 0) return true
-    
-    const itemCategories = parseItemCategories(item)
-    const itemStatuses = parseItemStatuses(item)
-    
-    // Check categories: item must have at least one of the selected categories
-    if (selectedCategories.length > 0) {
-      const hasMatchingCategory = selectedCategories.some(cat => itemCategories.includes(cat))
-      if (!hasMatchingCategory) return false
-    }
-    
-    // Check statuses: item must have at least one of the selected statuses
-    if (selectedStatuses.length > 0) {
-      const hasMatchingStatus = selectedStatuses.some(status => itemStatuses.includes(status))
-      if (!hasMatchingStatus) return false
-    }
-    
-    return true
-  })
-
-  const activeFiltersCount = selectedCategories.length + selectedStatuses.length
+  const clearFilters = () => {
+    setFilters({ categories: [], statuses: [] })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header - Mobile only */}
       <header className="md:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">FiBi</h1>
-            
-            {/* Mobile: Add button and menu in header */}
-            <div className="md:hidden flex items-center gap-2">
-              {filteredItems.length > 0 && (
+            <h1 className="text-xl font-bold text-gray-900">FiBi</h1>
+            <div className="flex items-center gap-2">
+              {items.length > 0 && (
                 <button
                   onClick={() => setShowFilterModal(true)}
-                  className="relative px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                  className="relative px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
                 >
                   Filter
                   {activeFiltersCount > 0 && (
@@ -273,19 +204,17 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               )}
               <Link
                 href="/app/add"
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800"
               >
                 Add
               </Link>
               <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
             </div>
-
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-8">
-        {/* Email confirmation success message */}
         {showConfirmedMessage && (
           <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center justify-between">
             <span>✓ Email confirmed! You&apos;re all set.</span>
@@ -298,395 +227,110 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Instructions - collapsed by default on mobile */}
-        {filteredItems.length > 0 && (
-          <div className="mb-6">
-            <button
-              onClick={() => setShowInstructions(!showInstructions)}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <svg 
-                className={`w-4 h-4 transition-transform ${showInstructions ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              {showInstructions ? 'Hide instructions' : 'How to use Fibi'}
-            </button>
-            {showInstructions && (
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 md:p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick guide</h3>
-                <div className="space-y-3 text-sm text-gray-700">
-                  <div className="flex items-start gap-3">
-                    <span className="font-medium text-gray-900">1.</span>
-                    <p><strong>Install Fibi</strong> as an app to your device for one-tap sharing</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="font-medium text-gray-900">2.</span>
-                    <p>Find a place on TikTok, Instagram, or any website and <strong>share the link to Fibi</strong></p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="font-medium text-gray-900">3.</span>
-                    <p>Fibi automatically fetches the title and preview image, or you can add your own screenshot</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="font-medium text-gray-900">4.</span>
-                    <p>Add location, category, and status to organise your saved places</p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <span className="font-medium text-gray-900">5.</span>
-                    <p>Click any card to view details, edit, or open the original link</p>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-blue-200">
-                  <p className="text-xs text-gray-600">
-                    <strong>Tip:</strong> Install Fibi as a PWA to share links directly from your phone&apos;s share menu.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Filters - Desktop: dropdown multiselects in a row, Mobile: hidden (shown in modal) */}
-        {filteredItems.length > 0 && (
-          <div className="mb-6 md:mb-8 hidden md:flex md:items-center md:gap-3 md:flex-wrap">
-            {/* Category Filter Dropdown */}
-            <div className="relative" ref={categoryDropdownRef}>
-              <button
-                onClick={() => {
-                  setShowCategoryDropdown(!showCategoryDropdown)
-                  setShowStageDropdown(false)
-                }}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <span>Category</span>
-                {selectedCategories.length > 0 && (
-                  <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
-                    {selectedCategories.length}
-                  </span>
-                )}
-                <svg 
-                  className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {showCategoryDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
-                  <div className="p-2 border-b border-gray-200">
-                    <input
-                      type="text"
-                      value={categorySearch}
-                      onChange={(e) => setCategorySearch(e.target.value)}
-                      placeholder="Search categories..."
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    <button
-                      onClick={() => {
-                        setSelectedCategories([])
-                        setCategorySearch('')
-                      }}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
-                        selectedCategories.length === 0
-                          ? 'bg-gray-900 text-white'
-                          : 'hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      All Categories
-                    </button>
-                    {[...sortedCategories, ...sortedUserCustomCategories]
-                      .filter((cat) => 
-                        cat.toLowerCase().includes(categorySearch.toLowerCase())
-                      )
-                      .map((category) => {
-                        const isSelected = selectedCategories.includes(category)
-                        return (
-                          <button
-                            key={category}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedCategories(selectedCategories.filter(c => c !== category))
-                              } else {
-                                setSelectedCategories([...selectedCategories, category])
-                              }
-                            }}
-                            className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
-                              isSelected
-                                ? 'bg-gray-900 text-white'
-                                : 'hover:bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            <svg
-                              className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            {category}
-                          </button>
-                        )
-                      })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Stage Filter Dropdown */}
-            <div className="relative" ref={stageDropdownRef}>
-              <button
-                onClick={() => {
-                  setShowStageDropdown(!showStageDropdown)
-                  setShowCategoryDropdown(false)
-                }}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <span>Stage</span>
-                {selectedStatuses.length > 0 && (
-                  <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
-                    {selectedStatuses.length}
-                  </span>
-                )}
-                <svg 
-                  className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              
-              {showStageDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
-                  <div className="p-2 border-b border-gray-200">
-                    <input
-                      type="text"
-                      value={stageSearch}
-                      onChange={(e) => setStageSearch(e.target.value)}
-                      placeholder="Search stages..."
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    <button
-                      onClick={() => {
-                        setSelectedStatuses([])
-                        setStageSearch('')
-                      }}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
-                        selectedStatuses.length === 0
-                          ? 'bg-gray-900 text-white'
-                          : 'hover:bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      All Stages
-                    </button>
-                    {[...sortedStatuses, ...sortedUserCustomStatuses]
-                      .filter((status) => 
-                        status.toLowerCase().includes(stageSearch.toLowerCase())
-                      )
-                      .map((status) => {
-                        const isSelected = selectedStatuses.includes(status)
-                        return (
-                          <button
-                            key={status}
-                            onClick={() => {
-                              if (isSelected) {
-                                setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                              } else {
-                                setSelectedStatuses([...selectedStatuses, status])
-                              }
-                            }}
-                            className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
-                              isSelected
-                                ? 'bg-gray-900 text-white'
-                                : 'hover:bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            <svg
-                              className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            {status}
-                          </button>
-                        )
-                      })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Selected Filters Display */}
-            {(selectedCategories.length > 0 || selectedStatuses.length > 0) && (
+        {/* Filters - Desktop: horizontal chips, Mobile: modal */}
+        {items.length > 0 && (
+          <div className="mb-6 md:mb-8 hidden md:block">
+            <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                {selectedCategories.map((cat) => (
-                  <span
-                    key={cat}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                <span className="text-sm font-medium text-gray-700">Category:</span>
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
+                  className={`px-3 py-1 text-sm rounded-md ${
+                    filters.categories.length === 0
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All
+                </button>
+                {[...sortedCategories, ...sortedUserCustomCategories].map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => toggleFilter('categories', category)}
+                    className={`px-3 py-1 text-sm rounded-md ${
+                      filters.categories.includes(category)
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                   >
-                    {cat}
-                    <button
-                      onClick={() => setSelectedCategories(selectedCategories.filter(c => c !== cat))}
-                      className="hover:text-gray-300"
-                    >
-                      ×
-                    </button>
-                  </span>
+                    {category}
+                  </button>
                 ))}
-                {selectedStatuses.map((status) => (
-                  <span
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-gray-700">Stage:</span>
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}
+                  className={`px-3 py-1 text-sm rounded-md ${
+                    filters.statuses.length === 0
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All
+                </button>
+                {[...sortedStatuses, ...sortedUserCustomStatuses].map((status) => (
+                  <button
                     key={status}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                    onClick={() => toggleFilter('statuses', status)}
+                    className={`px-3 py-1 text-sm rounded-md ${
+                      filters.statuses.includes(status)
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                   >
                     {status}
-                    <button
-                      onClick={() => setSelectedStatuses(selectedStatuses.filter(s => s !== status))}
-                      className="hover:text-gray-300"
-                    >
-                      ×
-                    </button>
-                  </span>
+                  </button>
                 ))}
+              </div>
+              {activeFiltersCount > 0 && (
                 <button
-                  onClick={() => {
-                    setSelectedCategories([])
-                    setSelectedStatuses([])
-                  }}
-                  className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                  onClick={clearFilters}
+                  className="text-sm text-gray-500 hover:text-gray-700"
                 >
                   Clear all
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
         {/* Empty state */}
         {!loading && filteredItems.length === 0 && (
           <div className="max-w-3xl mx-auto">
-            {/* Show filter empty state if filters are active and there are items */}
             {items.length > 0 && activeFiltersCount > 0 ? (
               <div className="text-center py-12 md:py-16">
-                <div className="mb-4">
-                  <svg
-                    className="mx-auto h-12 w-12 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
                 <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-2">
                   No places match your filters
                 </h2>
                 <p className="text-sm md:text-base text-gray-600 mb-6">
-                  Try adjusting your category or status filters to see more results.
+                  Try adjusting your filters to see more results.
                 </p>
                 <button
-                  onClick={() => {
-                    setSelectedCategories([])
-                    setSelectedStatuses([])
-                  }}
-                  className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+                  onClick={clearFilters}
+                  className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800"
                 >
                   Clear all filters
                 </button>
               </div>
             ) : (
-              /* Show full empty state if no items at all */
-              <>
-                <div className="text-center mb-8 md:mb-12">
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                    Save places you don&apos;t want to forget
-                  </h2>
-                  <p className="text-base md:text-lg text-gray-600">
-                    From TikTok, Instagram, and the web — all in one calm place.
-                  </p>
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 md:p-8 mb-6 md:mb-8">
-                  <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-6 text-center">
-                    How it works
-                  </h3>
-                  <div className="space-y-4 md:space-y-6 max-w-2xl mx-auto">
-                    <div className="flex items-start gap-3 md:gap-4">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
-                        1
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-gray-900 font-medium">Share a link to Fibi</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 md:gap-4">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
-                        2
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-gray-900 font-medium">Add a screenshot or note so you remember why</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3 md:gap-4">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-medium">
-                        3
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-gray-900 font-medium">Find it again later by location or category</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-center mb-6 md:mb-8">
-                  <p className="text-sm text-gray-600">
-                    Some apps don&apos;t share previews — a screenshot keeps the context.
-                  </p>
-                </div>
-
-                <div className="text-center">
-                  <Link
-                    href="/app/add"
-                    className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors mb-2"
-                  >
-                    Add your first place
-                  </Link>
-                  <p className="text-sm text-gray-500">
-                    Or share a link from another app
-                  </p>
-                </div>
-              </>
+              <div className="text-center py-12 md:py-16">
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+                  Save places you don&apos;t want to forget
+                </h2>
+                <p className="text-base md:text-lg text-gray-600 mb-8">
+                  From TikTok, Instagram, and the web — all in one calm place.
+                </p>
+                <Link
+                  href="/app/add"
+                  className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 mb-2"
+                >
+                  Add your first place
+                </Link>
+                <p className="text-sm text-gray-500">
+                  Or share a link from another app
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -706,53 +350,41 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Grid - Mobile: single column, Desktop: grid */}
+        {/* Grid */}
         {!loading && filteredItems.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {filteredItems.map((item) => {
               const displayTitle = item.title || getHostname(item.url)
+              const itemStatuses = parseItemField(item.status)
               
-              const getPlatformBadgeStyle = (platform: string) => {
-                switch (platform) {
-                  case 'TikTok':
-                    return 'bg-black text-white'
-                  case 'Instagram':
-                    return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
-                  case 'YouTube':
-                    return 'bg-red-600 text-white'
-                  default:
-                    return 'bg-gray-700 text-white'
+              const getPlatformStyle = (platform: string) => {
+                const styles: Record<string, string> = {
+                  'TikTok': 'bg-black text-white',
+                  'Instagram': 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
+                  'YouTube': 'bg-red-600 text-white',
                 }
+                return styles[platform] || 'bg-gray-700 text-white'
               }
 
-              const getStatusStyle = (status: string | null) => {
-                if (!status) return 'bg-gray-100 text-gray-700'
-                switch (status) {
-                  case 'To plan':
-                    return 'bg-gray-100 text-gray-700'
-                  case 'Planned':
-                    return 'bg-blue-100 text-blue-700'
-                  case 'Been':
-                    return 'bg-green-100 text-green-700'
-                  case 'Would love to go':
-                    return 'bg-purple-100 text-purple-700'
-                  case 'Maybe':
-                    return 'bg-yellow-100 text-yellow-700'
-                  default:
-                    return 'bg-gray-100 text-gray-700'
+              const getStatusStyle = (status: string) => {
+                const styles: Record<string, string> = {
+                  'To plan': 'bg-gray-100 text-gray-700',
+                  'Planned': 'bg-blue-100 text-blue-700',
+                  'Been': 'bg-green-100 text-green-700',
+                  'Would love to go': 'bg-purple-100 text-purple-700',
+                  'Maybe': 'bg-yellow-100 text-yellow-700',
                 }
+                return styles[status] || 'bg-gray-100 text-gray-700'
               }
 
               return (
                 <Link
                   key={item.id}
                   href={`/item/${item.id}`}
-                  className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col"
+                  className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col"
                 >
-                  {/* Preview area - Screenshot OR embedded preview */}
-                  <div className="aspect-[4/3] md:aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                  <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                     {item.screenshot_url ? (
-                      // Show screenshot if uploaded
                       <>
                         <img
                           src={item.screenshot_url}
@@ -761,91 +393,40 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           loading="lazy"
                         />
                         <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
-                          Your screenshot
-                        </div>
-                        {/* Platform badge - inside card, bottom left on mobile */}
-                        <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformBadgeStyle(item.platform)}`}>
-                          {item.platform}
-                        </div>
-                      </>
-                    ) : item.thumbnail_url ? (
-                      // Show embed preview (oEmbed thumbnail or OG thumbnail) if no screenshot but has thumbnail
-                      <>
-                        <EmbedPreview
-                          url={item.url}
-                          thumbnailUrl={item.thumbnail_url}
-                          platform={item.platform}
-                          displayTitle={displayTitle}
-                        />
-                        <div className="hidden w-full h-full items-center justify-center bg-gray-50">
-                          <div className="text-center px-4">
-                            <div className="text-gray-400 text-2xl md:text-3xl mb-2">
-                              {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
-                            </div>
-                            <p className="text-xs text-gray-500">Preview unavailable</p>
-                          </div>
-                        </div>
-                        {/* Platform badge - inside card, bottom left on mobile */}
-                        <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium z-10 ${getPlatformBadgeStyle(item.platform)}`}>
-                          {item.platform}
+                          Screenshot
                         </div>
                       </>
                     ) : (
-                      // Show placeholder if no screenshot and no thumbnail (oEmbed will try to fetch)
-                      <>
-                        {/* Placeholder - positioned absolutely so image can overlay it */}
-                        <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
-                          <div className="text-center px-4">
-                            <div className="text-gray-400 text-2xl md:text-3xl mb-2">
-                              {item.platform === 'TikTok' ? '🎵' : item.platform === 'Instagram' ? '📷' : item.platform === 'YouTube' ? '▶️' : '🔗'}
-                            </div>
-                            <p className="text-xs text-gray-500">Preview unavailable</p>
-                            <p className="text-xs text-gray-400 mt-1">Add a screenshot to remember this place</p>
-                          </div>
-                        </div>
-                        {/* EmbedPreview - will overlay placeholder if image loads */}
-                        <div className="relative w-full h-full">
-                          <EmbedPreview
-                            url={item.url}
-                            thumbnailUrl={null}
-                            platform={item.platform}
-                            displayTitle={displayTitle}
-                          />
-                        </div>
-                        {/* Platform badge - inside card, bottom left on mobile */}
-                        <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium z-10 ${getPlatformBadgeStyle(item.platform)}`}>
-                          {item.platform}
-                        </div>
-                      </>
+                      <EmbedPreview
+                        url={item.url}
+                        thumbnailUrl={item.thumbnail_url}
+                        platform={item.platform}
+                        displayTitle={displayTitle}
+                      />
                     )}
+                    <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformStyle(item.platform)}`}>
+                      {item.platform}
+                    </div>
                   </div>
 
-                  {/* Content area */}
                   <div className="p-3 md:p-4 flex-1 flex flex-col">
-                    <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 flex-shrink-0 text-sm md:text-base">
+                    <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 text-sm md:text-base">
                       {displayTitle}
                     </h3>
                     {(item.location_city || item.location_country) && (
-                      <p className="text-xs md:text-sm text-gray-600 mb-2 flex-shrink-0">
+                      <p className="text-xs md:text-sm text-gray-600 mb-2">
                         {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                       </p>
                     )}
-                    {/* Status pills - show multiple */}
-                    {(() => {
-                      const itemStatuses = parseItemStatuses(item)
-                      if (itemStatuses.length > 0) {
-                        return (
-                          <div className="mt-auto pt-2 flex flex-wrap gap-1.5">
-                            {itemStatuses.map((status, idx) => (
-                              <span key={idx} className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(status)}`}>
-                                {status}
-                              </span>
-                            ))}
-                          </div>
-                        )
-                      }
-                      return null
-                    })()}
+                    {itemStatuses.length > 0 && (
+                      <div className="mt-auto pt-2 flex flex-wrap gap-1.5">
+                        {itemStatuses.map((status, idx) => (
+                          <span key={idx} className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(status)}`}>
+                            {status}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </Link>
               )
@@ -888,150 +469,82 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             </div>
             
             <div className="p-4 space-y-6">
-              {/* Category Filter */}
               <div>
                 <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Category</h3>
                 <div className="overflow-x-auto pb-2 -mx-2 px-2">
                   <div className="flex gap-2 min-w-max">
-                  <button
-                    onClick={() => setSelectedCategories([])}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                      selectedCategories.length === 0
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    All
-                  </button>
-                  {sortedCategories.map((category) => {
-                    const isSelected = selectedCategories.includes(category)
-                    return (
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                        filters.categories.length === 0
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {[...sortedCategories, ...sortedUserCustomCategories].map((category) => (
                       <button
                         key={category}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedCategories(selectedCategories.filter(c => c !== category))
-                          } else {
-                            setSelectedCategories([...selectedCategories, category])
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                          isSelected
+                        onClick={() => toggleFilter('categories', category)}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                          filters.categories.includes(category)
                             ? 'bg-gray-900 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
                         {category}
                       </button>
-                    )
-                  })}
-                  {sortedUserCustomCategories.map((category) => {
-                    const isSelected = selectedCategories.includes(category)
-                    return (
-                      <button
-                        key={category}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedCategories(selectedCategories.filter(c => c !== category))
-                          } else {
-                            setSelectedCategories([...selectedCategories, category])
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                          isSelected
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                        }`}
-                      >
-                        {category}
-                      </button>
-                    )
-                  })}
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Stage Filter */}
               <div>
                 <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Stage</h3>
                 <div className="overflow-x-auto pb-2 -mx-2 px-2">
                   <div className="flex gap-2 min-w-max">
-                  <button
-                    onClick={() => setSelectedStatuses([])}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                      selectedStatuses.length === 0
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    All
-                  </button>
-                  {sortedStatuses.map((status) => {
-                    const isSelected = selectedStatuses.includes(status)
-                    return (
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                        filters.statuses.length === 0
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      All
+                    </button>
+                    {[...sortedStatuses, ...sortedUserCustomStatuses].map((status) => (
                       <button
                         key={status}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                          } else {
-                            setSelectedStatuses([...selectedStatuses, status])
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                          isSelected
+                        onClick={() => toggleFilter('statuses', status)}
+                        className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                          filters.statuses.includes(status)
                             ? 'bg-gray-900 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
                         {status}
                       </button>
-                    )
-                  })}
-                  {sortedUserCustomStatuses.map((status) => {
-                    const isSelected = selectedStatuses.includes(status)
-                    return (
-                      <button
-                        key={status}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedStatuses(selectedStatuses.filter(s => s !== status))
-                          } else {
-                            setSelectedStatuses([...selectedStatuses, status])
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                          isSelected
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    )
-                  })}
+                    ))}
                   </div>
                 </div>
               </div>
 
-              {/* Clear and Apply Buttons */}
               <div className="pt-4 border-t border-gray-200 space-y-2">
                 {activeFiltersCount > 0 && (
                   <button
-                    onClick={() => {
-                      setSelectedCategories([])
-                      setSelectedStatuses([])
-                    }}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={clearFilters}
+                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Clear filters
                   </button>
                 )}
                 <button
                   onClick={() => setShowFilterModal(false)}
-                  className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                  className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800"
                 >
-                  Apply filters
+                  Done
                 </button>
               </div>
             </div>

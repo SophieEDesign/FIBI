@@ -13,11 +13,11 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
 
   return (
     <>
-      <DesktopNavigation user={user} />
+      {!loading && <DesktopNavigation user={user} />}
       {children}
       <BottomNavigation />
     </>
