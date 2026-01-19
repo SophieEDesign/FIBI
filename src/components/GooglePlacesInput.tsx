@@ -426,6 +426,9 @@ export default function GooglePlacesInput({
         {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
           <p className="mt-1 text-xs text-gray-500">Google Maps API key not configured. Manual entry available below.</p>
         )}
+        <p className="mt-1 text-xs text-gray-500">
+          Click to search from Google Maps, or type to use autocomplete
+        </p>
       </div>
 
       {/* Manual fallback inputs */}

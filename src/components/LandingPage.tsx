@@ -30,7 +30,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="bg-gray-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg"
             >
               Sign in
             </Link>
@@ -39,33 +39,54 @@ export default function LandingPage() {
       </header>
 
       <main>
-        {/* Hero Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            {/* Text Content */}
-            <div className="space-y-6">
-              <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
-                Save places before you lose them
+        {/* Hero Section - Image at Top */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 lg:pt-12 lg:pb-24">
+          {/* Hero Image */}
+          <div className="mb-12 lg:mb-16">
+            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 via-cyan-400 to-blue-600 shadow-xl">
+              <img
+                src="/hero-image.png"
+                alt="FiBi - Save Your Travel Places"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Text Content */}
+          <div className="max-w-3xl mx-auto text-center space-y-6">
+            <h2 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent leading-tight">
+              Save places before you lose them
+            </h2>
+            <p className="text-xl text-gray-700 leading-relaxed">
+              Share from TikTok, Instagram, or any app. Visual previews pull through automatically — or add your own.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center">
+              <Link
+                href="/login"
+                className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl text-center"
+              >
+                Get started
+              </Link>
+            </div>
+            <p className="text-sm text-gray-600 pt-2">
+              Install Fibi to share in one tap
+            </p>
+          </div>
+        </section>
+
+        {/* Video Section - Moved Down */}
+        <section className="bg-gradient-to-b from-white to-blue-50/30 py-16 lg:py-24">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent mb-4">
+                See how it works
               </h2>
-              <p className="text-xl text-gray-600 leading-relaxed">
-                Share from TikTok, Instagram, or any app. Visual previews pull through automatically — or add your own.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Link
-                  href="/login"
-                  className="bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors text-center"
-                >
-                  Get started
-                </Link>
-              </div>
-              <p className="text-sm text-gray-500 pt-2">
-                Install Fibi to share in one tap
+              <p className="text-lg text-gray-700">
+                Watch how easy it is to save your favorite places
               </p>
             </div>
-
-            {/* Hero Video */}
             <div className="relative">
-              <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-50">
+              <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 via-cyan-400 to-purple-500 shadow-2xl">
                 <video
                   src="/FiBi__Save_Your_Places.mp4"
                   autoPlay
@@ -84,15 +105,15 @@ export default function LandingPage() {
         </section>
 
         {/* How it works Section */}
-        <section className="bg-gray-50 py-16 lg:py-24">
+        <section className="bg-gradient-to-b from-blue-50/30 to-white py-16 lg:py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 text-center mb-12 lg:mb-16">
+            <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent text-center mb-12 lg:mb-16">
               How it works
             </h2>
             <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
               {/* Step 1 */}
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
                   <img
                     src="/1.png"
                     alt="Save it"
@@ -102,14 +123,14 @@ export default function LandingPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Save it
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-700">
                   Just click share from the app. Fibi automatically pulls through a visual preview.
                 </p>
               </div>
 
               {/* Step 2 */}
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-orange-400 via-amber-400 to-purple-500 rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
                   <img
                     src="/2.png"
                     alt="Make it yours"
@@ -119,14 +140,14 @@ export default function LandingPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Make it yours
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-700">
                   Optional: add your own screenshot. Name it and choose a location.
                 </p>
               </div>
 
               {/* Step 3 */}
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
                   <img
                     src="/3.png"
                     alt="Find it later"
@@ -136,7 +157,7 @@ export default function LandingPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Find it later
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-700">
                   Everything organised in one calm place.
                 </p>
               </div>
@@ -172,7 +193,7 @@ export default function LandingPage() {
 
               {/* Text Content */}
               <div className="order-1 lg:order-2 space-y-8">
-                <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
+                <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">
                   Why Fibi?
                 </h2>
                 <div className="space-y-6">
@@ -207,9 +228,9 @@ export default function LandingPage() {
         </section>
 
         {/* Reassurance Line */}
-        <section className="bg-gray-50 py-12">
+        <section className="bg-gradient-to-r from-blue-50 via-cyan-50/50 to-blue-50 py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <p className="text-center text-gray-600 max-w-2xl mx-auto">
+            <p className="text-center text-gray-700 max-w-2xl mx-auto">
               Share from TikTok, Instagram, or any app. Fibi automatically pulls through a visual preview — or add your own.
             </p>
           </div>
@@ -219,19 +240,19 @@ export default function LandingPage() {
         <section className="py-16 lg:py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl mx-auto text-center space-y-6">
-              <h2 className="text-3xl lg:text-4xl font-bold text-gray-900">
+              <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent">
                 Ready to start saving?
               </h2>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Link
                   href="/login"
-                  className="bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                  className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl"
                 >
                   Sign in to start saving
                 </Link>
                 <button
                   onClick={handleInstallClick}
-                  className="bg-white text-gray-900 px-6 py-3 rounded-lg font-medium border border-gray-300 hover:bg-gray-50 transition-colors"
+                  className="bg-white text-gray-900 px-6 py-3 rounded-lg font-medium border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all shadow-md hover:shadow-lg"
                 >
                   Install the app
                 </button>

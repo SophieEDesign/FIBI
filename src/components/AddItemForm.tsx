@@ -1121,14 +1121,19 @@ export default function AddItemForm() {
       return
     }
 
-    if (aiSuggestions.placeName) {
-      // Try to search for the place name
-      console.log('handleAcceptAILocation: Searching for place:', aiSuggestions.placeName)
+    // Build search query from available data
+    const searchQuery = aiSuggestions.placeName || 
+      [aiSuggestions.city, aiSuggestions.country].filter(Boolean).join(', ') || 
+      null
+
+    if (searchQuery) {
+      // Try to search for the place
+      console.log('handleAcceptAILocation: Searching for place:', searchQuery)
       try {
         const response = await fetch('/api/places', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: aiSuggestions.placeName }),
+          body: JSON.stringify({ query: searchQuery }),
         })
 
         if (response.ok) {
@@ -1145,73 +1150,44 @@ export default function AddItemForm() {
             }
             
             console.log('handleAcceptAILocation: Setting place from search:', googlePlace)
-            setSelectedPlace(googlePlace)
+            // Set the location search value FIRST so it appears in the input
             setLocationSearchValue(googlePlace.place_name)
+            // Then set the place which will trigger the onChange handler
+            setSelectedPlace(googlePlace)
             setLocationCity(googlePlace.city || '')
             setLocationCountry(googlePlace.country || '')
             userEditedLocation.current = true
             setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
-          } else {
-            console.log('handleAcceptAILocation: No place found from search, falling back to city/country')
-            // Fall through to city/country handling
-            // If we have a placeName but no city, use placeName as city (e.g., "Cornwall" -> city)
-            const cityToSet = aiSuggestions.city || (aiSuggestions.placeName ? aiSuggestions.placeName : null)
-            if (cityToSet) {
-              console.log('handleAcceptAILocation: Setting city:', cityToSet, { fromPlaceName: !aiSuggestions.city })
-              setLocationCity(cityToSet)
-            }
-            if (aiSuggestions.country) {
-              console.log('handleAcceptAILocation: Setting country:', aiSuggestions.country)
-              setLocationCountry(aiSuggestions.country)
-            }
-            userEditedLocation.current = true
-            setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
+            return
           }
-        } else {
-          console.log('handleAcceptAILocation: Places API error, falling back to city/country')
-          // Fall through to city/country handling
-          // If we have a placeName but no city, use placeName as city
-          const cityToSet = aiSuggestions.city || (aiSuggestions.placeName ? aiSuggestions.placeName : null)
-          if (cityToSet) {
-            console.log('handleAcceptAILocation: Setting city (API error):', cityToSet)
-            setLocationCity(cityToSet)
-          }
-          if (aiSuggestions.country) {
-            console.log('handleAcceptAILocation: Setting country (API error):', aiSuggestions.country)
-            setLocationCountry(aiSuggestions.country)
-          }
-          userEditedLocation.current = true
-          setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
         }
       } catch (err) {
         console.error('Error accepting AI location:', err)
-        // Fall through to city/country handling
-        // If we have a placeName but no city, use placeName as city
-        const cityToSet = aiSuggestions.city || (aiSuggestions.placeName ? aiSuggestions.placeName : null)
-        if (cityToSet) {
-          console.log('handleAcceptAILocation: Setting city (error):', cityToSet)
-          setLocationCity(cityToSet)
-        }
-        if (aiSuggestions.country) {
-          console.log('handleAcceptAILocation: Setting country (error):', aiSuggestions.country)
-          setLocationCountry(aiSuggestions.country)
-        }
-        userEditedLocation.current = true
-        setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
       }
-    } else if (aiSuggestions.city || aiSuggestions.country) {
-      // If we have city/country but no place, just set those
-      console.log('handleAcceptAILocation: Setting city/country only', {
-        city: aiSuggestions.city,
-        country: aiSuggestions.country,
-      })
-      if (aiSuggestions.city) setLocationCity(aiSuggestions.city)
-      if (aiSuggestions.country) setLocationCountry(aiSuggestions.country)
-      userEditedLocation.current = true
-      setAiSuggestions(prev => prev ? { ...prev, city: null, country: null } : null)
-    } else {
-      console.log('handleAcceptAILocation: No location data to set')
     }
+
+    // Fallback: If no place found or no search query, set city/country directly
+    // Also set the search value so it appears in the input field
+    const locationText = aiSuggestions.placeName || 
+      [aiSuggestions.city, aiSuggestions.country].filter(Boolean).join(', ') || 
+      ''
+    
+    if (locationText) {
+      console.log('handleAcceptAILocation: Setting location text in input:', locationText)
+      setLocationSearchValue(locationText)
+    }
+    
+    if (aiSuggestions.city) {
+      console.log('handleAcceptAILocation: Setting city:', aiSuggestions.city)
+      setLocationCity(aiSuggestions.city)
+    }
+    if (aiSuggestions.country) {
+      console.log('handleAcceptAILocation: Setting country:', aiSuggestions.country)
+      setLocationCountry(aiSuggestions.country)
+    }
+    
+    userEditedLocation.current = true
+    setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
   }
 
   // Accept AI category suggestion
