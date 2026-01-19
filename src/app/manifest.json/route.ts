@@ -42,6 +42,12 @@ export async function GET() {
         orientation: 'portrait',
         icons: [
           {
+            src: '/FIBI Logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+          {
             src: '/icon.svg',
             sizes: 'any',
             type: 'image/svg+xml',

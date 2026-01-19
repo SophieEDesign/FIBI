@@ -61,7 +61,8 @@ export default function RootLayout({
     <html lang="en-GB">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/FIBI Logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/FIBI Logo.png" />
         <meta name="theme-color" content="#171717" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

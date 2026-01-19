@@ -18,6 +18,7 @@ async function getAppVersion() {
 
 const urlsToCache = [
   '/manifest.json',
+  '/FIBI Logo.png',
   '/icon.svg'
 ]
 
