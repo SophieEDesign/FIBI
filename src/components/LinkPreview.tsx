@@ -10,6 +10,7 @@ interface LinkPreviewProps {
   description?: string | null
   platform?: string | null
   onImageLoad?: () => void
+  hideLabel?: boolean
 }
 
 interface OEmbedData {
@@ -20,7 +21,7 @@ interface OEmbedData {
   provider_name?: string | null
 }
 
-export default function LinkPreview({ url, ogImage, screenshotUrl, description, platform: platformProp, onImageLoad }: LinkPreviewProps) {
+export default function LinkPreview({ url, ogImage, screenshotUrl, description, platform: platformProp, onImageLoad, hideLabel = false }: LinkPreviewProps) {
   const [oembedData, setOembedData] = useState<OEmbedData | null>(null)
   const [loading, setLoading] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
@@ -206,9 +207,11 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     // Instagram and YouTube oEmbed HTML are iframes
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-          <p className="text-xs text-gray-600">{previewLabel}</p>
-        </div>
+        {!hideLabel && (
+          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <p className="text-xs text-gray-600">{previewLabel}</p>
+          </div>
+        )}
         <div 
           className="relative w-full flex items-center justify-center bg-white"
           style={{ minHeight: isTikTok ? '800px' : isYouTube ? '450px' : '400px' }}
@@ -287,9 +290,11 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
       // If no image available, show placeholder with link - always show something
       return (
         <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-            <p className="text-xs text-gray-600">{previewLabel}</p>
-          </div>
+          {!hideLabel && (
+            <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+              <p className="text-xs text-gray-600">{previewLabel}</p>
+            </div>
+          )}
           <div className="p-8 text-center">
             <div className="text-gray-400 text-4xl mb-3">
               {isTikTok ? '🎵' : isInstagram ? '📷' : isYouTube ? '▶️' : '🔗'}
@@ -319,9 +324,11 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
 
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-          <p className="text-xs text-gray-600">{previewLabel}</p>
-        </div>
+        {!hideLabel && (
+          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <p className="text-xs text-gray-600">{previewLabel}</p>
+          </div>
+        )}
         <div className="relative w-full bg-gray-100" style={{ aspectRatio: '16/9', minHeight: '200px' }}>
           <img
             src={imageUrl || undefined}
@@ -383,9 +390,11 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   if (isMobile && oembedData?.html && !previewSource) {
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-          <p className="text-xs text-gray-600">{previewLabel}</p>
-        </div>
+        {!hideLabel && (
+          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <p className="text-xs text-gray-600">{previewLabel}</p>
+          </div>
+        )}
         <div className="px-3 py-8 bg-gray-50 text-center">
           <div className="text-gray-400 text-4xl mb-3">
             {isTikTok ? '🎵' : isInstagram ? '📷' : isYouTube ? '▶️' : '🔗'}
@@ -420,9 +429,11 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   if (url.trim() && !loading && !previewSource && !hasAnySource) {
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-          <p className="text-xs text-gray-600">{previewLabel}</p>
-        </div>
+        {!hideLabel && (
+          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <p className="text-xs text-gray-600">{previewLabel}</p>
+          </div>
+        )}
         <div className="p-8 text-center">
           <p className="text-sm text-gray-500 mb-3">
             Preview not available · Add screenshot
@@ -453,9 +464,11 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   if (url.trim() && !loading && !previewSource && hasAnySource) {
     return (
       <div className="w-full bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
-          <p className="text-xs text-gray-600">{previewLabel}</p>
-        </div>
+        {!hideLabel && (
+          <div className="px-3 py-2 bg-gray-100 border-b border-gray-200">
+            <p className="text-xs text-gray-600">{previewLabel}</p>
+          </div>
+        )}
         <div className="p-8 text-center">
           <p className="text-sm text-gray-500 mb-3">
             Preview not available · Add screenshot

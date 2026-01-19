@@ -1757,6 +1757,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
               screenshotUrl={item.screenshot_url}
               description={item.description}
               platform={item.platform}
+              hideLabel={true}
             />
           )}
         </div>
@@ -1792,6 +1793,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
               screenshotUrl={item.screenshot_url}
               description={item.description}
               platform={item.platform}
+              hideLabel={true}
             />
           )}
         </div>
@@ -1826,6 +1828,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
             screenshotUrl={item.screenshot_url}
             description={item.description}
             platform={item.platform}
+            hideLabel={true}
           />
         )}
       </div>
@@ -1927,6 +1930,7 @@ function PlaceListItem({ item, isDragging, onSelect, onAssignDate, isMobile = fa
               screenshotUrl={item.screenshot_url}
               description={item.description}
               platform={item.platform}
+              hideLabel={true}
             />
           )}
         </div>
@@ -2065,13 +2069,14 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
             </div>
           ) : (
             <div className="aspect-video w-full bg-gray-100 relative overflow-hidden">
-              <LinkPreview
-                url={item.url}
-                ogImage={item.thumbnail_url}
-                screenshotUrl={item.screenshot_url}
-                description={item.description}
-                platform={item.platform}
-              />
+          <LinkPreview
+            url={item.url}
+            ogImage={item.thumbnail_url}
+            screenshotUrl={item.screenshot_url}
+            description={item.description}
+            platform={item.platform}
+            hideLabel={true}
+          />
             </div>
           )}
           {/* Close button overlay */}
