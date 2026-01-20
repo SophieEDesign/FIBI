@@ -4,11 +4,29 @@ import { join } from 'path'
 
 /**
  * Route handler for manifest.json
- * Explicitly serves the static file to bypass any caching issues
- * This route is PUBLIC - no authentication required
+ * PUBLIC route - no authentication required
+ * Handles both GET and OPTIONS (CORS preflight)
  */
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
+export const revalidate = 0
+
+// CORS headers for public access
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Content-Type': 'application/manifest+json',
+  'Cache-Control': 'public, max-age=3600, must-revalidate',
+}
+
+// Handle OPTIONS (CORS preflight)
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: corsHeaders,
+  })
+}
 
 export async function GET() {
   try {
@@ -19,13 +37,7 @@ export async function GET() {
 
     return NextResponse.json(manifest, {
       status: 200,
-      headers: {
-        'Content-Type': 'application/manifest+json',
-        'Cache-Control': 'public, max-age=3600, must-revalidate',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+      headers: corsHeaders,
     })
   } catch (error) {
     console.error('Error serving manifest.json:', error)
@@ -58,11 +70,7 @@ export async function GET() {
       },
       {
         status: 200,
-        headers: {
-          'Content-Type': 'application/manifest+json',
-          'Cache-Control': 'public, max-age=3600, must-revalidate',
-          'Access-Control-Allow-Origin': '*',
-        },
+        headers: corsHeaders,
       }
     )
   }
