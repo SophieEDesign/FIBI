@@ -223,15 +223,9 @@ export default function SignupClient() {
         return
       }
       
-      // Check if sign up was successful
-      if (data?.user) {
-        setSuccessMessage('Please check your email to confirm your account before signing in.')
-        setEmail('')
-        setPassword('')
-        setConfirmPassword('')
-      } else {
-        setError('Sign up failed. Please try again.')
-      }
+      // If we get here without success or error, something unexpected happened
+      setError('Sign up failed. Please try again.')
+      setLoading(false)
     } catch (err: any) {
       console.error('Signup error:', err)
       const errorMessage = err.message || err.error?.message || 'An error occurred. Please try again.'
