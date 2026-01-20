@@ -92,14 +92,14 @@ export default function LandingPage() {
             <div className="relative">
               <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 via-cyan-400 to-purple-500 shadow-2xl">
                 <video
-                  src="/FiBi__Save_Your_Places.mp4"
+                  src="/FiBi__Your_Next_Trip (2).mp4"
                   autoPlay
                   muted
                   loop
                   playsInline
                   controls
                   className="w-full h-full object-cover"
-                  aria-label="FiBi - Save Your Places video"
+                  aria-label="FiBi - Your Next Trip video"
                 >
                   Your browser does not support the video tag.
                 </video>
