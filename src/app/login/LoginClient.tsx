@@ -357,7 +357,7 @@ export default function LoginClient() {
           {viewMode === 'forgot-password' && (
             <div className="text-center">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Reset Password</h2>
-              <p className="text-sm text-gray-600">Enter your email address and we'll send you a link to reset your password.</p>
+              <p className="text-sm text-gray-600">Enter your email address and we&apos;ll send you a link to reset your password.</p>
             </div>
           )}
 
