@@ -4,7 +4,8 @@
 - ✅ Login form works correctly
 - ✅ Signup form works correctly  
 - ✅ Password reset flow implemented
-- ⚠️ Email confirmation may have issues (SMTP configuration)
+- ✅ SMTP configuration fixed (port changed from 581 to 587)
+- ✅ Email confirmation should now work
 
 ## Potential Issues
 
@@ -128,15 +129,10 @@
 
 Based on "it worked in the beginning", the most likely issue is:
 
-**SMTP Configuration Issue - INCORRECT PORT:**
-- Current port: **581** ❌
-- Gmail SMTP requires: **587** (TLS) or **465** (SSL) ✅
-- Port 581 is invalid and will cause email sending to fail
-
-**Fix Required:**
-1. Go to Supabase Dashboard → Authentication → Settings → SMTP
-2. Change port from **581** to **587** (recommended) or **465**
-3. Ensure you're using an **App Password** (not regular Gmail password)
+**SMTP Configuration Issue - FIXED ✅**
+- ~~Port was incorrectly set to **581**~~ → Fixed to **587** ✅
+- Gmail SMTP now using correct port: **587** (TLS)
+- Ensure you're using an **App Password** (not regular Gmail password)
    - Gmail requires App Passwords for SMTP when 2FA is enabled
    - Generate at: Google Account → Security → App Passwords
 

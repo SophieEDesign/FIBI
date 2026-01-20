@@ -4,16 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSiteUrl } from '@/lib/utils'
+import Link from 'next/link'
 
-type ViewMode = 'login' | 'signup' | 'forgot-password'
+type ViewMode = 'login' | 'forgot-password'
 
 export default function LoginClient() {
   const [viewMode, setViewMode] = useState<ViewMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [emailStatus, setEmailStatus] = useState<'unknown' | 'exists' | 'new'>('unknown')
   const [error, setError] = useState<string | null>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -94,12 +93,6 @@ export default function LoginClient() {
     }
   }, [router, searchParams, supabase])
 
-  // Clear email status when email changes
-  useEffect(() => {
-    if (!email || !email.includes('@')) {
-      setEmailStatus('unknown')
-    }
-  }, [email])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -137,71 +130,6 @@ export default function LoginClient() {
         
         setSuccessMessage('Password reset instructions have been sent to your email. Please check your inbox.')
         setEmail('')
-      } else if (viewMode === 'signup') {
-        // Validate password match
-        if (password !== confirmPassword) {
-          setError('Passwords do not match.')
-          setLoading(false)
-          return
-        }
-
-        // Validate password length
-        if (password.length < 6) {
-          setError('Password must be at least 6 characters long.')
-          setLoading(false)
-          return
-        }
-
-        // Check if email already exists before signing up
-        if (emailStatus === 'exists') {
-          setError('An account with this email already exists. Please sign in instead.')
-          setViewMode('login')
-          setLoading(false)
-          return
-        }
-
-        const siteUrl = getSiteUrl()
-        const redirectUrl = `${siteUrl}/auth/callback`
-        
-        console.log('Signing up with:', { email, redirectUrl })
-        
-        const { error, data } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: redirectUrl,
-          },
-        })
-        
-        if (error) {
-          console.error('Sign up error:', error)
-          // If email already exists, switch to login
-          if (error.message.includes('already registered') || 
-              error.message.includes('already exists') ||
-              error.message.includes('User already registered')) {
-            setError('An account with this email already exists. Please sign in instead.')
-            setViewMode('login')
-            setEmailStatus('exists')
-            setLoading(false)
-            return
-          }
-          // Show the actual error message
-          setError(error.message || 'Failed to sign up. Please try again.')
-          setLoading(false)
-          return
-        }
-        
-        // Check if sign up was successful
-        if (data?.user) {
-          // Show success message about email confirmation
-          setSuccessMessage('Please check your email to confirm your account before signing in.')
-          setViewMode('login') // Switch to login view
-          setPassword('') // Clear password field
-          setConfirmPassword('') // Clear confirm password field
-          setEmail('') // Clear email field too
-        } else {
-          setError('Sign up failed. Please try again.')
-        }
       } else {
         // Login mode
         const { error, data } = await supabase.auth.signInWithPassword({
@@ -228,9 +156,7 @@ export default function LoginClient() {
           // Check if email doesn't exist (some Supabase errors indicate this)
           if (error.message.toLowerCase().includes('user not found') ||
               error.message.toLowerCase().includes('does not exist')) {
-            setError('No account found with this email. Would you like to sign up instead?')
-            setViewMode('signup')
-            setEmailStatus('new')
+            setError('No account found with this email. Please sign up instead.')
             setLoading(false)
             return
           }
@@ -315,44 +241,10 @@ export default function LoginClient() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
-          {viewMode !== 'forgot-password' && (
-            <div className="flex rounded-lg bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('login')
-                  setSuccessMessage(null)
-                  setError(null)
-                  setPassword('')
-                  setConfirmPassword('')
-                }}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'login'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Log in
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('signup')
-                  setSuccessMessage(null)
-                  setError(null)
-                  setPassword('')
-                  setConfirmPassword('')
-                }}
-                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                  viewMode === 'signup'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Sign up
-              </button>
-            </div>
-          )}
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Welcome back</h2>
+            <p className="text-sm text-gray-600">Don&apos;t have an account? <Link href="/signup" className="text-gray-900 font-medium hover:underline">Sign up</Link></p>
+          </div>
 
           {viewMode === 'forgot-password' && (
             <div className="text-center">
@@ -361,20 +253,6 @@ export default function LoginClient() {
             </div>
           )}
 
-          {/* Email status indicator - shown after we detect status from errors */}
-          {email && email.includes('@') && emailStatus !== 'unknown' && (
-            <div className={`text-sm px-3 py-2 rounded-lg ${
-              emailStatus === 'exists'
-                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                : 'bg-green-50 text-green-700 border border-green-200'
-            }`}>
-              {emailStatus === 'exists' ? (
-                '✓ Account found. Please sign in.'
-              ) : (
-                '✓ New email. Ready to create your account.'
-              )}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {successMessage && (
@@ -409,41 +287,21 @@ export default function LoginClient() {
             </div>
 
             {viewMode !== 'forgot-password' && (
-              <>
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
-                    placeholder="••••••••"
-                  />
-                </div>
-
-                {viewMode === 'signup' && (
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm Password
-                    </label>
-                    <input
-                      id="confirmPassword"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      minLength={6}
-                      className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                )}
-              </>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                  placeholder="••••••••"
+                />
+              </div>
             )}
 
             {viewMode === 'login' && (
@@ -455,6 +313,7 @@ export default function LoginClient() {
                     setError(null)
                     setSuccessMessage(null)
                     setPassword('')
+                    setEmail('')
                   }}
                   className="text-sm text-gray-600 hover:text-gray-900 underline"
                 >
@@ -468,7 +327,7 @@ export default function LoginClient() {
               disabled={loading}
               className="w-full bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Loading...' : viewMode === 'signup' ? 'Sign up' : viewMode === 'forgot-password' ? 'Send reset link' : 'Log in'}
+              {loading ? 'Loading...' : viewMode === 'forgot-password' ? 'Send reset link' : 'Log in'}
             </button>
 
             {viewMode === 'forgot-password' && (
@@ -480,6 +339,7 @@ export default function LoginClient() {
                     setError(null)
                     setSuccessMessage(null)
                     setEmail('')
+                    setPassword('')
                   }}
                   className="text-sm text-gray-600 hover:text-gray-900 underline"
                 >
