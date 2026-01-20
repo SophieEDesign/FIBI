@@ -173,37 +173,9 @@ export default function LoginClient() {
           return
         }
         
-        // Verify session is set before redirecting
-        // Poll for session to ensure it's available on the server
-        let attempts = 0
-        let sessionReady = false
-        while (attempts < 15 && !sessionReady) {
-          const { data: { session } } = await supabase.auth.getSession()
-          if (session) {
-            sessionReady = true
-            break
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100))
-          attempts++
-        }
-        
-        if (!sessionReady) {
-          setError('Session creation failed. Please try logging in again.')
-          setLoading(false)
-          return
-        }
-        
-        // Additional delay to ensure cookie is set and available on server
-        await new Promise((resolve) => setTimeout(resolve, 300))
-        
-        // Check for redirect parameter and preserve it
+        // Simple redirect - let the app handle session verification
         const redirectParam = searchParams.get('redirect')
-        const targetPath = redirectParam || '/app'
-        
-        // Use window.location.href with cache-busting to ensure fresh server-side check
-        const separator = targetPath.includes('?') ? '&' : '?'
-        window.location.href = `${targetPath}${separator}_t=${Date.now()}`
-        return // Exit early, navigation is happening
+        router.push(redirectParam || '/app')
       }
     } catch (err: any) {
       console.error('Login/Signup error:', err)

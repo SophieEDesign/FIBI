@@ -111,120 +111,52 @@ export default function SignupClient() {
       const siteUrl = getSiteUrl()
       const redirectUrl = `${siteUrl}/auth/callback`
       
-      console.log('Signing up with:', { email, redirectUrl })
+      // Simple, straightforward signup
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+        },
+      })
       
-      // Retry logic for network issues
-      let lastError = null
-      let attempts = 0
-      const maxAttempts = 2
-      
-      while (attempts < maxAttempts) {
-        try {
-          const { error, data } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: redirectUrl,
-            },
-          })
-          
-          if (error) {
-            lastError = error
-            console.error('Sign up error:', error)
-            
-            // If email already exists, redirect to login
-            if (error.message.includes('already registered') || 
-                error.message.includes('already exists') ||
-                error.message.includes('User already registered')) {
-              setError('An account with this email already exists. Please sign in instead.')
-              setTimeout(() => {
-                router.push('/login')
-              }, 2000)
-              setLoading(false)
-              return
-            }
-            
-            // If it's a network/timeout error and we have retries left, try again
-            if ((error.message.includes('timeout') || 
-                 error.message.includes('504') ||
-                 error.message.includes('network') ||
-                 error.message.includes('fetch')) && 
-                attempts < maxAttempts - 1) {
-              attempts++
-              await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
-              continue
-            }
-            
-            // Show user-friendly error messages
-            if (error.message.includes('timeout') || error.message.includes('504')) {
-              setError('The server is taking too long to respond. Please try again in a moment.')
-            } else {
-              setError(error.message || 'Failed to sign up. Please try again.')
-            }
-            setLoading(false)
-            return
-          }
-          
-          // Success - break out of retry loop
-          if (data?.user) {
-            setSuccessMessage('Please check your email to confirm your account before signing in.')
-            setEmail('')
-            setPassword('')
-            setConfirmPassword('')
-            setLoading(false)
-            return
-          }
-          
-          break
-        } catch (err: any) {
-          lastError = err
-          console.error('Signup attempt error:', err)
-          
-          // Check for retryable errors (network, timeout, fetch errors)
-          const isRetryable = 
-            err.name === 'AuthRetryableFetchError' ||
-            err.message?.includes('timeout') || 
-            err.message?.includes('504') ||
-            err.message?.includes('network') ||
-            err.message?.includes('fetch') ||
-            err.message?.includes('Failed to fetch')
-          
-          // If it's a retryable error and we have retries left, try again
-          if (isRetryable && attempts < maxAttempts - 1) {
-            attempts++
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            continue
-          }
-          
-          // If we've exhausted retries or it's not a retryable error, show error
-          if (isRetryable) {
-            setError('The server is taking too long to respond. Please try again in a moment.')
-          } else {
-            setError('An unexpected error occurred. Please try again.')
-          }
+      if (error) {
+        console.error('Sign up error:', error)
+        
+        // If email already exists, redirect to login
+        if (error.message.includes('already registered') || 
+            error.message.includes('already exists') ||
+            error.message.includes('User already registered')) {
+          setError('An account with this email already exists. Please sign in instead.')
+          setTimeout(() => {
+            router.push('/login')
+          }, 2000)
           setLoading(false)
           return
         }
-      }
-      
-      // If we get here and no success, show error
-      if (lastError) {
-        const isTimeout = 
-          lastError.name === 'AuthRetryableFetchError' ||
-          lastError.message?.includes('timeout') || 
-          lastError.message?.includes('504')
         
-        if (isTimeout) {
-          setError('The server is taking too long to respond. Please try again in a moment.')
+        // Show clear error message
+        if (error.message.includes('timeout') || error.message.includes('504')) {
+          setError('Server timeout. Please try again in a moment.')
         } else {
-          setError('Failed to sign up. Please try again.')
+          setError(error.message || 'Failed to sign up. Please try again.')
         }
         setLoading(false)
         return
       }
       
-      // If we get here without success or error, something unexpected happened
-      setError('Sign up failed. Please try again.')
+      // Success!
+      if (data?.user) {
+        setSuccessMessage('Account created! Please check your email to confirm your account, then you can sign in.')
+        setEmail('')
+        setPassword('')
+        setConfirmPassword('')
+        setLoading(false)
+        return
+      }
+      
+      // If we get here, something unexpected happened
+      setError('Sign up completed but something went wrong. Please try signing in.')
       setLoading(false)
     } catch (err: any) {
       console.error('Signup error:', err)
