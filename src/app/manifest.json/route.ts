@@ -8,6 +8,7 @@ import { join } from 'path'
  * This ensures it's always accessible without authentication
  */
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function GET() {
   try {
