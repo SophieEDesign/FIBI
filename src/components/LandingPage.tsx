@@ -39,38 +39,42 @@ export default function LandingPage() {
       </header>
 
       <main>
-        {/* Hero Section - Image at Top */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 lg:pt-12 lg:pb-24">
-          {/* Hero Image */}
-          <div className="mb-12 lg:mb-16">
-            <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 via-cyan-400 to-blue-600 shadow-xl">
-              <img
-                src="/hero-image.png"
-                alt="FiBi - Save Your Travel Places"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
+        {/* Hero Section */}
+        <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              {/* Text Content */}
+              <div className="text-center lg:text-left space-y-6 z-10">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent leading-tight">
+                  Save places before you lose them
+                </h1>
+                <p className="text-xl lg:text-2xl text-gray-700 leading-relaxed">
+                  Share from TikTok, Instagram, or any app. Visual previews pull through automatically — or add your own.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center lg:justify-start">
+                  <Link
+                    href="/login"
+                    className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-8 py-4 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl text-center text-lg"
+                  >
+                    Get started
+                  </Link>
+                </div>
+                <p className="text-sm text-gray-600 pt-2">
+                  Install Fibi to share in one tap
+                </p>
+              </div>
 
-          {/* Text Content */}
-          <div className="max-w-3xl mx-auto text-center space-y-6">
-            <h2 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent leading-tight">
-              Save places before you lose them
-            </h2>
-            <p className="text-xl text-gray-700 leading-relaxed">
-              Share from TikTok, Instagram, or any app. Visual previews pull through automatically — or add your own.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center">
-              <Link
-                href="/login"
-                className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl text-center"
-              >
-                Get started
-              </Link>
+              {/* Hero Image */}
+              <div className="relative">
+                <div className="aspect-[4/3] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 via-cyan-400 to-blue-600 shadow-2xl">
+                  <img
+                    src="/hero-image.png"
+                    alt="FiBi - Save Your Travel Places"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-gray-600 pt-2">
-              Install Fibi to share in one tap
-            </p>
           </div>
         </section>
 

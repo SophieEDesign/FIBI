@@ -36,7 +36,13 @@ export async function GET(request: NextRequest) {
     const { error, data } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && data.session) {
-      // Successfully authenticated, redirect to app home
+      // If this is a password recovery flow, redirect to reset password page
+      if (type === 'recovery') {
+        const resetUrl = new URL('/reset-password', origin)
+        return NextResponse.redirect(resetUrl)
+      }
+      
+      // Successfully authenticated (signup confirmation), redirect to app home
       const redirectUrl = new URL('/app', origin)
       redirectUrl.searchParams.set('confirmed', 'true')
       return NextResponse.redirect(redirectUrl)

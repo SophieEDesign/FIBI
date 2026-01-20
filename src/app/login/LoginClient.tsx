@@ -5,10 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getSiteUrl } from '@/lib/utils'
 
+type ViewMode = 'login' | 'signup' | 'forgot-password'
+
 export default function LoginClient() {
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [emailStatus, setEmailStatus] = useState<'unknown' | 'exists' | 'new'>('unknown')
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +45,8 @@ export default function LoginClient() {
         setError('Email confirmation failed. Please try signing up again or contact support.')
       } else if (messageParam === 'confirmed') {
         setSuccessMessage('Your email has been confirmed! You can now log in.')
+      } else if (messageParam === 'password_reset') {
+        setSuccessMessage('Your password has been reset successfully! You can now log in.')
       }
     }
   }, [searchParams, checkingAuth])
@@ -109,11 +114,48 @@ export default function LoginClient() {
     setSuccessMessage(null)
 
     try {
-      if (isSignUp) {
+      if (viewMode === 'forgot-password') {
+        if (!email) {
+          setError('Please enter your email address.')
+          setLoading(false)
+          return
+        }
+
+        const siteUrl = getSiteUrl()
+        const redirectUrl = `${siteUrl}/auth/callback?type=recovery`
+        
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: redirectUrl,
+        })
+        
+        if (error) {
+          console.error('Password reset error:', error)
+          setError(error.message || 'Failed to send password reset email. Please try again.')
+          setLoading(false)
+          return
+        }
+        
+        setSuccessMessage('Password reset instructions have been sent to your email. Please check your inbox.')
+        setEmail('')
+      } else if (viewMode === 'signup') {
+        // Validate password match
+        if (password !== confirmPassword) {
+          setError('Passwords do not match.')
+          setLoading(false)
+          return
+        }
+
+        // Validate password length
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters long.')
+          setLoading(false)
+          return
+        }
+
         // Check if email already exists before signing up
         if (emailStatus === 'exists') {
           setError('An account with this email already exists. Please sign in instead.')
-          setIsSignUp(false)
+          setViewMode('login')
           setLoading(false)
           return
         }
@@ -138,7 +180,7 @@ export default function LoginClient() {
               error.message.includes('already exists') ||
               error.message.includes('User already registered')) {
             setError('An account with this email already exists. Please sign in instead.')
-            setIsSignUp(false)
+            setViewMode('login')
             setEmailStatus('exists')
             setLoading(false)
             return
@@ -153,14 +195,16 @@ export default function LoginClient() {
         if (data?.user) {
           // Show success message about email confirmation
           setSuccessMessage('Please check your email to confirm your account before signing in.')
-          setIsSignUp(false) // Switch to login view
+          setViewMode('login') // Switch to login view
           setPassword('') // Clear password field
+          setConfirmPassword('') // Clear confirm password field
           setEmail('') // Clear email field too
         } else {
           setError('Sign up failed. Please try again.')
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        // Login mode
+        const { error, data } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
@@ -168,15 +212,16 @@ export default function LoginClient() {
         if (error) {
           // Check if error is due to unconfirmed email
           if (error.message.includes('email') && error.message.includes('confirm')) {
-            throw new Error('Please check your email and confirm your account before signing in.')
+            setError('Please check your email and confirm your account before signing in.')
+            setLoading(false)
+            return
           }
           
           // Check if user doesn't exist - try to be helpful
           if (error.message.includes('Invalid login credentials') || 
               error.message.includes('Invalid email or password')) {
-            // Suggest they might need to sign up instead
             setError('Invalid email or password. If you don\'t have an account, please sign up instead.')
-            // Don't auto-switch, but show the option
+            setLoading(false)
             return
           }
           
@@ -184,12 +229,22 @@ export default function LoginClient() {
           if (error.message.toLowerCase().includes('user not found') ||
               error.message.toLowerCase().includes('does not exist')) {
             setError('No account found with this email. Would you like to sign up instead?')
-            setIsSignUp(true)
+            setViewMode('signup')
             setEmailStatus('new')
+            setLoading(false)
             return
           }
           
-          throw error
+          setError(error.message || 'An error occurred. Please try again.')
+          setLoading(false)
+          return
+        }
+        
+        // Check if we have a session
+        if (!data.session) {
+          setError('Login failed. Please try again.')
+          setLoading(false)
+          return
         }
         
         // Verify session is set before redirecting
@@ -206,8 +261,13 @@ export default function LoginClient() {
           attempts++
         }
         
+        if (!sessionReady) {
+          setError('Session creation failed. Please try logging in again.')
+          setLoading(false)
+          return
+        }
+        
         // Additional delay to ensure cookie is set and available on server
-        // Server-side needs time to read the cookie
         await new Promise((resolve) => setTimeout(resolve, 300))
         
         // Check for redirect parameter and preserve it
@@ -215,9 +275,9 @@ export default function LoginClient() {
         const targetPath = redirectParam || '/app'
         
         // Use window.location.href with cache-busting to ensure fresh server-side check
-        // Add timestamp to force server to re-check cookies
         const separator = targetPath.includes('?') ? '&' : '?'
         window.location.href = `${targetPath}${separator}_t=${Date.now()}`
+        return // Exit early, navigation is happening
       }
     } catch (err: any) {
       console.error('Login/Signup error:', err)
@@ -255,38 +315,51 @@ export default function LoginClient() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
-          <div className="flex rounded-lg bg-gray-100 p-1">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(false)
-                setSuccessMessage(null)
-                setError(null)
-              }}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                !isSignUp
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Log in
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(true)
-                setSuccessMessage(null)
-                setError(null)
-              }}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                isSignUp
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Sign up
-            </button>
-          </div>
+          {viewMode !== 'forgot-password' && (
+            <div className="flex rounded-lg bg-gray-100 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('login')
+                  setSuccessMessage(null)
+                  setError(null)
+                  setPassword('')
+                  setConfirmPassword('')
+                }}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'login'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode('signup')
+                  setSuccessMessage(null)
+                  setError(null)
+                  setPassword('')
+                  setConfirmPassword('')
+                }}
+                className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'signup'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Sign up
+              </button>
+            </div>
+          )}
+
+          {viewMode === 'forgot-password' && (
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Reset Password</h2>
+              <p className="text-sm text-gray-600">Enter your email address and we'll send you a link to reset your password.</p>
+            </div>
+          )}
 
           {/* Email status indicator - shown after we detect status from errors */}
           {email && email.includes('@') && emailStatus !== 'unknown' && (
@@ -335,29 +408,85 @@ export default function LoginClient() {
               </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
-                placeholder="••••••••"
-              />
-            </div>
+            {viewMode !== 'forgot-password' && (
+              <>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    Password
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                {viewMode === 'signup' && (
+                  <div>
+                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirm Password
+                    </label>
+                    <input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      minLength={6}
+                      className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                      placeholder="••••••••"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {viewMode === 'login' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('forgot-password')
+                    setError(null)
+                    setSuccessMessage(null)
+                    setPassword('')
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-900 underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Loading...' : isSignUp ? 'Sign up' : 'Log in'}
+              {loading ? 'Loading...' : viewMode === 'signup' ? 'Sign up' : viewMode === 'forgot-password' ? 'Send reset link' : 'Log in'}
             </button>
+
+            {viewMode === 'forgot-password' && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode('login')
+                    setError(null)
+                    setSuccessMessage(null)
+                    setEmail('')
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-900 underline"
+                >
+                  Back to login
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>
