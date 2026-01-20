@@ -92,14 +92,14 @@ export default function LandingPage() {
             <div className="relative">
               <div className="aspect-[16/9] rounded-2xl overflow-hidden bg-gradient-to-br from-blue-500 via-cyan-400 to-purple-500 shadow-2xl">
                 <video
-                  src="/FiBi__Your_Next_Trip (2).mp4"
+                  src="/FiBi__Save_Places copy.mp4"
                   autoPlay
                   muted
                   loop
                   playsInline
                   controls
                   className="w-full h-full object-cover"
-                  aria-label="FiBi - Your Next Trip video"
+                  aria-label="FiBi - Save Places video"
                 >
                   Your browser does not support the video tag.
                 </video>
@@ -128,7 +128,7 @@ export default function LandingPage() {
                   Save it
                 </h3>
                 <p className="text-gray-700">
-                  Just click share from the app. Fibi automatically pulls through a visual preview.
+                  Share a link to FiBi directly from any app or website.
                 </p>
               </div>
 
@@ -145,7 +145,7 @@ export default function LandingPage() {
                   Make it yours
                 </h3>
                 <p className="text-gray-700">
-                  Optional: add your own screenshot. Name it and choose a location.
+                  Add a screenshot, name, and location to remember why you saved it.
                 </p>
               </div>
 
@@ -162,7 +162,7 @@ export default function LandingPage() {
                   Find it later
                 </h3>
                 <p className="text-gray-700">
-                  Everything organised in one calm place.
+                  Everything is organized in one calm, algorithm-free place for easy access.
                 </p>
               </div>
             </div>
