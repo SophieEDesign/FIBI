@@ -180,6 +180,141 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* How to Share Section */}
+        <section className="bg-gradient-to-b from-white to-blue-50/30 py-16 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12 lg:mb-16">
+              <h2 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent mb-4">
+                How to share from your phone
+              </h2>
+              <p className="text-lg text-gray-700 max-w-2xl mx-auto">
+                Save places directly from TikTok, Instagram, and other apps — no copy-paste needed!
+              </p>
+            </div>
+
+            <div className="max-w-4xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
+                {/* Step 1 */}
+                <div className="bg-white rounded-xl p-6 lg:p-8 shadow-lg border border-gray-100">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 text-white flex items-center justify-center text-xl font-bold shadow-md">
+                      1
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        Find something to save
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Open TikTok, Instagram, YouTube, or any app with a post or video about a place you want to save.
+                      </p>
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-black text-white">
+                          TikTok
+                        </span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                          Instagram
+                        </span>
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-600 text-white">
+                          YouTube
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="bg-white rounded-xl p-6 lg:p-8 shadow-lg border border-gray-100">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-400 text-white flex items-center justify-center text-xl font-bold shadow-md">
+                      2
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        Tap the Share button
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Look for the share icon (usually → or "Share") on the post or video you want to save.
+                      </p>
+                      <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
+                        <p className="font-medium mb-1">💡 Tip:</p>
+                        <p>On TikTok, it's the arrow icon in the bottom right. On Instagram, tap the three dots menu → Share.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="bg-white rounded-xl p-6 lg:p-8 shadow-lg border border-gray-100">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-white flex items-center justify-center text-xl font-bold shadow-md">
+                      3
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        Select Fibi from Share Sheet
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Fibi will appear alongside other apps like Messages, WhatsApp, and more. Tap the Fibi icon.
+                      </p>
+                      <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-900">
+                        <p className="font-medium mb-1">📱 Important:</p>
+                        <p>Make sure you've installed Fibi as an app first. If you don't see Fibi, install it from your browser menu.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="bg-white rounded-xl p-6 lg:p-8 shadow-lg border border-gray-100">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center text-xl font-bold shadow-md">
+                      4
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        Review and save
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        Fibi automatically pulls through a visual preview with the title and description. Add your own screenshot or location details if you want, then save!
+                      </p>
+                      <div className="bg-green-50 rounded-lg p-3 text-sm text-green-900">
+                        <p className="font-medium mb-1">✨ Auto-preview:</p>
+                        <p>No need to copy and paste — everything is pulled through automatically!</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Video placeholder or call-to-action */}
+              <div className="mt-12 text-center">
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-8 border border-blue-100">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                    Watch it in action
+                  </h3>
+                  <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                    See how easy it is to save places from your favorite apps. The video above shows the complete flow.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                      onClick={handleInstallClick}
+                      className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl"
+                    >
+                      Install Fibi to get started
+                    </button>
+                    <Link
+                      href="/signup"
+                      className="bg-white text-gray-900 px-6 py-3 rounded-lg font-medium border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all shadow-md hover:shadow-lg"
+                    >
+                      Create an account
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Purpose Section */}
         <section className="py-16 lg:py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
