@@ -135,9 +135,13 @@ export default function SignupClient() {
           return
         }
         
-        // Show clear error message
-        if (error.message.includes('timeout') || error.message.includes('504')) {
-          setError('Server timeout. Please try again in a moment.')
+        // SMTP/Email sending errors
+        if (error.message.includes('timeout') || 
+            error.message.includes('504') ||
+            error.message.includes('Gateway Timeout') ||
+            error.message.includes('SMTP') ||
+            error.message.includes('email')) {
+          setError('Unable to send confirmation email. Please check your SMTP settings in Supabase or try again in a moment.')
         } else {
           setError(error.message || 'Failed to sign up. Please try again.')
         }

@@ -671,7 +671,6 @@ export default function AddItemForm() {
 
         // For TikTok URLs, also try to get title and caption from oEmbed (WordPress-style extraction)
         let oembedCaption: string | null = null
-        let oembedTitle: string | null = null
         const platform = detectPlatform(urlParam)
         if (platform === 'TikTok') {
           try {
@@ -682,13 +681,15 @@ export default function AddItemForm() {
             })
             if (oembedResponse.ok) {
               const oembedData = await oembedResponse.json()
+              // For TikTok, the title field from oEmbed is actually the caption text
+              // Use caption_text if available, otherwise fallback to title
               if (oembedData.caption_text) {
                 oembedCaption = oembedData.caption_text
                 console.log('AddItemForm: Extracted TikTok caption from oEmbed (init):', oembedData.caption_text.substring(0, 100))
-              }
-              if (oembedData.title) {
-                oembedTitle = oembedData.title
-                console.log('AddItemForm: Extracted TikTok title from oEmbed (init):', oembedData.title.substring(0, 100))
+              } else if (oembedData.title) {
+                // TikTok's title field contains the caption, use it as caption
+                oembedCaption = oembedData.title
+                console.log('AddItemForm: Using TikTok title as caption from oEmbed (init):', oembedData.title.substring(0, 100))
               }
             }
           } catch (err) {
@@ -701,26 +702,20 @@ export default function AddItemForm() {
           // 1. User-edited title (already set if titleParam exists)
           // 2. Shared title (already set if titleParam exists)
           // 3. Google Maps place name (already set above)
-          // 4. oEmbed title (for TikTok)
-          // 5. Cleaned OG title
-          // 6. Hostname-based title
+          // 4. Cleaned OG title
+          // 5. Hostname-based title
+          // Note: For TikTok, oEmbed title is the caption, not the title
 
           if (!userEditedTitle.current && !finalTitle) {
-            // Try oEmbed title first (for TikTok)
-            if (oembedTitle) {
-              finalTitle = oembedTitle
-              setTitle(oembedTitle)
+            // Try cleaned OG title
+            const cleanedTitle = cleanOGTitle(metadata.title)
+            if (cleanedTitle) {
+              finalTitle = cleanedTitle
+              setTitle(cleanedTitle)
             } else {
-              // Try cleaned OG title
-              const cleanedTitle = cleanOGTitle(metadata.title)
-              if (cleanedTitle) {
-                finalTitle = cleanedTitle
-                setTitle(cleanedTitle)
-              } else {
-                // Fallback to hostname-based title
-                finalTitle = generateHostnameTitle(urlParam)
-                setTitle(finalTitle)
-              }
+              // Fallback to hostname-based title
+              finalTitle = generateHostnameTitle(urlParam)
+              setTitle(finalTitle)
             }
           }
 
@@ -963,7 +958,6 @@ export default function AddItemForm() {
 
       // For TikTok URLs, also try to get title and caption from oEmbed (WordPress-style extraction)
       let oembedCaption: string | null = null
-      let oembedTitle: string | null = null
       const platform = detectPlatform(newUrl)
       if (platform === 'TikTok') {
         try {
@@ -974,13 +968,15 @@ export default function AddItemForm() {
           })
           if (oembedResponse.ok) {
             const oembedData = await oembedResponse.json()
+            // For TikTok, the title field from oEmbed is actually the caption text
+            // Use caption_text if available, otherwise fallback to title
             if (oembedData.caption_text) {
               oembedCaption = oembedData.caption_text
               console.log('AddItemForm: Extracted TikTok caption from oEmbed:', oembedData.caption_text.substring(0, 100))
-            }
-            if (oembedData.title) {
-              oembedTitle = oembedData.title
-              console.log('AddItemForm: Extracted TikTok title from oEmbed:', oembedData.title.substring(0, 100))
+            } else if (oembedData.title) {
+              // TikTok's title field contains the caption, use it as caption
+              oembedCaption = oembedData.title
+              console.log('AddItemForm: Using TikTok title as caption from oEmbed:', oembedData.title.substring(0, 100))
             }
           }
         } catch (err) {
@@ -989,12 +985,10 @@ export default function AddItemForm() {
       }
 
       if (metadata) {
-        // Priority: oEmbed title > cleaned OG title > hostname title
+        // Priority: cleaned OG title > hostname title
+        // Note: For TikTok, oEmbed title is the caption, not the title
         const cleanedTitle = cleanOGTitle(metadata.title)
-        if (oembedTitle) {
-          finalTitle = oembedTitle
-          setTitle(oembedTitle)
-        } else if (cleanedTitle) {
+        if (cleanedTitle) {
           finalTitle = cleanedTitle
           setTitle(cleanedTitle)
         } else {
