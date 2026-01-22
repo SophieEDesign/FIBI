@@ -233,11 +233,11 @@ export default function LandingPage() {
                         Tap the Share button
                       </h3>
                       <p className="text-gray-600 mb-4">
-                        Look for the share icon (usually → or "Share") on the post or video you want to save.
+                        Look for the share icon (usually → or &quot;Share&quot;) on the post or video you want to save.
                       </p>
                       <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
                         <p className="font-medium mb-1">💡 Tip:</p>
-                        <p>On TikTok, it's the arrow icon in the bottom right. On Instagram, tap the three dots menu → Share.</p>
+                        <p>On TikTok, it&apos;s the arrow icon in the bottom right. On Instagram, tap the three dots menu → Share.</p>
                       </div>
                     </div>
                   </div>
@@ -258,7 +258,7 @@ export default function LandingPage() {
                       </p>
                       <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-900">
                         <p className="font-medium mb-1">📱 Important:</p>
-                        <p>Make sure you've installed Fibi as an app first. If you don't see Fibi, install it from your browser menu.</p>
+                        <p>Make sure you&apos;ve installed Fibi as an app first. If you don&apos;t see Fibi, install it from your browser menu.</p>
                       </div>
                     </div>
                   </div>
