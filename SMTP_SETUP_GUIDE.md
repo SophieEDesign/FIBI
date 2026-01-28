@@ -101,17 +101,87 @@ These services provide:
 - Better analytics
 - SMTP credentials that work with Supabase
 
+## Setting Up Resend SMTP in Supabase
+
+### Step 1: Verify Your Domain in Resend
+
+1. Go to [Resend Dashboard](https://resend.com/domains)
+2. Click **"Add Domain"**
+3. Enter your domain: `fibi.world` (or your sending domain)
+4. Follow the DNS verification steps:
+   - Add the provided DNS records to your domain registrar
+   - Wait for verification (can take a few minutes to 24 hours)
+5. Once verified, you can send emails from `hello@fibi.world` (or your verified domain)
+
+**Note:** For testing, Resend provides a default domain `onboarding.resend.dev` that you can use immediately without verification.
+
+### Step 2: Get Resend SMTP Credentials
+
+1. Go to [Resend Dashboard → API Keys](https://resend.com/api-keys)
+2. Your API key is already set: `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL`
+3. For SMTP, you'll use this API key as the password
+
+### Step 3: Configure Resend SMTP in Supabase
+
+1. Go to **Supabase Dashboard → Authentication → Settings → SMTP Settings**
+2. Enter the following Resend SMTP credentials:
+
+   **SMTP Settings:**
+   - **Host:** `smtp.resend.com`
+   - **Port:** `587` (TLS) or `465` (SSL)
+   - **Username:** `resend`
+   - **Password:** `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL` (your Resend API key)
+   - **Sender Email:** `hello@fibi.world` (must be from your verified domain)
+   - **Sender Name:** `FiBi Team`
+
+3. Click **"Save"** or **"Test Connection"** to verify the settings work
+
+### Step 4: Test the Configuration
+
+1. Try signing up with a test email address
+2. Check if the confirmation email arrives
+3. Check Supabase Dashboard → Authentication → Logs for any errors
+4. If emails aren't arriving:
+   - Verify your domain is verified in Resend
+   - Check that the sender email matches your verified domain
+   - Check Supabase Auth Logs for specific error messages
+
+### Resend SMTP Configuration Summary
+
+```
+Host: smtp.resend.com
+Port: 587 (TLS) or 465 (SSL)
+Username: resend
+Password: re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL
+Sender Email: hello@fibi.world
+Sender Name: FiBi Team
+```
+
+**Important Notes:**
+- The sender email (`hello@fibi.world`) must be from a domain verified in Resend
+- For testing, you can use `onboarding@onboarding.resend.dev` (no verification needed)
+- Resend has generous rate limits (100 emails/day on free tier, 50,000/month on paid)
+- Better deliverability than Gmail SMTP for transactional emails
+
 ## Current SMTP Configuration
 
-Based on your setup:
+### Option 1: Gmail SMTP (Current)
 - **Host:** `smtp.gmail.com` ✅
 - **Port:** `587` ✅ (fixed from 581)
 - **Username:** `sophie@uppcyx.co.uk` ✅
 - **Sender:** `hello@fibi.world` ✅
 
+### Option 2: Resend SMTP (Recommended for Production)
+- **Host:** `smtp.resend.com`
+- **Port:** `587` (TLS) or `465` (SSL)
+- **Username:** `resend`
+- **Password:** `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL`
+- **Sender:** `hello@fibi.world` (requires domain verification in Resend)
+
 **Action Items:**
-1. Verify you're using Gmail App Password (not regular password)
-2. Check redirect URLs are whitelisted
-3. Test signup and check Auth Logs for errors
-4. Consider switching to transactional email service for production
+1. ✅ Resend API key configured in `.env.local`
+2. ⏳ Verify `fibi.world` domain in Resend dashboard
+3. ⏳ Update Supabase SMTP settings with Resend credentials
+4. ⏳ Test email sending with Resend
+5. ✅ Check redirect URLs are whitelisted in Supabase
 

@@ -54,8 +54,9 @@ export async function POST(request: NextRequest) {
 
     if (!shareCheckError && existingShare) {
       // Get the base URL from request or environment variable
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                      (request.headers.get('origin') || 'http://localhost:3000')
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                      request.headers.get('origin') || 
+                      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
       // Return existing token
       return NextResponse.json({
         share_token: existingShare.share_token,
@@ -83,8 +84,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the base URL from request or environment variable
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-                    (request.headers.get('origin') || 'http://localhost:3000')
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
+                    request.headers.get('origin') || 
+                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const share_url = `${baseUrl}/share/itinerary/${share.share_token}`
 
     return NextResponse.json({

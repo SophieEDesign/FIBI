@@ -112,6 +112,10 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 FACEBOOK_ACCESS_TOKEN=your_facebook_access_token
 # OR
 INSTAGRAM_ACCESS_TOKEN=your_instagram_access_token
+
+# Optional: Resend (for sending transactional emails)
+# Get this from https://resend.com/api-keys
+RESEND_API_KEY=your_resend_api_key
 ```
 
 You can find the Supabase values in your Supabase project settings under **API**.
@@ -125,7 +129,13 @@ For Instagram link previews:
 - Requires creating a Facebook App and generating an access token
 - Without this, Instagram links will still work but won't show rich oEmbed previews
 
-**Note**: Both AI enrichment and Instagram oEmbed are optional. The app works without them, but won't show AI suggestions or rich Instagram previews.
+For transactional emails:
+- **Resend**: Get an API key from [resend.com/api-keys](https://resend.com/api-keys)
+- Used for sending custom emails (notifications, etc.)
+- Supabase handles authentication emails via its SMTP settings
+- Without this, custom email functionality won't work, but authentication emails will still work via Supabase
+
+**Note**: AI enrichment, Instagram oEmbed, and Resend are all optional. The app works without them, but won't show AI suggestions, rich Instagram previews, or be able to send custom emails.
 
 ### 4. Run the Development Server
 

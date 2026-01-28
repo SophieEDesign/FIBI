@@ -300,7 +300,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
           .maybeSingle()
 
         if (!error && shares) {
-          const url = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/share/itinerary/${shares.share_token}`
+          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+          const url = `${baseUrl}/share/itinerary/${shares.share_token}`
           setShareUrl(url)
           setShareToken(shares.share_token)
         } else {
