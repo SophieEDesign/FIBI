@@ -26,28 +26,61 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch all items with planned dates
-    const { data: items, error } = await supabase
+    // Get itinerary_id from query parameters (optional)
+    const { searchParams } = new URL(request.url)
+    const itineraryId = searchParams.get('itinerary_id')
+
+    // Build query for items with planned dates
+    let query = supabase
       .from('saved_items')
       .select('*')
       .eq('user_id', user.id)
       .not('planned_date', 'is', null)
-      .order('planned_date', { ascending: true })
+
+    // Filter by itinerary if provided
+    if (itineraryId) {
+      query = query.eq('itinerary_id', itineraryId)
+    }
+
+    // Order by planned date
+    query = query.order('planned_date', { ascending: true })
+
+    const { data: items, error } = await query
 
     if (error) {
       console.error('Error fetching items:', error)
       return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
     }
 
+    // Get itinerary name if itinerary_id is provided
+    let itineraryName: string | null = null
+    if (itineraryId) {
+      const { data: itinerary } = await supabase
+        .from('itineraries')
+        .select('name')
+        .eq('id', itineraryId)
+        .eq('user_id', user.id)
+        .single()
+      
+      if (itinerary) {
+        itineraryName = itinerary.name
+      }
+    }
+
     // Generate iCal content
     const icalContent = generateICal(items || [])
+
+    // Generate filename based on itinerary
+    const filename = itineraryName
+      ? `fibi-${sanitizeFilename(itineraryName)}.ics`
+      : 'fibi-calendar.ics'
 
     // Return as downloadable file
     return new NextResponse(icalContent, {
       status: 200,
       headers: {
         'Content-Type': 'text/calendar; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="fibi-calendar.ics"',
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     })
@@ -129,5 +162,17 @@ function escapeICalText(text: string): string {
     .replace(/,/g, '\\,')
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '')
+}
+
+/**
+ * Sanitize filename by removing invalid characters
+ */
+function sanitizeFilename(name: string): string {
+  return name
+    .replace(/[^a-z0-9]/gi, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase()
+    .substring(0, 50) // Limit length
 }
 

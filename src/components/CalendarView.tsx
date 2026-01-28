@@ -666,7 +666,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
     
     try {
-      const response = await fetch('/api/calendar/download', {
+      // Build URL with itinerary_id query parameter if an itinerary is selected
+      let url = '/api/calendar/download'
+      if (selectedItineraryId) {
+        url += `?itinerary_id=${encodeURIComponent(selectedItineraryId)}`
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -696,18 +702,28 @@ export default function CalendarView({ user }: CalendarViewProps) {
         throw new Error('Server returned unexpected content type')
       }
 
+      // Get filename from Content-Disposition header, or use default
+      const contentDisposition = response.headers.get('content-disposition')
+      let filename = 'fibi-calendar.ics'
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+        if (filenameMatch) {
+          filename = filenameMatch[1]
+        }
+      }
+
       const blob = await response.blob()
-      const url = window.URL.createObjectURL(blob)
+      const urlObj = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
-      a.href = url
-      a.download = 'fibi-calendar.ics'
+      a.href = urlObj
+      a.download = filename
       a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
       
       // Clean up after a short delay
       setTimeout(() => {
-        window.URL.revokeObjectURL(url)
+        window.URL.revokeObjectURL(urlObj)
         document.body.removeChild(a)
       }, 100)
     } catch (error) {
