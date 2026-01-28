@@ -1283,17 +1283,17 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             </div>
 
             <div className="space-y-6">
-              {/* Description - always editable */}
+              {/* Description/Caption - always editable */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
+                  {item.platform === 'TikTok' ? 'Post Caption' : item.platform === 'Instagram' ? 'Post Caption' : 'Description'}
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   onBlur={handleSaveLocation}
                   rows={4}
-                  placeholder="Original post text..."
+                  placeholder={item.platform === 'TikTok' || item.platform === 'Instagram' ? 'Original post caption...' : 'Original post text...'}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
                 />
               </div>
