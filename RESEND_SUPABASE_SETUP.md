@@ -2,6 +2,15 @@
 
 This guide shows you exactly how to configure Resend SMTP in Supabase so that Supabase can send authentication emails (signup confirmations, password resets, etc.) through Resend.
 
+## Resend API Information
+
+- **API Base URL:** `https://api.resend.com`
+- **SMTP Host:** `smtp.resend.com` (for Supabase SMTP configuration)
+- **SMTP Port:** `587` (TLS) or `465` (SSL)
+- **SMTP Username:** `resend`
+- **SMTP Password:** Your Resend API key
+- **API Key:** `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL` (already in `.env.local`)
+
 ## Step-by-Step Instructions
 
 ### 1. Verify Your Domain in Resend (Required)
