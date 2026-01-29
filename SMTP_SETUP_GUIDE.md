@@ -118,7 +118,7 @@ These services provide:
 ### Step 2: Get Resend SMTP Credentials
 
 1. Go to [Resend Dashboard → API Keys](https://resend.com/api-keys)
-2. Your API key is already set: `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL`
+2. Your API key should be set in `.env.local` as `RESEND_API_KEY`
 3. For SMTP, you'll use this API key as the password
 
 ### Step 3: Configure Resend SMTP in Supabase
@@ -130,7 +130,7 @@ These services provide:
    - **Host:** `smtp.resend.com`
    - **Port:** `587` (TLS) or `465` (SSL)
    - **Username:** `resend`
-   - **Password:** `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL` (your Resend API key)
+   - **Password:** `your_resend_api_key` (use your Resend API key from `.env.local`)
    - **Sender Email:** `hello@fibi.world` (must be from your verified domain)
    - **Sender Name:** `FiBi Team`
 
@@ -152,7 +152,7 @@ These services provide:
 Host: smtp.resend.com
 Port: 587 (TLS) or 465 (SSL)
 Username: resend
-Password: re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL
+Password: your_resend_api_key
 Sender Email: hello@fibi.world
 Sender Name: FiBi Team
 ```
@@ -175,7 +175,7 @@ Sender Name: FiBi Team
 - **Host:** `smtp.resend.com`
 - **Port:** `587` (TLS) or `465` (SSL)
 - **Username:** `resend`
-- **Password:** `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL`
+- **Password:** `your_resend_api_key` (from `.env.local`)
 - **Sender:** `hello@fibi.world` (requires domain verification in Resend)
 
 **Action Items:**

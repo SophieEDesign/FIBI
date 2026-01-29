@@ -9,7 +9,7 @@ This guide shows you exactly how to configure Resend SMTP in Supabase so that Su
 - **SMTP Port:** `587` (TLS) or `465` (SSL)
 - **SMTP Username:** `resend`
 - **SMTP Password:** Your Resend API key
-- **API Key:** `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL` (already in `.env.local`)
+- **API Key:** Set in `.env.local` as `RESEND_API_KEY`
 
 ## Step-by-Step Instructions
 
@@ -37,7 +37,7 @@ Before Supabase can send emails from `hello@fibi.world`, you need to verify the 
    Host: smtp.resend.com
    Port: 587
    Username: resend
-   Password: re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL
+   Password: your_resend_api_key (from .env.local)
    Sender Email: hello@fibi.world
    Sender Name: FiBi Team
    ```
@@ -68,7 +68,7 @@ Before Supabase can send emails from `hello@fibi.world`, you need to verify the 
 **Connection test fails?**
 - Double-check the host: `smtp.resend.com` (not `smtp.gmail.com`)
 - Verify the username is exactly: `resend`
-- Make sure the password is your full API key: `re_DRgKkAfM_K7WNtnxuKfAMWztgNa1zYRTL`
+- Make sure the password is your full API key from `.env.local` (RESEND_API_KEY)
 
 ## What This Does
 
