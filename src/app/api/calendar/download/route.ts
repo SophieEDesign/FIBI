@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const itineraryId = searchParams.get('itinerary_id')
 
+    console.log('Calendar download request:', { itineraryId, userId: user.id })
+
     // Build query for items with planned dates
     let query = supabase
       .from('saved_items')
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
       .not('planned_date', 'is', null)
 
     // Filter by itinerary if provided
+    // When itineraryId is null/undefined, we get all items (including those without itinerary_id)
     if (itineraryId) {
       query = query.eq('itinerary_id', itineraryId)
     }
@@ -51,6 +54,8 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching items:', error)
       return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
     }
+
+    console.log('Fetched items for calendar:', { count: items?.length || 0, itineraryId })
 
     // Get itinerary name if itinerary_id is provided
     let itineraryName: string | null = null
@@ -68,12 +73,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Generate iCal content
-    const icalContent = generateICal(items || [])
+    const itemsToProcess = items || []
+    const icalContent = generateICal(itemsToProcess)
 
     // Generate filename based on itinerary
     const filename = itineraryName
       ? `fibi-${sanitizeFilename(itineraryName)}.ics`
       : 'fibi-calendar.ics'
+
+    console.log('Generated calendar:', { filename, itemCount: itemsToProcess.length })
 
     // Return as downloadable file
     return new NextResponse(icalContent, {

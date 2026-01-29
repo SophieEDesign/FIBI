@@ -189,11 +189,15 @@ export default function CalendarView({ user }: CalendarViewProps) {
   }
 
   const handleShareItinerary = async () => {
-    if (!selectedItineraryId) return
+    if (!selectedItineraryId) {
+      console.warn('Cannot share: No itinerary selected')
+      return
+    }
 
     setLoadingShare(true)
     setCopied(false)
     try {
+      console.log('Sharing itinerary:', selectedItineraryId)
       const response = await fetch('/api/itinerary/share', {
         method: 'POST',
         credentials: 'include',
@@ -208,6 +212,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
       }
 
       const data = await response.json()
+      console.log('Share response:', data)
+      if (!data.share_url || !data.share_token) {
+        throw new Error('Invalid response from server')
+      }
       setShareUrl(data.share_url)
       setShareToken(data.share_token)
       setShowShareModal(true)
@@ -672,6 +680,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
         url += `?itinerary_id=${encodeURIComponent(selectedItineraryId)}`
       }
 
+      console.log('Downloading calendar:', { url, selectedItineraryId })
+
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
@@ -695,7 +705,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
       // Check if response is actually a blob/ICS file
       const contentType = response.headers.get('content-type')
-      if (!contentType || !contentType.includes('calendar') && !contentType.includes('octet-stream')) {
+      if (!contentType || (!contentType.includes('calendar') && !contentType.includes('octet-stream'))) {
         // If we got HTML or JSON instead of ICS, something went wrong
         const text = await response.text()
         console.error('Unexpected response type:', contentType, text.substring(0, 200))
@@ -713,6 +723,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
       }
 
       const blob = await response.blob()
+      console.log('Calendar downloaded:', { filename, size: blob.size })
+      
+      if (blob.size === 0) {
+        throw new Error('Downloaded file is empty')
+      }
+
       const urlObj = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = urlObj
@@ -726,9 +742,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
         window.URL.revokeObjectURL(urlObj)
         document.body.removeChild(a)
       }, 100)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error downloading calendar:', error)
-      alert('Failed to download calendar. Please try again.')
+      alert(error.message || 'Failed to download calendar. Please try again.')
     }
   }
 
@@ -762,6 +778,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </button>
                 {selectedItineraryId === itinerary.id && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -844,7 +861,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleDownloadCalendar}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleDownloadCalendar(e)
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 title="Download calendar"
               >
