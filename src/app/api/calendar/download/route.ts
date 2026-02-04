@@ -11,31 +11,56 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Try using request-based client first (for API routes)
-    // If that fails, the cookie parsing in server.ts should handle it
+    // Try to get auth token from Authorization header first (more reliable)
+    const authHeader = request.headers.get('authorization')
     let supabase = await createClient(request)
-    
-    // Use getUser() which is more reliable for API routes
-    // It validates the session and refreshes if needed
-    let {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    let user = null
+    let authError = null
 
-    // If request-based auth fails, try without request (uses Next.js cookies())
-    // This is a fallback for cases where manual cookie parsing might fail
-    if (!user || authError) {
-      console.log('Calendar download: Request-based auth failed, trying Next.js cookies()')
-      supabase = await createClient()
-      const fallbackAuth = await supabase.auth.getUser()
-      user = fallbackAuth.data.user
-      authError = fallbackAuth.error
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // Use the token from Authorization header
+      const token = authHeader.substring(7)
+      console.log('Calendar download - Using Bearer token from Authorization header')
+      
+      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      user = tokenUser
+      authError = tokenError
+    } else {
+      // Fall back to cookie-based auth
+      const cookieHeader = request.headers.get('cookie')
+      console.log('Calendar download - Cookie header present:', !!cookieHeader)
+      console.log('Calendar download - Cookie header length:', cookieHeader?.length || 0)
+      
+      const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
+      user = cookieUser
+      authError = cookieError
+      
+      // If cookie-based auth fails, try without request (uses Next.js cookies())
+      if (!user || authError) {
+        console.log('Calendar download: Request-based auth failed, trying Next.js cookies()')
+        supabase = await createClient()
+        const fallbackAuth = await supabase.auth.getUser()
+        user = fallbackAuth.data.user
+        authError = fallbackAuth.error
+      }
     }
+
+    console.log('Calendar download - Auth check:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      authError: authError?.message,
+      authMethod: authHeader ? 'Bearer token' : 'Cookies'
+    })
 
     if (!user || authError) {
       console.error('Calendar download auth error:', authError)
-      console.error('Request cookies present:', !!request.headers.get('cookie'))
-      console.error('Cookie header length:', request.headers.get('cookie')?.length || 0)
+      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 200))
+      console.error('Request headers:', {
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer'),
+        userAgent: request.headers.get('user-agent')?.substring(0, 50),
+        hasAuthHeader: !!authHeader,
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

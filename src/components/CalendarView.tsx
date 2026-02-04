@@ -734,12 +734,22 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
       console.log('Downloading calendar:', { url, selectedItineraryId })
 
+      // Get the session token to pass as Authorization header
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      const headers: HeadersInit = {
+        'Accept': 'text/calendar, application/octet-stream, */*',
+      }
+      
+      // Add Authorization header with the access token if available
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Accept': 'text/calendar, application/octet-stream, */*',
-        },
+        headers,
       })
       
       if (!response.ok) {

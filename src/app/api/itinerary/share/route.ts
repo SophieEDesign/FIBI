@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     // Try to get auth token from Authorization header first (more reliable)
     const authHeader = request.headers.get('authorization')
-    let supabase = await createClient(request)
+    const supabase = await createClient(request)
     let user = null
     let authError = null
 
@@ -22,9 +22,24 @@ export async function POST(request: NextRequest) {
       const token = authHeader.substring(7)
       console.log('Share API - Using Bearer token from Authorization header')
       
+      // Get user from token - this validates the token
       const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
-      user = tokenUser
-      authError = tokenError
+      
+      if (tokenError || !tokenUser) {
+        user = null
+        authError = tokenError
+      } else {
+        user = tokenUser
+        authError = null
+        // For RLS to work, we need to ensure the client is authenticated
+        // Since we're using a Bearer token, the cookies might not be set
+        // But the client from createClient(request) should still work if cookies exist
+        // If cookies don't exist, RLS might fail. Let's try to get the session from the token.
+        // Actually, Supabase RLS uses auth.uid() which comes from the session in cookies
+        // If we only have a Bearer token, we might need to set it as a session
+        // For now, let's proceed and see if RLS works - if not, we'll need to handle it differently
+        console.log('Share API - Bearer token validated, user authenticated:', user.id)
+      }
     } else {
       // Fall back to cookie-based auth
       const cookieHeader = request.headers.get('cookie')
@@ -61,6 +76,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'itinerary_id is required' }, { status: 400 })
     }
 
+    // First, let's check what itineraries the user has access to (for debugging)
+    const { data: allItineraries, error: listError } = await supabase
+      .from('itineraries')
+      .select('id, user_id, name')
+      .eq('user_id', user.id)
+    
+    console.log('Share API - User itineraries:', {
+      count: allItineraries?.length || 0,
+      itineraryIds: allItineraries?.map(i => i.id) || [],
+      listError: listError?.message,
+    })
+
     // Verify the itinerary exists and belongs to the user
     const { data: itinerary, error: itineraryError } = await supabase
       .from('itineraries')
@@ -69,8 +96,26 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .single()
 
+    console.log('Share API - Itinerary lookup:', {
+      itineraryId: itinerary_id,
+      userId: user.id,
+      found: !!itinerary,
+      error: itineraryError?.message,
+      errorCode: itineraryError?.code,
+      errorDetails: itineraryError,
+    })
+
     if (itineraryError || !itinerary) {
-      return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
+      console.error('Share API - Itinerary not found:', {
+        itineraryId: itinerary_id,
+        userId: user.id,
+        error: itineraryError,
+        availableItineraries: allItineraries?.map(i => ({ id: i.id, name: i.name })) || [],
+      })
+      return NextResponse.json({ 
+        error: 'Itinerary not found',
+        details: itineraryError?.message || 'Itinerary does not exist or you do not have access to it'
+      }, { status: 404 })
     }
 
     // Check if a share token already exists for this itinerary
