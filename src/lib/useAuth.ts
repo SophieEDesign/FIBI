@@ -11,30 +11,56 @@ export function useAuth() {
     const supabase = createClient()
     let isMounted = true
     
-    supabase.auth.getSession()
-      .then(({ data, error }) => {
+    // First, try to get the session
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        
         if (!isMounted) return
         
         if (error) {
-          // If refresh token is invalid, clear session and continue
-          console.warn('Session check error (non-blocking):', error)
-          setUser(null)
+          // If refresh token is invalid, try to refresh
+          console.warn('Session check error, attempting refresh:', error.message)
+          
+          // Try to refresh the session
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession()
+          
+          if (!isMounted) return
+          
+          if (refreshError || !refreshData.session) {
+            // Refresh failed, user is not authenticated
+            console.warn('Session refresh failed:', refreshError?.message)
+            setUser(null)
+          } else {
+            // Refresh succeeded
+            setUser(refreshData.session.user)
+          }
+        } else if (data.session) {
+          // Session exists
+          setUser(data.session.user)
         } else {
-          setUser(data.session?.user ?? null)
+          // No session
+          setUser(null)
         }
-        setLoading(false)
-      })
-      .catch((error) => {
+      } catch (error: any) {
         // Handle any unexpected errors
         if (!isMounted) return
         console.warn('Unexpected error checking session (non-blocking):', error)
         setUser(null)
-        setLoading(false)
-      })
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
 
+    checkSession()
+
+    // Also listen for auth state changes
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (!isMounted) return
+        console.log('Auth state changed:', event, session?.user?.id ? 'user logged in' : 'user logged out')
         setUser(session?.user ?? null)
         setLoading(false)
       }

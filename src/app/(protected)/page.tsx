@@ -13,23 +13,22 @@ export const dynamic = 'force-dynamic'
  */
 export default async function HomePage() {
   try {
-    // Optional: Redirect authenticated users to app
-    // Uncomment if you want logged-in users to go straight to /app
-    /*
+    // Check if user is authenticated and redirect to app if so
     const supabase = await createClient()
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser()
 
-    if (user) {
+    // If user is authenticated, redirect to app
+    if (user && !authError) {
       redirect('/app')
     }
-    */
 
-    // Show landing page for everyone
+    // Show landing page for unauthenticated users
     return <LandingPage />
   } catch (error) {
-    // If there's any error, show landing page
+    // If there's any error, show landing page (don't block access)
     console.error('Home page error:', error)
     return <LandingPage />
   }

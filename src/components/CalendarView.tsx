@@ -52,6 +52,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [shareToken, setShareToken] = useState<string | null>(null)
   const [loadingShare, setLoadingShare] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [sendingInvite, setSendingInvite] = useState(false)
+  const [inviteSent, setInviteSent] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
   const [unplannedLocationFilters, setUnplannedLocationFilters] = useState<string[]>([])
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
@@ -97,8 +102,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   useEffect(() => {
     if (user) {
+      console.log('CalendarView: User available, loading data', { userId: user.id })
       loadItems()
       loadItineraries()
+    } else {
+      console.log('CalendarView: No user available yet')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
@@ -1513,6 +1521,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setShowShareModal(false)
+                setInviteEmail('')
+                setInviteName('')
+                setInviteError(null)
+                setInviteSent(false)
               }
             }}
           >
@@ -1520,7 +1532,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Share Itinerary</h2>
                 <button
-                  onClick={() => setShowShareModal(false)}
+                  onClick={() => {
+                    setShowShareModal(false)
+                    setInviteEmail('')
+                    setInviteName('')
+                    setInviteError(null)
+                    setInviteSent(false)
+                  }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                   aria-label="Close"
                 >
@@ -1576,6 +1594,111 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     Anyone with this link can view your itinerary. They won&apos;t be able to edit it.
                   </p>
                 </div>
+
+                {/* Email Invite Section */}
+                <div className="pt-4 border-t border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Send Invite via Email
+                  </label>
+                  <div className="space-y-3">
+                    <input
+                      type="email"
+                      placeholder="friend@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => {
+                        setInviteEmail(e.target.value)
+                        setInviteError(null)
+                        setInviteSent(false)
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={sendingInvite || !shareUrl}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Recipient name (optional)"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={sendingInvite || !shareUrl}
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!inviteEmail.trim() || !selectedItineraryId || !shareUrl) return
+
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+                        if (!emailRegex.test(inviteEmail.trim())) {
+                          setInviteError('Please enter a valid email address')
+                          return
+                        }
+
+                        setSendingInvite(true)
+                        setInviteError(null)
+                        setInviteSent(false)
+
+                        try {
+                          const selectedItinerary = itineraries.find((it) => it.id === selectedItineraryId)
+                          const response = await fetch('/api/itinerary/invite', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              itinerary_id: selectedItineraryId,
+                              recipientEmail: inviteEmail.trim(),
+                              recipientName: inviteName.trim() || undefined,
+                              itineraryName: selectedItinerary?.name,
+                            }),
+                          })
+
+                          const data = await response.json()
+
+                          if (!response.ok) {
+                            throw new Error(data.error || 'Failed to send invite')
+                          }
+
+                          setInviteSent(true)
+                          setInviteEmail('')
+                          setInviteName('')
+                        } catch (error: any) {
+                          console.error('Error sending invite:', error)
+                          setInviteError(error.message || 'Failed to send invite. Please try again.')
+                        } finally {
+                          setSendingInvite(false)
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      disabled={sendingInvite || !shareUrl || !inviteEmail.trim()}
+                    >
+                      {sendingInvite ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Sending...
+                        </>
+                      ) : inviteSent ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Invite Sent!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          Send Invite
+                        </>
+                      )}
+                    </button>
+                    {inviteError && (
+                      <p className="text-xs text-red-600 mt-1">{inviteError}</p>
+                    )}
+                    {inviteSent && (
+                      <p className="text-xs text-green-600 mt-1">Invite email sent successfully! 🎉</p>
+                    )}
+                  </div>
+                </div>
                 
                 {/* Native Share Button for Mobile */}
                 {typeof navigator !== 'undefined' && navigator.share && shareUrl && (
@@ -1611,7 +1734,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     Revoke Link
                   </button>
                   <button
-                    onClick={() => setShowShareModal(false)}
+                    onClick={() => {
+                      setShowShareModal(false)
+                      setInviteEmail('')
+                      setInviteName('')
+                      setInviteError(null)
+                      setInviteSent(false)
+                    }}
                     className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Close
