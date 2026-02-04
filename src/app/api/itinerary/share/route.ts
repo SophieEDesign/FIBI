@@ -11,27 +11,36 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    // Debug: Log cookie header
-    const cookieHeader = request.headers.get('cookie')
-    console.log('Share API - Cookie header present:', !!cookieHeader)
-    console.log('Share API - Cookie header length:', cookieHeader?.length || 0)
-    if (cookieHeader) {
-      console.log('Share API - Cookie header preview:', cookieHeader.substring(0, 200))
-    }
+    // Try to get auth token from Authorization header first (more reliable)
+    const authHeader = request.headers.get('authorization')
+    let supabase = await createClient(request)
+    let user = null
+    let authError = null
 
-    const supabase = await createClient(request)
-    
-    // Use getUser() which is more reliable for API routes
-    // It validates the session and refreshes if needed
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      // Use the token from Authorization header
+      const token = authHeader.substring(7)
+      console.log('Share API - Using Bearer token from Authorization header')
+      
+      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+      user = tokenUser
+      authError = tokenError
+    } else {
+      // Fall back to cookie-based auth
+      const cookieHeader = request.headers.get('cookie')
+      console.log('Share API - Cookie header present:', !!cookieHeader)
+      console.log('Share API - Cookie header length:', cookieHeader?.length || 0)
+      
+      const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
+      user = cookieUser
+      authError = cookieError
+    }
 
     console.log('Share API - Auth check:', { 
       hasUser: !!user, 
       userId: user?.id, 
-      authError: authError?.message 
+      authError: authError?.message,
+      authMethod: authHeader ? 'Bearer token' : 'Cookies'
     })
 
     if (!user || authError) {
@@ -41,6 +50,7 @@ export async function POST(request: NextRequest) {
         origin: request.headers.get('origin'),
         referer: request.headers.get('referer'),
         userAgent: request.headers.get('user-agent')?.substring(0, 50),
+        hasAuthHeader: !!authHeader,
       })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

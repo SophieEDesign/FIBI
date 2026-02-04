@@ -11,18 +11,31 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient(request)
+    // Try using request-based client first (for API routes)
+    // If that fails, the cookie parsing in server.ts should handle it
+    let supabase = await createClient(request)
     
     // Use getUser() which is more reliable for API routes
     // It validates the session and refreshes if needed
-    const {
+    let {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
 
+    // If request-based auth fails, try without request (uses Next.js cookies())
+    // This is a fallback for cases where manual cookie parsing might fail
+    if (!user || authError) {
+      console.log('Calendar download: Request-based auth failed, trying Next.js cookies()')
+      supabase = await createClient()
+      const fallbackAuth = await supabase.auth.getUser()
+      user = fallbackAuth.data.user
+      authError = fallbackAuth.error
+    }
+
     if (!user || authError) {
       console.error('Calendar download auth error:', authError)
-      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 100))
+      console.error('Request cookies present:', !!request.headers.get('cookie'))
+      console.error('Cookie header length:', request.headers.get('cookie')?.length || 0)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

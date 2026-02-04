@@ -35,7 +35,25 @@ interface CalendarDay {
 export default function CalendarView({ user }: CalendarViewProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
-  const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null) // null = "All"
+  // Initialize selectedItineraryId from localStorage if available
+  const [selectedItineraryId, setSelectedItineraryIdState] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calendar_selected_itinerary_id')
+      return saved === 'null' ? null : saved
+    }
+    return null
+  })
+  // Wrapper to persist to localStorage when itinerary changes
+  const setSelectedItineraryId = (id: string | null) => {
+    setSelectedItineraryIdState(id)
+    if (typeof window !== 'undefined') {
+      if (id === null) {
+        localStorage.removeItem('calendar_selected_itinerary_id')
+      } else {
+        localStorage.setItem('calendar_selected_itinerary_id', id)
+      }
+    }
+  }
   const [loading, setLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -149,6 +167,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
         setItineraries([])
       } else {
         setItineraries(data || [])
+        // Validate that the selected itinerary still exists
+        if (selectedItineraryId && data) {
+          const itineraryExists = data.some((it: Itinerary) => it.id === selectedItineraryId)
+          if (!itineraryExists) {
+            // Itinerary no longer exists, reset to "All"
+            setSelectedItineraryId(null)
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading itineraries:', error)
@@ -206,10 +232,28 @@ export default function CalendarView({ user }: CalendarViewProps) {
     setCopied(false)
     try {
       console.log('Sharing itinerary:', selectedItineraryId)
+      
+      // Get the session token to pass as Authorization header
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError || !session) {
+        console.error('No session available:', sessionError)
+        throw new Error('You must be logged in to share itineraries')
+      }
+
+      const headers: HeadersInit = { 
+        'Content-Type': 'application/json',
+      }
+      
+      // Add Authorization header with the access token
+      if (session.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch('/api/itinerary/share', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ itinerary_id: selectedItineraryId }),
       })
 
