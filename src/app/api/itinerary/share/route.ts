@@ -11,6 +11,14 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
+    // Debug: Log cookie header
+    const cookieHeader = request.headers.get('cookie')
+    console.log('Share API - Cookie header present:', !!cookieHeader)
+    console.log('Share API - Cookie header length:', cookieHeader?.length || 0)
+    if (cookieHeader) {
+      console.log('Share API - Cookie header preview:', cookieHeader.substring(0, 200))
+    }
+
     const supabase = await createClient(request)
     
     // Use getUser() which is more reliable for API routes
@@ -20,9 +28,20 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
 
+    console.log('Share API - Auth check:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      authError: authError?.message 
+    })
+
     if (!user || authError) {
       console.error('Share API auth error:', authError)
-      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 100))
+      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 200))
+      console.error('Request headers:', {
+        origin: request.headers.get('origin'),
+        referer: request.headers.get('referer'),
+        userAgent: request.headers.get('user-agent')?.substring(0, 50),
+      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

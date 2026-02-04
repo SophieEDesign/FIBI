@@ -48,10 +48,13 @@ export async function createClient(request?: NextRequest) {
               }
               
               // Decode URL-encoded values (handles %20, %3D, etc.)
+              // But be careful - some cookies might have encoded = signs
               try {
+                // Try decoding, but if it fails (e.g., malformed encoding), use original
                 value = decodeURIComponent(value)
               } catch {
                 // If decoding fails, use original value
+                // This can happen if the value contains % that isn't part of encoding
               }
               
               if (name) {
@@ -61,6 +64,12 @@ export async function createClient(request?: NextRequest) {
                 })
               }
             })
+          }
+          
+          // Debug: Log cookie count (but not values for security)
+          if (cookies.length > 0) {
+            console.log('Parsed cookies:', cookies.length, 'cookies found')
+            console.log('Cookie names:', cookies.map(c => c.name).join(', '))
           }
           
           return cookies
