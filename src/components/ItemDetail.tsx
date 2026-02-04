@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
@@ -39,6 +39,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const stageDropdownRef = useRef<HTMLDivElement>(null)
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
+  const [showCalendarModal, setShowCalendarModal] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
+  const [viewMonth, setViewMonth] = useState(new Date())
+  const [savingCalendar, setSavingCalendar] = useState(false)
   
   // Location fields (edit mode only)
   const [description, setDescription] = useState('')
@@ -288,6 +292,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setCategories(parseCategories(data.category))
         setStatuses(parseStatuses(data.status))
         setSelectedItineraryId(data.itinerary_id || null)
+        setSelectedDate(data.planned_date ? new Date(data.planned_date) : null)
+        if (data.planned_date) {
+          setViewMonth(new Date(data.planned_date))
+        }
         setCustomCategory('')
         setCustomStatus('')
         setShowCustomCategoryInput(false)
@@ -337,6 +345,76 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const handleItineraryChange = async (itineraryId: string | null) => {
     setSelectedItineraryId(itineraryId)
     await saveField('itinerary_id', itineraryId)
+  }
+
+  // Handle saving calendar assignment
+  const handleSaveCalendar = async () => {
+    if (!item) return
+
+    setSavingCalendar(true)
+    try {
+      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
+
+      // Parse current status from item
+      let currentStatuses: string[] = []
+      if (item.status) {
+        try {
+          const parsed = JSON.parse(item.status)
+          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
+        } catch {
+          currentStatuses = [item.status]
+        }
+      }
+
+      // Update status based on date assignment
+      let newStatuses: string[] = []
+      if (dateStr) {
+        // Assigning date: set status to "Planned"
+        newStatuses = currentStatuses.filter(s => s !== 'To plan')
+        if (!newStatuses.includes('Planned')) {
+          newStatuses.push('Planned')
+        }
+      } else {
+        // Removing date: revert to "To plan"
+        newStatuses = currentStatuses.filter(s => s !== 'Planned')
+        if (!newStatuses.includes('To plan')) {
+          newStatuses.push('To plan')
+        }
+      }
+
+      const updateData: {
+        planned_date: string | null
+        itinerary_id?: string | null
+        status?: string | null
+      } = {
+        planned_date: dateStr,
+        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
+      }
+
+      // If an itinerary is selected and we're assigning a date, also assign to itinerary
+      if (selectedItineraryId && dateStr) {
+        updateData.itinerary_id = selectedItineraryId
+      } else if (!dateStr) {
+        // If removing date, also remove itinerary assignment
+        updateData.itinerary_id = null
+      }
+
+      const { error } = await supabase
+        .from('saved_items')
+        .update(updateData)
+        .eq('id', item.id)
+
+      if (error) throw error
+
+      // Reload item to reflect changes
+      loadItem()
+      setShowCalendarModal(false)
+    } catch (error) {
+      console.error('Error saving calendar assignment:', error)
+      alert('Failed to save calendar assignment. Please try again.')
+    } finally {
+      setSavingCalendar(false)
+    }
   }
 
   // Handle title save on blur
@@ -1279,6 +1357,35 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     Assign this place to an itinerary to filter it in the calendar view
                   </p>
                 </div>
+
+                {/* Calendar Assignment Button */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Calendar
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendarModal(true)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-left text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
+                  >
+                    <span>
+                      {selectedDate
+                        ? `Scheduled: ${selectedDate.toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}`
+                        : 'Add to calendar'}
+                    </span>
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Schedule this place for a specific date
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1409,6 +1516,350 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
           </div>
         </div>
       </main>
+
+      {/* Calendar Assignment Modal */}
+      {showCalendarModal && item && (
+        <CalendarAssignmentModal
+          item={item}
+          itineraries={itineraries}
+          selectedItineraryId={selectedItineraryId}
+          onItineraryChange={setSelectedItineraryId}
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          viewMonth={viewMonth}
+          onViewMonthChange={setViewMonth}
+          onSave={handleSaveCalendar}
+          onClose={() => {
+            setShowCalendarModal(false)
+            // Reset to current item values
+            setSelectedDate(item.planned_date ? new Date(item.planned_date) : null)
+            setSelectedItineraryId(item.itinerary_id || null)
+            if (item.planned_date) {
+              setViewMonth(new Date(item.planned_date))
+            }
+          }}
+          saving={savingCalendar}
+        />
+      )}
+    </div>
+  )
+}
+
+// Calendar Assignment Modal Component (shared with HomeGrid)
+interface CalendarAssignmentModalProps {
+  item: SavedItem
+  itineraries: Itinerary[]
+  selectedItineraryId: string | null
+  onItineraryChange: (id: string | null) => void
+  selectedDate: Date | null
+  onDateChange: (date: Date | null) => void
+  viewMonth: Date
+  onViewMonthChange: (date: Date) => void
+  onSave: () => void
+  onClose: () => void
+  saving: boolean
+}
+
+function CalendarAssignmentModal({
+  item,
+  itineraries,
+  selectedItineraryId,
+  onItineraryChange,
+  selectedDate,
+  onDateChange,
+  viewMonth,
+  onViewMonthChange,
+  onSave,
+  onClose,
+  saving,
+}: CalendarAssignmentModalProps) {
+  const [showCreateItinerary, setShowCreateItinerary] = useState(false)
+  const [newItineraryName, setNewItineraryName] = useState('')
+  const [creatingItinerary, setCreatingItinerary] = useState(false)
+  const supabase = createClient()
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose()
+    }
+  }
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
+
+  // Generate calendar days for view month
+  const calendarDays = useMemo(() => {
+    const year = viewMonth.getFullYear()
+    const month = viewMonth.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const startDate = new Date(firstDay)
+    startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
+
+    const days: Date[] = []
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + i)
+      days.push(date)
+    }
+    return days
+  }, [viewMonth])
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
+
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const isSameDay = (date1: Date, date2: Date | null) => {
+    if (!date2) return false
+    return (
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear()
+    )
+  }
+
+  const handleDateClick = (date: Date) => {
+    const dateStr = date.toISOString().split('T')[0]
+    const currentDateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
+
+    // Toggle date if clicking the same date
+    if (dateStr === currentDateStr) {
+      onDateChange(null)
+    } else {
+      onDateChange(date)
+    }
+  }
+
+  const handleCreateItinerary = async () => {
+    if (!newItineraryName.trim()) return
+
+    setCreatingItinerary(true)
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('itineraries')
+        .insert({
+          user_id: user.id,
+          name: newItineraryName.trim(),
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        onItineraryChange(data.id)
+        setShowCreateItinerary(false)
+        setNewItineraryName('')
+      }
+    } catch (error) {
+      console.error('Error creating itinerary:', error)
+      alert('Failed to create itinerary. Please try again.')
+    } finally {
+      setCreatingItinerary(false)
+    }
+  }
+
+  const displayTitle = item.title || getHostname(item.url)
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-4"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white rounded-t-2xl md:rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
+        {/* Header */}
+        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
+            <p className="text-sm text-gray-600 mt-1 line-clamp-1">{displayTitle}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors ml-2 flex-shrink-0"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Itinerary Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Itinerary (optional)
+            </label>
+            <div className="space-y-2">
+              <select
+                value={selectedItineraryId || ''}
+                onChange={(e) => onItineraryChange(e.target.value || null)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
+              >
+                <option value="">No itinerary</option>
+                {itineraries.map((itinerary) => (
+                  <option key={itinerary.id} value={itinerary.id}>
+                    {itinerary.name}
+                  </option>
+                ))}
+              </select>
+              {!showCreateItinerary ? (
+                <button
+                  onClick={() => setShowCreateItinerary(true)}
+                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  + Create new itinerary
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={newItineraryName}
+                    onChange={(e) => setNewItineraryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newItineraryName.trim()) {
+                        handleCreateItinerary()
+                      }
+                    }}
+                    placeholder="Itinerary name"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCreateItinerary}
+                      disabled={!newItineraryName.trim() || creatingItinerary}
+                      className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {creatingItinerary ? 'Creating...' : 'Create'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCreateItinerary(false)
+                        setNewItineraryName('')
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Date Picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date (optional)
+            </label>
+            {/* Month Navigation */}
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  const newDate = new Date(viewMonth)
+                  newDate.setMonth(viewMonth.getMonth() - 1)
+                  onViewMonthChange(newDate)
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}
+              </h3>
+              <button
+                onClick={() => {
+                  const newDate = new Date(viewMonth)
+                  newDate.setMonth(viewMonth.getMonth() + 1)
+                  onViewMonthChange(newDate)
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Week day headers */}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {weekDays.map((day) => (
+                <div key={day} className="p-2 text-center text-xs font-medium text-gray-700">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Calendar days */}
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((day, index) => {
+                const isCurrentMonth = day.getMonth() === viewMonth.getMonth()
+                const isSelected = isSameDay(day, selectedDate)
+                const today = new Date()
+                const isToday = isSameDay(day, today)
+
+                return (
+                  <button
+                    key={index}
+                    onClick={() => handleDateClick(day)}
+                    className={`p-2 text-sm rounded-lg transition-colors ${
+                      !isCurrentMonth
+                        ? 'text-gray-300'
+                        : isSelected
+                        ? 'bg-gray-900 text-white font-medium'
+                        : isToday
+                        ? 'bg-blue-50 text-blue-600 font-medium'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {day.getDate()}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="border-t border-gray-200 p-5 bg-gray-50">
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

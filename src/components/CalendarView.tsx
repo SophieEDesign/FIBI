@@ -83,6 +83,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [showStageDropdown, setShowStageDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
+  const [isDateListExpanded, setIsDateListExpanded] = useState(false) // Expandable date list state
   const [locationSearch, setLocationSearch] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
   const [stageSearch, setStageSearch] = useState('')
@@ -233,7 +234,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
     try {
       console.log('Sharing itinerary:', selectedItineraryId)
       
-      // Get the session token to pass as Authorization header
+      // Verify we have a session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
       if (sessionError || !session) {
@@ -241,19 +242,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
         throw new Error('You must be logged in to share itineraries')
       }
 
-      const headers: HeadersInit = { 
-        'Content-Type': 'application/json',
-      }
-      
-      // Add Authorization header with the access token
-      if (session.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
+      // Use cookies for auth - credentials: 'include' sends cookies automatically
+      // This is the preferred method as it works with RLS policies
       const response = await fetch('/api/itinerary/share', {
         method: 'POST',
-        credentials: 'include',
-        headers,
+        credentials: 'include', // This sends cookies automatically
+        headers: { 
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ itinerary_id: selectedItineraryId }),
       })
 
@@ -539,6 +535,37 @@ export default function CalendarView({ user }: CalendarViewProps) {
       statuses: Array.from(statuses).sort(),
     }
   }, [items])
+
+  // Get items with dates, sorted and grouped by date
+  const itemsByDate = useMemo(() => {
+    // Filter items that have a planned_date and match the selected itinerary
+    const itemsWithDates = filteredItems.filter((item) => item.planned_date)
+    
+    // Sort by date
+    const sorted = [...itemsWithDates].sort((a, b) => {
+      const dateA = new Date(a.planned_date!).getTime()
+      const dateB = new Date(b.planned_date!).getTime()
+      return dateA - dateB
+    })
+    
+    // Group by date
+    const grouped: { [key: string]: SavedItem[] } = {}
+    sorted.forEach((item) => {
+      const dateKey = item.planned_date!
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = []
+      }
+      grouped[dateKey].push(item)
+    })
+    
+    // Convert to array of { date, items } and sort by date
+    return Object.entries(grouped)
+      .map(([date, items]) => ({
+        date,
+        items,
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }, [filteredItems])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -1483,6 +1510,120 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           </div>
 
+          {/* Expandable Date List */}
+          {itemsByDate.length > 0 && (
+            <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setIsDateListExpanded(!isDateListExpanded)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Items by Date
+                  </h3>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {itemsByDate.length} {itemsByDate.length === 1 ? 'date' : 'dates'}
+                  </span>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-gray-500 transition-transform ${
+                    isDateListExpanded ? 'transform rotate-180' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+              
+              {isDateListExpanded && (
+                <div className="border-t border-gray-200 divide-y divide-gray-200">
+                  {itemsByDate.map(({ date, items }) => (
+                    <div key={date} className="p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {new Date(date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </h4>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {items.map((item) => (
+                          <div
+                            key={item.id}
+                            onClick={() => setSelectedItem(item)}
+                            className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-start gap-3">
+                              {item.screenshot_url && (
+                                <img
+                                  src={item.screenshot_url}
+                                  alt={item.title || 'Place'}
+                                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h5 className="text-sm font-medium text-gray-900 truncate">
+                                  {item.title || item.place_name || 'Untitled Place'}
+                                </h5>
+                                {item.place_name && item.title !== item.place_name && (
+                                  <p className="text-xs text-gray-500 truncate mt-0.5">
+                                    {item.place_name}
+                                  </p>
+                                )}
+                                {item.formatted_address && (
+                                  <p className="text-xs text-gray-500 truncate mt-1">
+                                    {item.formatted_address}
+                                  </p>
+                                )}
+                                {item.category && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {(() => {
+                                      try {
+                                        const cats = JSON.parse(item.category)
+                                        const catArray = Array.isArray(cats) ? cats : [cats]
+                                        return catArray.map((cat: string, idx: number) => (
+                                          <span
+                                            key={idx}
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                                          >
+                                            {cat}
+                                          </span>
+                                        ))
+                                      } catch {
+                                        return (
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            {item.category}
+                                          </span>
+                                        )
+                                      }
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Drag Overlay */}
           <DragOverlay>
             {draggedItem ? (
@@ -1504,6 +1645,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
           <DatePickerModal
             item={itemToDate}
             currentDate={itemToDate.planned_date ? new Date(itemToDate.planned_date) : null}
+            currentItineraryId={itemToDate.itinerary_id || null}
+            itineraries={itineraries}
+            selectedItineraryId={selectedItineraryId}
             onSelect={handleDateSelected}
             onClose={() => {
               setShowDatePicker(false)
@@ -2452,13 +2596,21 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
 interface DatePickerModalProps {
   item: SavedItem
   currentDate: Date | null
+  currentItineraryId: string | null
+  itineraries: Itinerary[]
+  selectedItineraryId: string | null
   onSelect: (date: Date | null) => void
   onClose: () => void
 }
 
-function DatePickerModal({ item, currentDate, onSelect, onClose }: DatePickerModalProps) {
+function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, selectedItineraryId, onSelect, onClose }: DatePickerModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(currentDate)
+  const [selectedItinerary, setSelectedItinerary] = useState<string | null>(currentItineraryId || selectedItineraryId)
   const [viewMonth, setViewMonth] = useState(new Date(currentDate || new Date()))
+  const [showCreateItinerary, setShowCreateItinerary] = useState(false)
+  const [newItineraryName, setNewItineraryName] = useState('')
+  const [creatingItinerary, setCreatingItinerary] = useState(false)
+  const supabase = createClient()
 
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -2523,6 +2675,105 @@ function DatePickerModal({ item, currentDate, onSelect, onClose }: DatePickerMod
     }
   }
 
+  const handleCreateItinerary = async () => {
+    if (!newItineraryName.trim()) return
+
+    setCreatingItinerary(true)
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('itineraries')
+        .insert({
+          user_id: user.id,
+          name: newItineraryName.trim(),
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      if (data) {
+        setSelectedItinerary(data.id)
+        setShowCreateItinerary(false)
+        setNewItineraryName('')
+      }
+    } catch (error) {
+      console.error('Error creating itinerary:', error)
+      alert('Failed to create itinerary. Please try again.')
+    } finally {
+      setCreatingItinerary(false)
+    }
+  }
+
+  const handleSave = async () => {
+    const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
+    
+    // Update the item with both date and itinerary
+    try {
+      // Parse current status from item
+      let currentStatuses: string[] = []
+      if (item.status) {
+        try {
+          const parsed = JSON.parse(item.status)
+          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
+        } catch {
+          currentStatuses = [item.status]
+        }
+      }
+
+      // Update status based on date assignment
+      let newStatuses: string[] = []
+      if (dateStr) {
+        // Assigning date: set status to "Planned"
+        newStatuses = currentStatuses.filter(s => s !== 'To plan')
+        if (!newStatuses.includes('Planned')) {
+          newStatuses.push('Planned')
+        }
+      } else {
+        // Removing date: revert to "To plan"
+        newStatuses = currentStatuses.filter(s => s !== 'Planned')
+        if (!newStatuses.includes('To plan')) {
+          newStatuses.push('To plan')
+        }
+      }
+
+      const updateData: {
+        planned_date: string | null
+        itinerary_id?: string | null
+        status?: string | null
+      } = {
+        planned_date: dateStr,
+        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
+      }
+
+      // If an itinerary is selected and we're assigning a date, also assign to itinerary
+      if (selectedItinerary && dateStr) {
+        updateData.itinerary_id = selectedItinerary
+      } else if (!dateStr) {
+        // If removing date, also remove itinerary assignment
+        updateData.itinerary_id = null
+      }
+
+      const { error } = await supabase
+        .from('saved_items')
+        .update(updateData)
+        .eq('id', item.id)
+
+      if (error) throw error
+
+      // Call onSelect with the date (the parent will handle the rest)
+      onSelect(selectedDate)
+    } catch (error) {
+      console.error('Error saving calendar assignment:', error)
+      alert('Failed to save calendar assignment. Please try again.')
+    }
+  }
+
   const displayTitle = item.title || getHostname(item.url)
 
   return (
@@ -2548,9 +2799,77 @@ function DatePickerModal({ item, currentDate, onSelect, onClose }: DatePickerMod
           </button>
         </div>
 
-        {/* Calendar */}
-        <div className="flex-1 overflow-y-auto p-5">
-          {/* Month Navigation */}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Itinerary Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Itinerary (optional)
+            </label>
+            <div className="space-y-2">
+              <select
+                value={selectedItinerary || ''}
+                onChange={(e) => setSelectedItinerary(e.target.value || null)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
+              >
+                <option value="">No itinerary</option>
+                {itineraries.map((itinerary) => (
+                  <option key={itinerary.id} value={itinerary.id}>
+                    {itinerary.name}
+                  </option>
+                ))}
+              </select>
+              {!showCreateItinerary ? (
+                <button
+                  onClick={() => setShowCreateItinerary(true)}
+                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  + Create new itinerary
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={newItineraryName}
+                    onChange={(e) => setNewItineraryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newItineraryName.trim()) {
+                        handleCreateItinerary()
+                      }
+                    }}
+                    placeholder="Itinerary name"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCreateItinerary}
+                      disabled={!newItineraryName.trim() || creatingItinerary}
+                      className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {creatingItinerary ? 'Creating...' : 'Create'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCreateItinerary(false)
+                        setNewItineraryName('')
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Date Picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date (optional)
+            </label>
+            {/* Month Navigation */}
           <div className="mb-4 flex items-center justify-between">
             <button
               onClick={() => {
@@ -2623,13 +2942,17 @@ function DatePickerModal({ item, currentDate, onSelect, onClose }: DatePickerMod
         <div className="border-t border-gray-200 p-5 bg-gray-50">
           <div className="flex gap-3">
             <button
-              onClick={() => onSelect(null)}
+              onClick={() => {
+                setSelectedDate(null)
+                setSelectedItinerary(null)
+                onSelect(null)
+              }}
               className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors"
             >
               Remove from calendar
             </button>
             <button
-              onClick={() => onSelect(selectedDate)}
+              onClick={handleSave}
               className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
             >
               {selectedDate

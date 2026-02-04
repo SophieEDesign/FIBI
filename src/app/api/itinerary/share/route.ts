@@ -17,10 +17,22 @@ export async function POST(request: NextRequest) {
     let user = null
     let authError = null
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      // Use the token from Authorization header
+    // Try cookie-based auth first (RLS works better with cookies)
+    const cookieHeader = request.headers.get('cookie')
+    console.log('Share API - Cookie header present:', !!cookieHeader)
+    console.log('Share API - Cookie header length:', cookieHeader?.length || 0)
+    
+    const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
+    
+    if (cookieUser && !cookieError) {
+      // Cookies work - use them (RLS will work properly)
+      user = cookieUser
+      authError = null
+      console.log('Share API - Using cookie-based auth, user authenticated:', user.id)
+    } else if (authHeader && authHeader.startsWith('Bearer ')) {
+      // Fall back to Bearer token if cookies don't work
       const token = authHeader.substring(7)
-      console.log('Share API - Using Bearer token from Authorization header')
+      console.log('Share API - Cookies failed, using Bearer token from Authorization header')
       
       // Get user from token - this validates the token
       const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
@@ -31,24 +43,13 @@ export async function POST(request: NextRequest) {
       } else {
         user = tokenUser
         authError = null
-        // For RLS to work, we need to ensure the client is authenticated
-        // Since we're using a Bearer token, the cookies might not be set
-        // But the client from createClient(request) should still work if cookies exist
-        // If cookies don't exist, RLS might fail. Let's try to get the session from the token.
-        // Actually, Supabase RLS uses auth.uid() which comes from the session in cookies
-        // If we only have a Bearer token, we might need to set it as a session
-        // For now, let's proceed and see if RLS works - if not, we'll need to handle it differently
         console.log('Share API - Bearer token validated, user authenticated:', user.id)
+        console.warn('Share API - Using Bearer token: RLS may not work properly. Cookies are preferred.')
       }
     } else {
-      // Fall back to cookie-based auth
-      const cookieHeader = request.headers.get('cookie')
-      console.log('Share API - Cookie header present:', !!cookieHeader)
-      console.log('Share API - Cookie header length:', cookieHeader?.length || 0)
-      
-      const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
-      user = cookieUser
-      authError = cookieError
+      // No auth method available
+      user = null
+      authError = cookieError || new Error('No authentication method available')
     }
 
     console.log('Share API - Auth check:', { 

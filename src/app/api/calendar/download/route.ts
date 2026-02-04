@@ -80,11 +80,23 @@ export async function GET(request: NextRequest) {
     // Filter by itinerary if provided
     // When itineraryId is null/undefined, we get all items (including those without itinerary_id)
     if (itineraryId) {
+      // Include items that match the itinerary_id
+      // Note: This will only return items that have this specific itinerary_id set
+      // Items without itinerary_id (null) won't be included when filtering by itinerary
       query = query.eq('itinerary_id', itineraryId)
+      console.log('Filtering by itinerary_id:', itineraryId)
+    } else {
+      console.log('No itinerary filter - including all items with planned_date')
     }
 
     // Order by planned date
     query = query.order('planned_date', { ascending: true })
+    
+    console.log('Calendar download query:', {
+      itineraryId,
+      userId: user.id,
+      hasItineraryFilter: !!itineraryId,
+    })
 
     const { data: items, error } = await query
 
@@ -93,7 +105,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch items' }, { status: 500 })
     }
 
-    console.log('Fetched items for calendar:', { count: items?.length || 0, itineraryId })
+    console.log('Fetched items for calendar:', { 
+      count: items?.length || 0, 
+      itineraryId,
+      sampleItems: items?.slice(0, 3).map(item => ({
+        id: item.id,
+        title: item.title,
+        planned_date: item.planned_date,
+        itinerary_id: item.itinerary_id,
+      })) || [],
+    })
+
+    // If no items found, return 204 No Content
+    if (!items || items.length === 0) {
+      console.log('No items found for calendar download, returning 204.')
+      return new NextResponse(null, { status: 204 }) // No content
+    }
 
     // Get itinerary name if itinerary_id is provided
     let itineraryName: string | null = null
@@ -112,6 +139,16 @@ export async function GET(request: NextRequest) {
 
     // Generate iCal content
     const itemsToProcess = items || []
+    console.log('Generating iCal from items:', {
+      totalItems: itemsToProcess.length,
+      itemsWithPlannedDate: itemsToProcess.filter(item => item.planned_date).length,
+      sampleItems: itemsToProcess.slice(0, 3).map(item => ({
+        id: item.id,
+        title: item.title,
+        planned_date: item.planned_date,
+      })),
+    })
+    
     const icalContent = generateICal(itemsToProcess)
 
     // Generate filename based on itinerary
@@ -119,7 +156,12 @@ export async function GET(request: NextRequest) {
       ? `fibi-${sanitizeFilename(itineraryName)}.ics`
       : 'fibi-calendar.ics'
 
-    console.log('Generated calendar:', { filename, itemCount: itemsToProcess.length })
+    console.log('Generated calendar:', { 
+      filename, 
+      itemCount: itemsToProcess.length,
+      icalLength: icalContent.length,
+      icalPreview: icalContent.substring(0, 200),
+    })
 
     // Return as downloadable file
     return new NextResponse(icalContent, {
@@ -151,9 +193,19 @@ function generateICal(items: any[]): string {
   
   // Add each item as an event
   items.forEach((item) => {
-    if (!item.planned_date) return
+    if (!item.planned_date) {
+      console.warn('Skipping item without planned_date:', item.id)
+      return
+    }
     
     const date = new Date(item.planned_date)
+    
+    // Validate date
+    if (isNaN(date.getTime())) {
+      console.warn('Skipping item with invalid planned_date:', item.id, item.planned_date)
+      return
+    }
+    
     const title = item.title || item.place_name || item.formatted_address || 'Untitled Place'
     const description = [
       item.description,
