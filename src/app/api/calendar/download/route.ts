@@ -116,10 +116,33 @@ export async function GET(request: NextRequest) {
       })) || [],
     })
 
-    // If no items found, return 204 No Content
+    // If no items found, return an empty calendar file instead of 204
+    // This is more user-friendly and prevents client-side errors
     if (!items || items.length === 0) {
-      console.log('No items found for calendar download, returning 204.')
-      return new NextResponse(null, { status: 204 }) // No content
+      console.log('No items found for calendar download, returning empty calendar file.')
+      
+      // Generate empty calendar
+      const emptyCalendar = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//FiBi//Calendar//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'END:VCALENDAR',
+      ].join('\r\n')
+      
+      const filename = itineraryName
+        ? `fibi-${sanitizeFilename(itineraryName)}.ics`
+        : 'fibi-calendar.ics'
+      
+      return new NextResponse(emptyCalendar, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/calendar; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+      })
     }
 
     // Get itinerary name if itinerary_id is provided

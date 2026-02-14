@@ -26,17 +26,28 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
     const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
     const response = await fetch(oembedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/html, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.tiktok.com/',
+        'Origin': 'https://www.tiktok.com',
       },
       next: { revalidate: 3600 }, // Cache for 1 hour
     })
 
     if (!response.ok) {
-      console.warn(`TikTok oEmbed failed: ${response.status}`)
+      const errorText = await response.text().catch(() => '')
+      console.warn(`TikTok oEmbed failed: ${response.status} ${response.statusText}`, errorText.substring(0, 200))
       return { error: 'TikTok oEmbed failed' }
     }
 
     const data = await response.json()
+    
+    // Check if TikTok returned an error in the JSON response
+    if (data.error || !data.html) {
+      console.warn('TikTok oEmbed returned error or empty HTML:', data)
+      return { error: 'TikTok oEmbed returned no data' }
+    }
     
     // Extract caption from TikTok HTML (WordPress-style extraction)
     // TikTok oEmbed HTML contains the caption in a <p> tag within a blockquote
@@ -338,13 +349,66 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
             description = ogDescriptionMatch[1].trim()
           }
           
+          // For TikTok, also try to extract from JSON-LD structured data
+          if (platform === 'tiktok' && !description) {
+            try {
+              const jsonLdMatches = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
+              if (jsonLdMatches) {
+                for (const match of jsonLdMatches) {
+                  try {
+                    const jsonContent = match.replace(/<script[^>]*>|<\/script>/gi, '').trim()
+                    const jsonData = JSON.parse(jsonContent)
+                    
+                    // Check for description in various JSON-LD structures
+                    if (jsonData.description && !description) {
+                      description = jsonData.description.trim()
+                    }
+                    if (jsonData.text && !description) {
+                      description = jsonData.text.trim()
+                    }
+                    if (jsonData.caption && !description) {
+                      description = jsonData.caption.trim()
+                    }
+                    // For VideoObject schema
+                    if (jsonData['@type'] === 'VideoObject' && jsonData.description && !description) {
+                      description = jsonData.description.trim()
+                    }
+                    // For array of objects
+                    if (Array.isArray(jsonData)) {
+                      for (const item of jsonData) {
+                        if (item.description && !description) {
+                          description = item.description.trim()
+                          break
+                        }
+                        if (item.text && !description) {
+                          description = item.text.trim()
+                          break
+                        }
+                        if (item.caption && !description) {
+                          description = item.caption.trim()
+                          break
+                        }
+                      }
+                    }
+                    if (description) break
+                  } catch (parseError) {
+                    // Skip invalid JSON, continue to next script tag
+                    continue
+                  }
+                }
+              }
+            } catch (error) {
+              // Non-blocking - continue
+            }
+          }
+          
           // Return metadata in oEmbed format for consistency
           return {
             html: undefined, // No HTML embed for generic URLs
             thumbnail_url: thumbnailUrl || undefined,
             author_name: undefined,
             title: title || undefined,
-            provider_name: 'Generic',
+            provider_name: platform === 'tiktok' ? 'TikTok' : 'Generic',
             // Include description as caption_text for consistency
             caption_text: description || undefined,
           }

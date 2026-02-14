@@ -29,27 +29,32 @@ export async function POST(request: NextRequest) {
       user = cookieUser
       authError = null
       console.log('Share API - Using cookie-based auth, user authenticated:', user.id)
-    } else if (authHeader && authHeader.startsWith('Bearer ')) {
-      // Fall back to Bearer token if cookies don't work
-      const token = authHeader.substring(7)
-      console.log('Share API - Cookies failed, using Bearer token from Authorization header')
-      
-      // Get user from token - this validates the token
-      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
-      
-      if (tokenError || !tokenUser) {
-        user = null
-        authError = tokenError
-      } else {
-        user = tokenUser
-        authError = null
-        console.log('Share API - Bearer token validated, user authenticated:', user.id)
-        console.warn('Share API - Using Bearer token: RLS may not work properly. Cookies are preferred.')
-      }
     } else {
-      // No auth method available
-      user = null
-      authError = cookieError || new Error('No authentication method available')
+      // Cookies failed, try Bearer token if available
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7)
+        console.log('Share API - Cookies failed, trying Bearer token from Authorization header')
+        
+        // Create a new Supabase client with the token for validation
+        // We need to validate the token separately
+        const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
+        
+        if (tokenError || !tokenUser) {
+          user = null
+          authError = tokenError || new Error('Bearer token validation failed')
+          console.error('Share API - Bearer token validation failed:', tokenError)
+        } else {
+          user = tokenUser
+          authError = null
+          console.log('Share API - Bearer token validated, user authenticated:', user.id)
+          console.warn('Share API - Using Bearer token: RLS may not work properly. Cookies are preferred.')
+        }
+      } else {
+        // No auth method available
+        user = null
+        authError = cookieError || new Error('No authentication method available')
+        console.error('Share API - No authentication method available')
+      }
     }
 
     console.log('Share API - Auth check:', { 

@@ -243,13 +243,20 @@ export default function CalendarView({ user }: CalendarViewProps) {
       }
 
       // Use cookies for auth - credentials: 'include' sends cookies automatically
-      // This is the preferred method as it works with RLS policies
+      // Also include Authorization header as fallback for better reliability
+      const headers: HeadersInit = { 
+        'Content-Type': 'application/json',
+      }
+      
+      // Add Authorization header with Bearer token as fallback
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+
       const response = await fetch('/api/itinerary/share', {
         method: 'POST',
         credentials: 'include', // This sends cookies automatically
-        headers: { 
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ itinerary_id: selectedItineraryId }),
       })
 
@@ -790,6 +797,12 @@ export default function CalendarView({ user }: CalendarViewProps) {
         const errorData = await response.json().catch(() => ({}))
         console.error('Download error:', response.status, errorData)
         throw new Error(errorData.error || 'Failed to download calendar')
+      }
+
+      // Handle 204 No Content (no items to download)
+      if (response.status === 204) {
+        alert('No items with planned dates found to download.')
+        return
       }
 
       // Check if response is actually a blob/ICS file
