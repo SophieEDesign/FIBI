@@ -25,18 +25,19 @@ export default function ProtectedLayout({
     }
     let cancelled = false
     const client = createClient()
-    client
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await client
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
         if (!cancelled && data?.role === 'admin') setIsAdmin(true)
         else if (!cancelled) setIsAdmin(false)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setIsAdmin(false)
-      })
+      }
+    })()
     return () => { cancelled = true }
   }, [user?.id])
 
