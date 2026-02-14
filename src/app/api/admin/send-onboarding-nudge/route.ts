@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getAdminSupabase } from '@/lib/admin'
+import { UUID_REGEX } from '@/lib/utils'
 import { sendEmail } from '@/lib/resend'
 import {
   NUDGE_FIRST_PLACE_SUBJECT,
@@ -8,8 +9,6 @@ import {
   getNudgeNiceStartEmailHtml,
 } from '@/lib/email-templates'
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const NUDGE_ELIGIBLE_AGE_MS = 48 * 60 * 60 * 1000
 
 export const dynamic = 'force-dynamic'

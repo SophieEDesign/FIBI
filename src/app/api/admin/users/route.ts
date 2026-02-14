@@ -1,65 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { requireAdmin, getAdminSupabase } from '@/lib/admin'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * Admin API route to fetch user data
  * GET /api/admin/users
- * 
+ *
  * Returns user data from auth.users and profiles, with aggregated stats from saved_items
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient(request)
-    
-    // Check if user is authenticated
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const auth = await requireAdmin(request)
+    if (auth instanceof NextResponse) return auth
 
-    if (!user || authError) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user has admin role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    if (profileError || !profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // Use service role key to query auth.users
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!serviceRoleKey) {
-      console.error('SUPABASE_SERVICE_ROLE_KEY is not set')
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!supabaseUrl) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      )
-    }
-
-    // Create admin client with service role key
-    const adminClient = createAdminClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
+    const adminClient = getAdminSupabase()
 
     // Fetch all users from auth.users
     const { data: authUsers, error: authUsersError } = await adminClient.auth.admin.listUsers()

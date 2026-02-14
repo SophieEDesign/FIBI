@@ -10,6 +10,8 @@ interface UserData {
   last_login_at: string | null
   first_place_added_at: string | null
   places_count: number
+  welcome_email_sent: boolean
+  onboarding_nudge_sent: boolean
 }
 
 interface Metrics {
@@ -39,33 +41,35 @@ export default function AdminDashboard() {
     errors?: string[]
   } | null>(null)
   const [showFoundingConfirm, setShowFoundingConfirm] = useState(false)
+  const [sendingWelcomeId, setSendingWelcomeId] = useState<string | null>(null)
+  const [sendingNudgeId, setSendingNudgeId] = useState<string | null>(null)
+  const [rowActionError, setRowActionError] = useState<string | null>(null)
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/admin/users')
+      if (!response.ok) {
+        if (response.status === 403) {
+          setError('Access denied. Admin role required.')
+        } else {
+          setError('Failed to load user data')
+        }
+        setLoading(false)
+        return
+      }
+      const data = await response.json()
+      setUsers(data.users || [])
+      setMetrics(data.metrics || null)
+    } catch (err) {
+      console.error('Error fetching admin data:', err)
+      setError('Failed to load user data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await fetch('/api/admin/users')
-        if (!response.ok) {
-          if (response.status === 403) {
-            setError('Access denied. Admin role required.')
-          } else {
-            setError('Failed to load user data')
-          }
-          setLoading(false)
-          return
-        }
-
-        const data = await response.json()
-        setUsers(data.users || [])
-        setMetrics(data.metrics || null)
-      } catch (err) {
-        console.error('Error fetching admin data:', err)
-        setError('Failed to load user data')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchData()
+    fetchUsers()
   }, [])
 
   const fetchFoundingEligible = async () => {
@@ -116,6 +120,61 @@ export default function AdminDashboard() {
       })
     } finally {
       setFoundingSending(false)
+    }
+  }
+
+  const NUDGE_ELIGIBLE_AGE_MS = 48 * 60 * 60 * 1000
+
+  const canSendWelcome = (user: UserData) =>
+    user.email_confirmed_at != null && !user.welcome_email_sent
+
+  const canSendNudge = (user: UserData) => {
+    if (!user.email_confirmed_at || user.onboarding_nudge_sent) return false
+    const createdAt = new Date(user.created_at).getTime()
+    return Date.now() - createdAt >= NUDGE_ELIGIBLE_AGE_MS
+  }
+
+  const handleSendWelcome = async (userId: string) => {
+    setRowActionError(null)
+    setSendingWelcomeId(userId)
+    try {
+      const res = await fetch('/api/admin/send-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRowActionError(data.error || 'Failed to send welcome email')
+        return
+      }
+      await fetchUsers()
+    } catch (err) {
+      setRowActionError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setSendingWelcomeId(null)
+    }
+  }
+
+  const handleSendNudge = async (userId: string) => {
+    setRowActionError(null)
+    setSendingNudgeId(userId)
+    try {
+      const res = await fetch('/api/admin/send-onboarding-nudge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setRowActionError(data.error || 'Failed to send nudge')
+        return
+      }
+      await fetchUsers()
+    } catch (err) {
+      setRowActionError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setSendingNudgeId(null)
     }
   }
 
@@ -264,8 +323,13 @@ export default function AdminDashboard() {
 
         {/* Users Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold text-gray-900">Users</h2>
+            {rowActionError && (
+              <p className="text-sm text-red-600" role="alert">
+                {rowActionError}
+              </p>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -287,14 +351,23 @@ export default function AdminDashboard() {
                     First Place Added
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Places Count
+                    Places
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Welcome sent
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Nudge sent
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={9} className="px-6 py-4 text-center text-gray-500">
                       No users found
                     </td>
                   </tr>
@@ -318,6 +391,34 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.places_count}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.welcome_email_sent ? 'Yes' : '—'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.onboarding_nudge_sent ? 'Yes' : '—'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex flex-wrap gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSendWelcome(user.id)}
+                            disabled={!canSendWelcome(user) || sendingWelcomeId !== null}
+                            aria-label={`Send welcome email to ${user.email || 'user'}`}
+                            className="px-2 py-1 text-xs font-medium rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            {sendingWelcomeId === user.id ? 'Sending…' : 'Send welcome'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendNudge(user.id)}
+                            disabled={!canSendNudge(user) || sendingNudgeId !== null}
+                            aria-label={`Send onboarding nudge to ${user.email || 'user'}`}
+                            className="px-2 py-1 text-xs font-medium rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none"
+                          >
+                            {sendingNudgeId === user.id ? 'Sending…' : 'Send nudge'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

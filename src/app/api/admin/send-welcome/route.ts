@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getAdminSupabase } from '@/lib/admin'
+import { UUID_REGEX } from '@/lib/utils'
 import { sendEmail } from '@/lib/resend'
 import {
   ADMIN_WELCOME_EMAIL_SUBJECT,
   getAdminWelcomeEmailHtml,
 } from '@/lib/email-templates'
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export const dynamic = 'force-dynamic'
 

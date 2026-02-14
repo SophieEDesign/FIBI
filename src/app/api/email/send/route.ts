@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import React from 'react'
 import { render } from '@react-email/render'
 import { requireAdmin, getAdminSupabase } from '@/lib/admin'
+import { UUID_REGEX } from '@/lib/utils'
 import { sendEmail } from '@/lib/resend'
 import { WelcomeEmail } from 'emails/welcome'
 import { OnboardingNudgeEmail } from 'emails/onboarding-nudge'
@@ -9,8 +10,6 @@ import { FoundingFollowupEmail } from 'emails/founding-followup'
 
 export const dynamic = 'force-dynamic'
 
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const NUDGE_ELIGIBLE_AGE_MS = 48 * 60 * 60 * 1000
 const FROM_EMAIL = 'hello@fibi.world'
 
