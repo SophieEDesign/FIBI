@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createClientWithToken } from '@/lib/supabase/server'
 import { sendInviteEmail } from '@/lib/email-templates'
 
 export const dynamic = 'force-dynamic'
@@ -16,14 +16,24 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient(request)
-    
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
+    const authHeader = request.headers.get('authorization')
+    const supabaseAuth = await createClient(request)
+    let user: { id: string; email?: string } | null = null
+    let supabase = supabaseAuth
 
-    if (!user || authError) {
+    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
+    if (cookieUser && !cookieError) {
+      user = cookieUser
+    } else if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(token)
+      if (tokenUser && !tokenError) {
+        user = tokenUser
+        supabase = createClientWithToken(token)
+      }
+    }
+
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
