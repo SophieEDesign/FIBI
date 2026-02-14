@@ -35,6 +35,9 @@ export default function ProtectedLayout({
   useEffect(() => {
     if (loading) return
     if (!user) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'protected/layout.tsx:redirect', message: 'Layout redirecting to /login', data: { loading, hasUser: !!user }, timestamp: Date.now(), hypothesisId: 'redirectLoop' }) }).catch(() => {})
+      // #endregion
       router.replace('/login')
     }
   }, [loading, user, router])
@@ -73,6 +76,12 @@ export default function ProtectedLayout({
   if (!user) {
     return null // redirect to /login is in progress
   }
+
+  // #region agent log
+  if (typeof window !== 'undefined') {
+    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'protected/layout.tsx:renderContent', message: 'Layout rendering content', data: { userId: user?.id }, timestamp: Date.now(), hypothesisId: 'redirectLoop' }) }).catch(() => {})
+  }
+  // #endregion
 
   return (
     <>
