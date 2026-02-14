@@ -72,14 +72,24 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Fetch all profiles (if needed for additional data)
+    // Fetch profiles with onboarding flags for dashboard
     const { data: profiles, error: profilesError } = await adminClient
       .from('profiles')
-      .select('id')
+      .select('id, welcome_email_sent, onboarding_nudge_sent')
 
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError)
       // Continue even if profiles query fails
+    }
+
+    const profileMap = new Map<string, { welcome_email_sent: boolean; onboarding_nudge_sent: boolean }>()
+    if (profiles) {
+      profiles.forEach((p) => {
+        profileMap.set(p.id, {
+          welcome_email_sent: p.welcome_email_sent ?? false,
+          onboarding_nudge_sent: p.onboarding_nudge_sent ?? false,
+        })
+      })
     }
 
     // Fetch place counts and first place added for each user
@@ -112,7 +122,10 @@ export async function GET(request: NextRequest) {
     // Combine data and calculate metrics
     const usersData = authUsers.users.map((authUser) => {
       const placeStats = placeStatsMap.get(authUser.id) || { count: 0, firstPlaceAt: null }
-      
+      const onboarding = profileMap.get(authUser.id) || {
+        welcome_email_sent: false,
+        onboarding_nudge_sent: false,
+      }
       return {
         id: authUser.id,
         email: authUser.email,
@@ -121,6 +134,8 @@ export async function GET(request: NextRequest) {
         last_login_at: authUser.last_sign_in_at || null,
         first_place_added_at: placeStats.firstPlaceAt,
         places_count: placeStats.count,
+        welcome_email_sent: onboarding.welcome_email_sent,
+        onboarding_nudge_sent: onboarding.onboarding_nudge_sent,
       }
     })
 

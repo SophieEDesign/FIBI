@@ -353,3 +353,76 @@ export async function sendPasswordResetEmail({
   })
 }
 
+// --- Admin onboarding emails (product-ready copy) ---
+
+export const ADMIN_WELCOME_EMAIL_SUBJECT = "You're in. Let's start properly ✨"
+
+/**
+ * Admin welcome email HTML (exact product copy)
+ */
+export function getAdminWelcomeEmailHtml(): string {
+  const body = `
+<h2>Welcome to FIBI</h2>
+<p>FIBI helps you save and organise travel places you don't want to forget.</p>
+<p>Here's how to start:</p>
+<ol>
+  <li>Add one place you've saved recently</li>
+  <li>Create a trip</li>
+  <li>Keep building from there</li>
+</ol>
+<p>
+  <a href="https://fibi.world/login" style="display:inline-block;padding:12px 20px;background:#171717;color:#ffffff;text-decoration:none;border-radius:6px;">
+    Open FIBI
+  </a>
+</p>
+<p style="margin-top:24px;color:#666;font-size:14px;">
+  If anything feels confusing, just reply to this email.
+</p>
+  `.trim()
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Welcome to FIBI</title></head><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#171717;">${body}</body></html>`
+}
+
+/** Subject for "Add your first place" nudge */
+export const NUDGE_FIRST_PLACE_SUBJECT = 'Add your first place to FIBI'
+
+/**
+ * Nudge email when places_count === 0
+ */
+export function getNudgeFirstPlaceEmailHtml(): string {
+  const body = `
+<h2>You're all set — add your first place</h2>
+<p>FIBI is ready for you. Save a place you've had on your list (from Instagram, TikTok, or anywhere) and see it in one place.</p>
+<p>
+  <a href="https://fibi.world/app" style="display:inline-block;padding:12px 20px;background:#171717;color:#ffffff;text-decoration:none;border-radius:6px;">
+    Open FIBI
+  </a>
+</p>
+<p style="margin-top:24px;color:#666;font-size:14px;">
+  If you have any questions, just reply to this email.
+</p>
+  `.trim()
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Add your first place</title></head><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#171717;">${body}</body></html>`
+}
+
+/** Subject for "Nice start" nudge */
+export const NUDGE_NICE_START_SUBJECT = 'Nice start — keep building your list'
+
+/**
+ * Nudge email when places_count > 0
+ */
+export function getNudgeNiceStartEmailHtml(): string {
+  const body = `
+<h2>Nice start</h2>
+<p>You've added places to FIBI. Create a trip to group them, or keep saving — your list, your way.</p>
+<p>
+  <a href="https://fibi.world/app" style="display:inline-block;padding:12px 20px;background:#171717;color:#ffffff;text-decoration:none;border-radius:6px;">
+    Open FIBI
+  </a>
+</p>
+<p style="margin-top:24px;color:#666;font-size:14px;">
+  Reply to this email if you need anything.
+</p>
+  `.trim()
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nice start</title></head><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#171717;">${body}</body></html>`
+}
+
