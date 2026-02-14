@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createClientWithToken } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
     let authError = null
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      // Use the token from Authorization header
       const token = authHeader.substring(7)
-      console.log('Calendar download - Using Bearer token from Authorization header')
-      
       const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
       user = tokenUser
       authError = tokenError
+      if (user && !tokenError) {
+        // Use token-scoped client so RLS (auth.uid()) returns the user's items
+        supabase = createClientWithToken(token)
+      }
     } else {
       // Fall back to cookie-based auth
       const cookieHeader = request.headers.get('cookie')

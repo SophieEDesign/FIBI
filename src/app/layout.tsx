@@ -60,7 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en-GB">
       <head>
-        <link rel="manifest" href="/api/manifest" />
+        <link rel="manifest" href="/manifest.json" />
         <link rel="icon" href="/FIBI Logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/FIBI Logo.png" />
         <meta name="theme-color" content="#171717" />

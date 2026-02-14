@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createClientWithToken } from '@/lib/supabase/server'
 import { randomBytes } from 'crypto'
 
 export const dynamic = 'force-dynamic'
@@ -11,68 +11,40 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    // Try to get auth token from Authorization header first (more reliable)
     const authHeader = request.headers.get('authorization')
-    const supabase = await createClient(request)
-    let user = null
-    let authError = null
+    const supabaseAuth = await createClient(request)
+    let user: { id: string } | null = null
+    let authError: Error | null = null
+    /** Client used for DB queries – cookie-based or token-based so RLS sees the user */
+    let supabase = supabaseAuth
 
-    // Try cookie-based auth first (RLS works better with cookies)
+    // Try cookie-based auth first (RLS works with cookie client)
     const cookieHeader = request.headers.get('cookie')
-    console.log('Share API - Cookie header present:', !!cookieHeader)
-    console.log('Share API - Cookie header length:', cookieHeader?.length || 0)
-    
-    const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
-    
-    if (cookieUser && !cookieError) {
-      // Cookies work - use them (RLS will work properly)
-      user = cookieUser
-      authError = null
-      console.log('Share API - Using cookie-based auth, user authenticated:', user.id)
-    } else {
-      // Cookies failed, try Bearer token if available
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7)
-        console.log('Share API - Cookies failed, trying Bearer token from Authorization header')
-        
-        // Create a new Supabase client with the token for validation
-        // We need to validate the token separately
-        const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
-        
-        if (tokenError || !tokenUser) {
-          user = null
-          authError = tokenError || new Error('Bearer token validation failed')
-          console.error('Share API - Bearer token validation failed:', tokenError)
-        } else {
-          user = tokenUser
-          authError = null
-          console.log('Share API - Bearer token validated, user authenticated:', user.id)
-          console.warn('Share API - Using Bearer token: RLS may not work properly. Cookies are preferred.')
-        }
-      } else {
-        // No auth method available
-        user = null
-        authError = cookieError || new Error('No authentication method available')
-        console.error('Share API - No authentication method available')
-      }
-    }
+    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
 
-    console.log('Share API - Auth check:', { 
-      hasUser: !!user, 
-      userId: user?.id, 
-      authError: authError?.message,
-      authMethod: authHeader ? 'Bearer token' : 'Cookies'
-    })
+    if (cookieUser && !cookieError) {
+      user = cookieUser
+      supabase = supabaseAuth
+      console.log('Share API - Using cookie-based auth, user:', user.id)
+    } else if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(token)
+      if (tokenError || !tokenUser) {
+        authError = tokenError || new Error('Bearer token validation failed')
+        console.error('Share API - Bearer token validation failed:', tokenError)
+      } else {
+        user = tokenUser
+        authError = null
+        // Use a client that sends the JWT so RLS (auth.uid()) works on itineraries / itinerary_shares
+        supabase = createClientWithToken(token)
+        console.log('Share API - Using Bearer token, user:', user.id)
+      }
+    } else {
+      authError = cookieError || new Error('No authentication method available')
+    }
 
     if (!user || authError) {
       console.error('Share API auth error:', authError)
-      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 200))
-      console.error('Request headers:', {
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer'),
-        userAgent: request.headers.get('user-agent')?.substring(0, 50),
-        hasAuthHeader: !!authHeader,
-      })
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

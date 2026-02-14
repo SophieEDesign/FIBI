@@ -172,6 +172,7 @@ export async function POST(request: NextRequest) {
           { error: 'Email sent but failed to update record' },
           { status: 500 }
         )
+      }
     }
 
     if (type === 'nudge') {
@@ -185,6 +186,7 @@ export async function POST(request: NextRequest) {
           { error: 'Email sent but failed to update record' },
           { status: 500 }
         )
+      }
     }
 
     if (type === 'founding') {
@@ -198,6 +200,7 @@ export async function POST(request: NextRequest) {
           { error: 'Email sent but failed to update record' },
           { status: 500 }
         )
+      }
     }
 
     return NextResponse.json({ success: true })
