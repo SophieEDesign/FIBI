@@ -83,6 +83,16 @@ export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopN
               Trips
             </Link>
             <Link
+              href="/app/map"
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                isActive('/app/map')
+                  ? 'bg-charcoal text-white'
+                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
+              }`}
+            >
+              Map
+            </Link>
+            <Link
               href="/profile"
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                 isActive('/profile')

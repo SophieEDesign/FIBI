@@ -71,6 +71,31 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             <span className="text-xs font-medium">Trips</span>
           </Link>
 
+          {/* Map */}
+          <Link
+            href="/app/map"
+            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
+              isActive('/app/map')
+                ? 'text-[#1f2937]'
+                : 'text-[#6b7280]'
+            }`}
+            aria-label="Map"
+            aria-current={isActive('/app/map') ? 'page' : undefined}
+          >
+            <svg
+              className="w-6 h-6 mb-1"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            <span className="text-xs font-medium">Map</span>
+          </Link>
+
           {/* Admin - only when user is admin */}
           {isAdmin && (
             <Link
