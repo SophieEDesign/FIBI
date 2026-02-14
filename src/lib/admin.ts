@@ -64,7 +64,7 @@ export async function requireAdmin(request?: NextRequest): Promise<RequireAdminR
 
 /**
  * Create a Supabase client with the service role key for admin operations
- * (e.g. reading admin_user_overview, updating profiles).
+ * (e.g. calling get_admin_user_overview_by_id / get_admin_user_overview_founding_eligible, updating profiles).
  */
 export function getAdminSupabase() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY

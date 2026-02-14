@@ -30,11 +30,10 @@ export async function POST(request: NextRequest) {
 
     const admin = getAdminSupabase()
 
-    const { data: row, error: viewError } = await admin
-      .from('admin_user_overview')
-      .select('email, email_confirmed_at, onboarding_nudge_sent, created_at, places_count')
-      .eq('id', userId)
-      .single()
+    const { data, error: viewError } = await admin.rpc('get_admin_user_overview_by_id', {
+      p_user_id: userId,
+    })
+    const row = data?.[0]
 
     if (viewError || !row) {
       return NextResponse.json(

@@ -25,11 +25,7 @@ export async function GET(request: NextRequest) {
 
     const admin = getAdminSupabase()
 
-    const { data: rows, error } = await admin
-      .from('admin_user_overview')
-      .select('id, email')
-      .not('email_confirmed_at', 'is', null)
-      .eq('founding_followup_sent', false)
+    const { data: rows, error } = await admin.rpc('get_admin_user_overview_founding_eligible')
 
     if (error) {
       console.error('Founding follow-up eligible fetch error:', error)
@@ -62,11 +58,7 @@ export async function POST(request: NextRequest) {
 
     const admin = getAdminSupabase()
 
-    const { data: rows, error: fetchError } = await admin
-      .from('admin_user_overview')
-      .select('id, email')
-      .not('email_confirmed_at', 'is', null)
-      .eq('founding_followup_sent', false)
+    const { data: rows, error: fetchError } = await admin.rpc('get_admin_user_overview_founding_eligible')
 
     if (fetchError) {
       console.error('Founding follow-up POST fetch error:', fetchError)
