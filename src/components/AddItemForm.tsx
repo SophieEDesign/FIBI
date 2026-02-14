@@ -59,6 +59,7 @@ export default function AddItemForm() {
   const [clipboardChecked, setClipboardChecked] = useState(false)
   const [clipboardTextUsed, setClipboardTextUsed] = useState(false)
   const [itineraryId, setItineraryId] = useState<string | null>(null)
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
   
   // AI suggestions state
   const [aiSuggestions, setAiSuggestions] = useState<{
@@ -1362,6 +1363,17 @@ export default function AddItemForm() {
         })
       }
 
+      // If this was the user's first place, show "Nice start." on dashboard
+      const { count } = await supabase
+        .from('saved_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+      if (count === 1) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('firstPlaceAdded', '1')
+        }
+      }
+
       // Success - redirect to home page
       setLoading(false)
       router.push('/app')
@@ -1623,6 +1635,89 @@ export default function AddItemForm() {
               </div>
             </div>
 
+            {/* Location - minimal required */}
+            <div className="space-y-2">
+              <label htmlFor="location-search" className="block text-sm font-medium text-gray-700 mb-2">
+                Location
+              </label>
+              <GooglePlacesInput
+                value={locationSearchValue}
+                onChange={(place) => {
+                  setSelectedPlace(place)
+                  if (place) {
+                    setLocationSearchValue(place.place_name)
+                    setLocationCity(place.city || '')
+                    setLocationCountry(place.country || '')
+                    setPlaceName('')
+                    setPlaceId('')
+                    setLatitude(null)
+                    setLongitude(null)
+                    setIsLocationSuggested(false)
+                    userEditedLocation.current = true
+                    if (aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) {
+                      setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
+                    }
+                  } else {
+                    setLocationSearchValue('')
+                    setLocationCity('')
+                    setLocationCountry('')
+                  }
+                }}
+                onSearchValueChange={(value) => setLocationSearchValue(value)}
+                onManualCityChange={(city) => {
+                  setLocationCity(city)
+                  userEditedLocation.current = true
+                  if (aiSuggestions?.city) {
+                    setAiSuggestions(prev => prev ? { ...prev, city: null } : null)
+                  }
+                }}
+                onManualCountryChange={(country) => {
+                  setLocationCountry(country)
+                  userEditedLocation.current = true
+                  if (aiSuggestions?.country) {
+                    setAiSuggestions(prev => prev ? { ...prev, country: null } : null)
+                  }
+                }}
+                manualCity={locationCity}
+                manualCountry={locationCountry}
+                id="location-search"
+              />
+              {(() => {
+                const shouldShow = (aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) && !userEditedLocation.current && !selectedPlace
+                return shouldShow && aiSuggestions
+              })() && aiSuggestions && (
+                <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-xl">
+                  <div className="flex-1">
+                    <p className="text-xs text-secondary mb-1">Suggested location</p>
+                    <p className="text-sm text-charcoal">
+                      {aiSuggestions.placeName || [aiSuggestions.city, aiSuggestions.country].filter(Boolean).join(', ') || 'Location detected'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAcceptAILocation}
+                    className="px-3 py-1.5 bg-accent text-white text-sm font-medium rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    Use
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Advanced options - collapsed by default */}
+            <div className="border-t border-gray-100 pt-6 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowAdvancedOptions((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-secondary hover:text-charcoal transition-colors"
+              >
+                <svg className={`w-4 h-4 transition-transform ${showAdvancedOptions ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Advanced options
+              </button>
+              {showAdvancedOptions && (
+                <div className="space-y-6 pt-4">
             {/* Description/Post Caption - merged field for both metadata and user input */}
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
@@ -1719,105 +1814,6 @@ export default function AddItemForm() {
                 </div>
               </div>
             )}
-
-            {/* Location fields */}
-            <div className="space-y-2">
-              <GooglePlacesInput
-                value={locationSearchValue}
-                onChange={(place) => {
-                  console.log('AddItemForm: Place onChange called:', place)
-                  console.log('AddItemForm: Place data:', place ? {
-                    place_name: place.place_name,
-                    place_id: place.place_id,
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                    city: place.city,
-                    country: place.country,
-                  } : null)
-                  
-                  setSelectedPlace(place)
-                  if (place) {
-                    setLocationSearchValue(place.place_name)
-                    // Update city and country from place data (user can override after)
-                    const cityValue = place.city || ''
-                    const countryValue = place.country || ''
-                    console.log('AddItemForm: Setting city/country from place:', { cityValue, countryValue })
-                    setLocationCity(cityValue)
-                    setLocationCountry(countryValue)
-                    // Clear old place state
-                    setPlaceName('')
-                    setPlaceId('')
-                    setLatitude(null)
-                    setLongitude(null)
-                    setIsLocationSuggested(false)
-                    userEditedLocation.current = true
-                    // Clear AI location suggestion if user selects a place
-                    if (aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) {
-                      setAiSuggestions(prev => prev ? { ...prev, placeName: null, city: null, country: null } : null)
-                    }
-                  } else {
-                    setLocationSearchValue('')
-                    setLocationCity('')
-                    setLocationCountry('')
-                  }
-                }}
-                onSearchValueChange={(value) => {
-                  setLocationSearchValue(value)
-                }}
-                onManualCityChange={(city) => {
-                  console.log('AddItemForm: onManualCityChange called with:', city)
-                  setLocationCity(city)
-                  userEditedLocation.current = true
-                  // Clear AI location suggestion if user edits
-                  if (aiSuggestions?.city) {
-                    setAiSuggestions(prev => prev ? { ...prev, city: null } : null)
-                  }
-                }}
-                onManualCountryChange={(country) => {
-                  console.log('AddItemForm: onManualCountryChange called with:', country)
-                  setLocationCountry(country)
-                  userEditedLocation.current = true
-                  // Clear AI location suggestion if user edits
-                  if (aiSuggestions?.country) {
-                    setAiSuggestions(prev => prev ? { ...prev, country: null } : null)
-                  }
-                }}
-                manualCity={locationCity}
-                manualCountry={locationCountry}
-                id="location-search"
-              />
-              {/* AI Location Suggestion */}
-              {(() => {
-                const shouldShow = (aiSuggestions?.placeName || aiSuggestions?.city || aiSuggestions?.country) && !userEditedLocation.current && !selectedPlace
-                if (aiSuggestions && (aiSuggestions.placeName || aiSuggestions.city || aiSuggestions.country)) {
-                  console.log('AI location suggestion: Visibility check', {
-                    hasPlaceName: !!aiSuggestions.placeName,
-                    hasCity: !!aiSuggestions.city,
-                    hasCountry: !!aiSuggestions.country,
-                    userEditedLocation: userEditedLocation.current,
-                    hasSelectedPlace: !!selectedPlace,
-                    shouldShow,
-                  })
-                }
-                return shouldShow && aiSuggestions
-              })() && aiSuggestions && (
-                <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-600 mb-1">Suggested location</p>
-                    <p className="text-sm text-gray-900">
-                      {aiSuggestions.placeName || [aiSuggestions.city, aiSuggestions.country].filter(Boolean).join(', ') || 'Location detected'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAcceptAILocation}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded hover:bg-blue-700 transition-colors"
-                  >
-                    Use
-                  </button>
-                </div>
-              )}
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2268,17 +2264,21 @@ export default function AddItemForm() {
               )}
             </div>
 
-            <div className="flex gap-4 pt-4">
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-6">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:flex-1 bg-charcoal text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 shadow-soft transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Saving...' : 'Save Place'}
+                {loading ? 'Saving...' : 'Add place'}
               </button>
               <Link
                 href="/app"
-                className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-6 py-2.5 rounded-xl font-medium text-secondary hover:text-charcoal transition-colors"
               >
                 Cancel
               </Link>

@@ -18,18 +18,18 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white z-40 md:hidden shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
       <div className="max-w-7xl mx-auto px-2">
         <div className="flex items-center justify-around h-16">
-          {/* Home */}
+          {/* Places */}
           <Link
             href="/app"
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActive('/app') || isActive('/')
-                ? 'text-gray-900'
-                : 'text-gray-500'
+                ? 'text-[#1f2937]'
+                : 'text-[#6b7280]'
             }`}
-            aria-label="Home"
+            aria-label="Places"
             aria-current={isActive('/app') || isActive('/') ? 'page' : undefined}
           >
             <svg
@@ -43,43 +43,18 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             >
               <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            <span className="text-xs font-medium">Home</span>
+            <span className="text-xs font-medium">Places</span>
           </Link>
 
-          {/* Map */}
-          <Link
-            href="/app/map"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActive('/app/map')
-                ? 'text-gray-900'
-                : 'text-gray-500'
-            }`}
-            aria-label="Map"
-            aria-current={isActive('/app/map') ? 'page' : undefined}
-          >
-            <svg
-              className="w-6 h-6 mb-1"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            <span className="text-xs font-medium">Map</span>
-          </Link>
-
-          {/* Calendar */}
+          {/* Trips */}
           <Link
             href="/app/calendar"
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActive('/app/calendar')
-                ? 'text-gray-900'
-                : 'text-gray-500'
+                ? 'text-[#1f2937]'
+                : 'text-[#6b7280]'
             }`}
-            aria-label="Planner"
+            aria-label="Trips"
             aria-current={isActive('/app/calendar') ? 'page' : undefined}
           >
             <svg
@@ -93,7 +68,7 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             >
               <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-xs font-medium">Planner</span>
+            <span className="text-xs font-medium">Trips</span>
           </Link>
 
           {/* Admin - only when user is admin */}
@@ -102,8 +77,8 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
               href="/app/admin"
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
                 isActive('/app/admin')
-                  ? 'text-gray-900'
-                  : 'text-gray-500'
+                  ? 'text-[#1f2937]'
+                  : 'text-[#6b7280]'
               }`}
               aria-label="Admin"
               aria-current={isActive('/app/admin') ? 'page' : undefined}
@@ -128,8 +103,8 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             href="/profile"
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
               isActive('/profile')
-                ? 'text-gray-900'
-                : 'text-gray-500'
+                ? 'text-[#1f2937]'
+                : 'text-[#6b7280]'
             }`}
             aria-label="Profile"
             aria-current={isActive('/profile') ? 'page' : undefined}

@@ -269,7 +269,7 @@ export default function AdminDashboard() {
         <div className="mb-8 bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Run Email Automations Now</h2>
           <p className="text-sm text-gray-600 mb-4">
-            Manually trigger the email automation runner. Processes active automations (excluding manual), respects 48h throttle and max 200 emails per run.
+            Manually trigger the email automation runner. Rules: max 1 email per user per 48h; never send same template twice; max 3 lifecycle emails per user; rate-limited to ~2/sec.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <button

@@ -983,18 +983,40 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
+  const hasPlacesNoTrips = !loading && items.length > 0 && itineraries.length === 0
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 md:py-6 pb-24 md:pb-8">
-        {/* Itinerary Tabs */}
-        <div className="mb-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-24 md:pb-12">
+        {/* Empty state: user has places but no trips */}
+        {hasPlacesNoTrips && (
+          <div className="max-w-xl mx-auto text-center py-14 md:py-20">
+            <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
+              Turn your saved places into a trip.
+            </h2>
+            <p className="text-base text-[#6b7280] mb-8 leading-relaxed">
+              Create a trip and add your places to plan dates and share with others.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCreateItineraryModal(true)}
+              className="inline-block bg-[#1f2937] text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-opacity"
+            >
+              Create your first trip
+            </button>
+          </div>
+        )}
+
+        {/* Itinerary Tabs - only when we have trips or no places */}
+        {!hasPlacesNoTrips && (
+        <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <button
               onClick={() => setSelectedItineraryId(null)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all ${
                 selectedItineraryId === null
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  ? 'bg-[#1f2937] text-white shadow-soft'
+                  : 'bg-white text-[#6b7280] shadow-soft hover:text-[#1f2937]'
               }`}
             >
               All
@@ -1003,10 +1025,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
               <div key={itinerary.id} className="flex items-center gap-1">
                 <button
                   onClick={() => setSelectedItineraryId(itinerary.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  className={`px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap transition-all ${
                     selectedItineraryId === itinerary.id
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[#1f2937] text-white shadow-soft'
+                      : 'bg-white text-[#6b7280] shadow-soft hover:text-[#1f2937]'
                   }`}
                 >
                   {itinerary.name}
@@ -1021,7 +1043,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         handleShareItinerary()
                       }}
                       disabled={loadingShare}
-                      className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 rounded-xl text-[#6b7280] hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Share itinerary"
                     >
                       {loadingShare ? (
@@ -1046,7 +1068,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           e.stopPropagation()
                           setShowRemoveItineraryModal(true)
                         }}
-                        className="p-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors relative group"
+                        className="p-2 rounded-xl text-[#6b7280] hover:bg-red-50 hover:text-red-600 transition-colors relative group"
                         title="Remove itinerary"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1063,7 +1085,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             ))}
             <button
               onClick={() => setShowCreateItineraryModal(true)}
-              className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors flex items-center gap-1"
+              className="px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap bg-white text-[#6b7280] shadow-soft hover:text-[#1f2937] transition-colors flex items-center gap-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1072,7 +1094,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </button>
           </div>
         </div>
+        )}
 
+        {!hasPlacesNoTrips && (
         {/* Drag and drop context - works on both desktop and mobile */}
         <DndContext
           sensors={sensors}
@@ -1855,6 +1879,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             ) : null}
           </DragOverlay>
         </DndContext>
+        )}
 
         {/* Place Preview Modal */}
         {selectedItem && (

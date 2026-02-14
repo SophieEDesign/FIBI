@@ -37,95 +37,82 @@ export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopN
   if (!user) return null
 
   return (
-    <nav className="hidden md:block bg-white border-b border-gray-200 sticky top-0 z-30">
+    <nav className="hidden md:block bg-white sticky top-0 z-30 shadow-soft">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
         <div className="flex items-center justify-between h-12">
-          {/* Logo */}
-          <Link href="/app" className="flex items-center">
-            <img
-              src="/FIBI Logo.png"
-              alt="FiBi"
-              className="h-7 w-auto"
-            />
-          </Link>
+          {/* Logo + Early Access */}
+          <div className="flex items-center gap-3">
+            <Link href="/app" className="flex items-center">
+              <img
+                src="/FIBI Logo.png"
+                alt="FiBi"
+                className="h-7 w-auto"
+              />
+            </Link>
+            <span className="text-[10px] font-medium text-secondary border border-gray-200 rounded-full px-2 py-0.5 bg-gray-50/80">
+              Early Access
+            </span>
+            <a
+              href="mailto:feedback@fibi.app?subject=FIBI%20Feedback"
+              className="text-xs text-secondary hover:text-charcoal transition-colors hidden sm:inline"
+            >
+              Send feedback
+            </a>
+          </div>
 
-          {/* Main Navigation */}
+          {/* Main Navigation: Places, Trips, Profile */}
           <div className="flex items-center space-x-1">
             <Link
               href="/app"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                 isActive('/app') || isActive('/')
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-charcoal text-white'
+                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
               }`}
             >
-              Home
-            </Link>
-            <Link
-              href="/app/map"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/app/map')
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Map
+              Places
             </Link>
             <Link
               href="/app/calendar"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                 isActive('/app/calendar')
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-charcoal text-white'
+                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
               }`}
             >
-              Planner
+              Trips
             </Link>
-            <Link
-              href="/app/how-to"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isActive('/app/how-to')
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              How to Use
-            </Link>
-            {isAdmin && (
-              <Link
-                href="/app/admin"
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive('/app/admin')
-                    ? 'bg-gray-900 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Admin
-              </Link>
-            )}
             <Link
               href="/profile"
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                 isActive('/profile')
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-charcoal text-white'
+                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
               }`}
             >
               Profile
             </Link>
+            {isAdmin && (
+              <Link
+                href="/app/admin"
+                className="px-4 py-2 rounded-xl text-sm font-medium text-secondary hover:bg-gray-100 hover:text-charcoal transition-colors"
+              >
+                Admin
+              </Link>
+            )}
           </div>
 
           {/* Actions */}
           <div className="flex items-center space-x-4">
             <Link
               href="/app/add"
-              className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+              className="bg-charcoal text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft transition-opacity"
             >
-              Add Place
+              Add place
             </Link>
             <button
               onClick={handleSignOut}
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              className="text-secondary hover:text-charcoal text-sm font-medium transition-colors"
             >
               Sign out
             </button>

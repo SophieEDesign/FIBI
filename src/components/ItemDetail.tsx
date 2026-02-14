@@ -818,15 +818,15 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 md:hidden">
+      <header className="bg-white md:hidden shadow-soft">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/app" className="text-2xl font-bold text-gray-900">
+            <Link href="/app" className="text-2xl font-bold text-[#1f2937]">
               FiBi
             </Link>
             <Link
               href="/app"
-              className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+              className="text-[#6b7280] hover:text-[#1f2937] text-sm font-medium"
             >
               ← Back
             </Link>
@@ -835,7 +835,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
           {/* Preview area */}
           <div className="aspect-video bg-gray-100 relative overflow-hidden">
             {/* Preview priority: screenshot_url > embed preview (oEmbed/OG thumbnail) > placeholder */}

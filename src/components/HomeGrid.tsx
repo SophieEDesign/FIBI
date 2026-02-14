@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, STATUSES, Itinerary } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -19,7 +19,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ categories: [] as string[], statuses: [] as string[] })
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
+  const [showFirstPlaceFeedback, setShowFirstPlaceFeedback] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
+  const searchParams = useSearchParams()
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
@@ -40,6 +42,21 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
+
+  // Show "Nice start." when returning after adding first place
+  useEffect(() => {
+    const fromStorage = typeof window !== 'undefined' && sessionStorage.getItem('firstPlaceAdded')
+    const fromQuery = searchParams?.get('firstPlace') === '1'
+    if (fromStorage || fromQuery) {
+      setShowFirstPlaceFeedback(true)
+      if (typeof window !== 'undefined') sessionStorage.removeItem('firstPlaceAdded')
+      if (fromQuery && typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/app')
+      }
+      const t = setTimeout(() => setShowFirstPlaceFeedback(false), 3000)
+      return () => clearTimeout(t)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     const {
@@ -309,10 +326,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header - Mobile only */}
-      <header className="md:hidden bg-white border-b border-gray-200 sticky top-0 z-20">
+      <header className="md:hidden bg-white sticky top-0 z-20 shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-xl font-bold text-gray-900">FiBi</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-charcoal">FiBi</h1>
+              <span className="text-[10px] font-medium text-secondary border border-gray-200 rounded-full px-2 py-0.5 bg-gray-50/80">
+                Early Access
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               {items.length > 0 && (
                 <button
@@ -329,7 +351,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               )}
               <Link
                 href="/app/add"
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800"
+                className="bg-charcoal text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft"
               >
                 Add
               </Link>
@@ -339,9 +361,18 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8 pb-24 md:pb-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-24 md:pb-12">
+        {showFirstPlaceFeedback && (
+          <p
+            className="mb-6 text-secondary font-normal animate-[fadeIn_0.4s_ease-out]"
+            role="status"
+            aria-live="polite"
+          >
+            Nice start.
+          </p>
+        )}
         {showConfirmedMessage && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center justify-between">
+          <div className="mb-6 bg-green-50 text-green-700 px-4 py-3 rounded-2xl shadow-soft flex items-center justify-between">
             <span>✓ Email confirmed! You&apos;re all set.</span>
             <button
               onClick={() => setShowConfirmedMessage(false)}
@@ -357,13 +388,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           <div className="mb-6 md:mb-8 hidden md:block">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-gray-700">Category:</span>
+                <span className="text-sm font-medium text-secondary">Category:</span>
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                  className={`px-3 py-1 text-sm rounded-md ${
+                  className={`px-3 py-1.5 text-sm rounded-xl ${
                     filters.categories.length === 0
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-charcoal text-white'
+                      : 'bg-gray-100 text-secondary hover:bg-gray-200'
                   }`}
                 >
                   All
@@ -372,10 +403,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   <button
                     key={category}
                     onClick={() => toggleFilter('categories', category)}
-                    className={`px-3 py-1 text-sm rounded-md ${
+                    className={`px-3 py-1.5 text-sm rounded-xl ${
                       filters.categories.includes(category)
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-charcoal text-white'
+                        : 'bg-gray-100 text-secondary hover:bg-gray-200'
                     }`}
                   >
                     {category}
@@ -383,13 +414,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 ))}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-gray-700">Stage:</span>
+                <span className="text-sm font-medium text-secondary">Stage:</span>
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}
-                  className={`px-3 py-1 text-sm rounded-md ${
+                  className={`px-3 py-1.5 text-sm rounded-xl ${
                     filters.statuses.length === 0
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-charcoal text-white'
+                      : 'bg-gray-100 text-secondary hover:bg-gray-200'
                   }`}
                 >
                   All
@@ -398,10 +429,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   <button
                     key={status}
                     onClick={() => toggleFilter('statuses', status)}
-                    className={`px-3 py-1 text-sm rounded-md ${
+                    className={`px-3 py-1.5 text-sm rounded-xl ${
                       filters.statuses.includes(status)
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-charcoal text-white'
+                        : 'bg-gray-100 text-secondary hover:bg-gray-200'
                     }`}
                   >
                     {status}
@@ -411,7 +442,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               {activeFiltersCount > 0 && (
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-gray-500 hover:text-gray-700"
+                  className="text-sm text-secondary hover:text-charcoal"
                 >
                   Clear all
                 </button>
@@ -422,39 +453,59 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Empty state */}
         {!loading && filteredItems.length === 0 && (
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto relative">
+            {/* Subtle background visual - low opacity map-like pattern */}
+            <div
+              className="absolute inset-0 pointer-events-none opacity-[0.08]"
+              aria-hidden
+            >
+              <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="map-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                    <circle cx="4" cy="4" r="0.5" fill="currentColor" />
+                    <circle cx="16" cy="12" r="0.5" fill="currentColor" />
+                    <circle cx="8" cy="20" r="0.5" fill="currentColor" />
+                    <circle cx="20" cy="6" r="0.5" fill="currentColor" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#map-dots)" />
+              </svg>
+            </div>
             {items.length > 0 && activeFiltersCount > 0 ? (
-              <div className="text-center py-12 md:py-16">
-                <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-2">
+              <div className="text-center py-14 md:py-20 relative">
+                <h2 className="text-xl md:text-2xl font-medium text-charcoal mb-2">
                   No places match your filters
                 </h2>
-                <p className="text-sm md:text-base text-gray-600 mb-6">
+                <p className="text-base text-secondary mb-6 leading-relaxed">
                   Try adjusting your filters to see more results.
                 </p>
                 <button
                   onClick={clearFilters}
-                  className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800"
+                  className="inline-block bg-charcoal text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft"
                 >
                   Clear all filters
                 </button>
               </div>
             ) : (
-              <div className="text-center py-12 md:py-16">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                  Save places you don&apos;t want to forget
+              <div className="text-center py-14 md:py-20 relative">
+                <h2 className="text-2xl md:text-3xl font-medium text-charcoal mb-3 leading-tight">
+                  Start building your next trip.
                 </h2>
-                <p className="text-base md:text-lg text-gray-600 mb-8">
-                  From TikTok, Instagram, and the web — all in one calm place.
+                <p className="text-base md:text-lg text-secondary mb-8 leading-relaxed max-w-md mx-auto">
+                  Save places you don&apos;t want to forget and keep them organised.
                 </p>
                 <Link
                   href="/app/add"
-                  className="inline-block bg-gray-900 text-white px-8 py-3 rounded-lg font-medium hover:bg-gray-800 mb-2"
+                  className="inline-block bg-charcoal text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-soft mb-4"
                 >
                   Add your first place
                 </Link>
-                <p className="text-sm text-gray-500">
-                  Or share a link from another app
-                </p>
+                <Link
+                  href="/app/calendar"
+                  className="block text-sm text-secondary hover:text-charcoal transition-colors"
+                >
+                  Create a trip
+                </Link>
               </div>
             )}
           </div>
@@ -462,9 +513,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Loading state */}
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse">
+              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-soft animate-pulse">
                 <div className="aspect-[4/3] bg-gray-200" />
                 <div className="p-4">
                   <div className="h-4 bg-gray-200 rounded mb-2" />
@@ -477,53 +528,39 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Grid */}
         {!loading && filteredItems.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {filteredItems.map((item) => {
               const displayTitle = item.title || getHostname(item.url)
               const itemStatuses = parseItemField(item.status)
               const itemCategories = parseItemField(item.category)
-              const rawSummary = [item.description, item.notes].filter(Boolean).join(' ').trim()
-              const summaryText = rawSummary ? rawSummary.slice(0, 120) + (rawSummary.length > 120 ? '…' : '') : ''
-
-              const getPlatformStyle = (platform: string) => {
-                const styles: Record<string, string> = {
-                  'TikTok': 'bg-black text-white',
-                  'Instagram': 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
-                  'YouTube': 'bg-red-600 text-white',
-                }
-                return styles[platform] || 'bg-gray-700 text-white'
-              }
+              const oneCategory = itemCategories[0]
+              const oneStatus = itemStatuses[0]
 
               const getStatusStyle = (status: string) => {
                 const styles: Record<string, string> = {
-                  'To plan': 'bg-gray-100 text-gray-700',
-                  'Planned': 'bg-blue-100 text-blue-700',
-                  'Been': 'bg-green-100 text-green-700',
-                  'Would love to go': 'bg-purple-100 text-purple-700',
-                  'Maybe': 'bg-yellow-100 text-yellow-700',
+                  'To plan': 'bg-gray-100 text-secondary',
+                  'Planned': 'bg-blue-50 text-blue-700',
+                  'Been': 'bg-green-50 text-green-700',
+                  'Would love to go': 'bg-purple-50 text-purple-700',
+                  'Maybe': 'bg-amber-50 text-amber-700',
                 }
-                return styles[status] || 'bg-gray-100 text-gray-700'
+                return styles[status] || 'bg-gray-100 text-secondary'
               }
 
               return (
                 <div
                   key={item.id}
-                  className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col relative group"
+                  className="bg-white rounded-2xl overflow-hidden shadow-soft hover:shadow-soft-md transition-shadow flex flex-col relative group"
                 >
                   <Link href={`/item/${item.id}`} className="flex flex-col flex-1 min-h-0">
                     <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
                       {item.screenshot_url ? (
-                        <>
-                          <img
-                            src={item.screenshot_url}
-                            alt={displayTitle}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                          <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
-                            Screenshot
-                          </div>
-                        </>
+                        <img
+                          src={item.screenshot_url}
+                          alt={displayTitle}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
                       ) : (
                         <EmbedPreview
                           url={item.url}
@@ -532,41 +569,32 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           displayTitle={displayTitle}
                         />
                       )}
-                      <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformStyle(item.platform)}`}>
+                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-white/80 text-secondary text-xs font-normal backdrop-blur-sm">
                         {item.platform}
                       </div>
                     </div>
 
-                    <div className="p-3 md:p-4 flex-1 flex flex-col min-h-0">
-                      <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 text-sm md:text-base">
+                    <div className="p-4 flex-1 flex flex-col min-h-0">
+                      <h3 className="font-medium text-charcoal mb-0.5 line-clamp-2 text-base leading-snug">
                         {displayTitle}
                       </h3>
                       {(item.location_city || item.location_country) && (
-                        <p className="text-xs md:text-sm text-gray-600 mb-1">
+                        <p className="text-sm text-secondary mb-2">
                           {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                         </p>
                       )}
-                      {itemCategories.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {itemCategories.slice(0, 3).map((cat, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
-                              {cat}
+                      {(oneCategory || oneStatus) && (
+                        <div className="flex flex-wrap gap-1.5 mt-auto">
+                          {oneCategory && (
+                            <span className="px-2 py-0.5 rounded-lg text-xs font-normal bg-gray-100 text-secondary">
+                              {oneCategory}
                             </span>
-                          ))}
-                        </div>
-                      )}
-                      {summaryText && (
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-2 flex-1 min-h-0">
-                          {summaryText}
-                        </p>
-                      )}
-                      {itemStatuses.length > 0 && (
-                        <div className="mt-auto pt-2 flex flex-wrap gap-1.5">
-                          {itemStatuses.map((status, idx) => (
-                            <span key={idx} className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(status)}`}>
-                              {status}
+                          )}
+                          {oneStatus && (
+                            <span className={`px-2 py-0.5 rounded-lg text-xs font-normal ${getStatusStyle(oneStatus)}`}>
+                              {oneStatus}
                             </span>
-                          ))}
+                          )}
                         </div>
                       )}
                     </div>
@@ -578,7 +606,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       e.stopPropagation()
                       handleItemClick(e as unknown as React.MouseEvent, item)
                     }}
-                    className="absolute top-2 right-2 md:top-2 md:right-2 z-10 p-2 rounded-lg bg-white/90 hover:bg-white shadow-sm border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors"
+                    className="absolute top-2 right-2 z-10 p-2 rounded-xl bg-white/90 hover:bg-white shadow-soft text-secondary hover:text-charcoal transition-colors"
                     aria-label="Add to calendar"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -595,7 +623,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       {/* Floating Add Button - Mobile only */}
       <Link
         href="/app/add"
-        className="fixed bottom-6 right-6 md:hidden z-30 bg-gray-900 text-white w-14 h-14 rounded-full shadow-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
+        className="fixed bottom-6 right-6 md:hidden z-30 bg-charcoal text-white w-14 h-14 rounded-2xl shadow-soft-md hover:opacity-90 transition-opacity flex items-center justify-center"
         aria-label="Add place"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -610,14 +638,14 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           onClick={() => setShowFilterModal(false)}
         >
           <div 
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl max-h-[80vh] overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-soft-md max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Filter</h2>
+            <div className="sticky top-0 bg-white px-4 py-4 flex items-center justify-between shadow-soft">
+              <h2 className="text-lg font-medium text-charcoal">Filter</h2>
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-secondary hover:text-charcoal"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -627,15 +655,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             
             <div className="p-4 space-y-6">
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Category</h3>
+                <h3 className="text-xs font-medium text-secondary mb-3">Category</h3>
                 <div className="overflow-x-auto pb-2 -mx-2 px-2">
                   <div className="flex gap-2 min-w-max">
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
                         filters.categories.length === 0
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? 'bg-charcoal text-white'
+                          : 'bg-gray-100 text-secondary hover:bg-gray-200'
                       }`}
                     >
                       All
@@ -644,10 +672,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       <button
                         key={category}
                         onClick={() => toggleFilter('categories', category)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
                           filters.categories.includes(category)
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-charcoal text-white'
+                            : 'bg-gray-100 text-secondary hover:bg-gray-200'
                         }`}
                       >
                         {category}
@@ -658,15 +686,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               </div>
 
               <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Stage</h3>
+                <h3 className="text-xs font-medium text-secondary mb-3">Stage</h3>
                 <div className="overflow-x-auto pb-2 -mx-2 px-2">
                   <div className="flex gap-2 min-w-max">
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
                         filters.statuses.length === 0
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? 'bg-charcoal text-white'
+                          : 'bg-gray-100 text-secondary hover:bg-gray-200'
                       }`}
                     >
                       All
@@ -675,10 +703,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       <button
                         key={status}
                         onClick={() => toggleFilter('statuses', status)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
                           filters.statuses.includes(status)
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-charcoal text-white'
+                            : 'bg-gray-100 text-secondary hover:bg-gray-200'
                         }`}
                       >
                         {status}
@@ -688,18 +716,18 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200 space-y-2">
+              <div className="pt-4 space-y-2">
                 {activeFiltersCount > 0 && (
                   <button
                     onClick={clearFilters}
-                    className="w-full px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="w-full px-4 py-2.5 text-sm font-medium text-secondary hover:text-charcoal rounded-xl hover:bg-gray-50"
                   >
                     Clear filters
                   </button>
                 )}
                 <button
                   onClick={() => setShowFilterModal(false)}
-                  className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800"
+                  className="w-full bg-charcoal text-white py-3 rounded-xl font-medium hover:opacity-90 shadow-soft"
                 >
                   Done
                 </button>

@@ -2,6 +2,12 @@
  * Core logic for running email automations.
  * Used by both cron endpoint and admin manual trigger.
  * Keeps evaluation logic separate from sending logic.
+ *
+ * Sending rules (skip user if any apply):
+ * 1. Throttle: user received ANY automation email in last 48h
+ * 2. Already sent: user has EVER received this template (never send same template twice)
+ * 3. Lifecycle cap: user has received >= 3 lifecycle emails (all time)
+ * 4. Rate limit: 550ms delay between sends (Resend: max 2 req/sec)
  */
 
 import { getAdminSupabase } from '@/lib/admin'
@@ -17,8 +23,13 @@ import {
 const MAX_SEND_PER_RUN = 200
 const THROTTLE_HOURS = 48
 const MAX_LIFECYCLE_EMAILS_PER_USER = 3
+const DELAY_BETWEEN_SENDS_MS = 550 // Resend: max 2 req/sec; 550ms = ~1.8/sec safe
 const MS_PER_HOUR = 60 * 60 * 1000
 const FROM_EMAIL = 'hello@fibi.world'
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 export type RunResult = {
   sent: number
@@ -94,19 +105,18 @@ async function getUsersAtLifecycleLimit(
 }
 
 /**
- * Fetch users who have already received this template (in last 48h, for duplicate prevention).
- * Combined with throttle: we skip if user has ANY automation email in 48h.
+ * Fetch users who have EVER received this template (all-time).
+ * Never send the same template to the same user twice.
  */
 async function getUsersWhoReceivedTemplate(
   adminClient: ReturnType<typeof getAdminSupabase>,
   templateSlug: string
 ): Promise<Set<string>> {
-  const cutoff = new Date(Date.now() - THROTTLE_HOURS * MS_PER_HOUR).toISOString()
   const { data, error } = await adminClient
     .from('email_logs')
     .select('user_id')
     .eq('template_slug', templateSlug)
-    .gte('sent_at', cutoff)
+    .eq('status', 'sent')
 
   if (error) {
     console.error('Error fetching email_logs for template:', error)
@@ -181,18 +191,19 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
         html: template.html_content,
         from: FROM_EMAIL,
       })
-        await adminClient.from('email_logs').insert({
-          user_id: user.id,
-          template_slug: automation.template_slug,
-          automation_id: automation.id,
-          status: 'sent',
-        })
-        if (automation.template_slug === 'founding-followup') {
-          await adminClient.from('profiles').update({ founding_followup_sent: true }).eq('id', user.id)
-        }
-        throttledIds.add(user.id)
-        templateSentIds.add(user.id)
-        result.sent += 1
+      await adminClient.from('email_logs').insert({
+        user_id: user.id,
+        template_slug: automation.template_slug,
+        automation_id: automation.id,
+        status: 'sent',
+      })
+      if (automation.template_slug === 'founding-followup') {
+        await adminClient.from('profiles').update({ founding_followup_sent: true }).eq('id', user.id)
+      }
+      throttledIds.add(user.id)
+      templateSentIds.add(user.id)
+      result.sent += 1
+      await delay(DELAY_BETWEEN_SENDS_MS)
     } catch (err) {
       result.failed += 1
       result.errors.push(`User ${user.email}: ${err instanceof Error ? err.message : String(err)}`)
@@ -206,6 +217,7 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
       } catch {
         /* ignore */
       }
+      await delay(DELAY_BETWEEN_SENDS_MS)
     }
   }
 
@@ -307,7 +319,6 @@ export async function runEmailAutomations(): Promise<RunResult> {
           html: template.html_content,
           from: FROM_EMAIL,
         })
-
         await adminClient.from('email_logs').insert({
           user_id: user.id,
           template_slug: automation.template_slug,
@@ -320,6 +331,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
         throttledIds.add(user.id)
         templateSentIds.add(user.id)
         result.sent += 1
+        await delay(DELAY_BETWEEN_SENDS_MS)
       } catch (err) {
         result.failed += 1
         const msg = err instanceof Error ? err.message : String(err)
@@ -335,6 +347,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
         } catch (logErr) {
           console.error('Failed to log failed send:', logErr)
         }
+        await delay(DELAY_BETWEEN_SENDS_MS)
       }
     }
   }
