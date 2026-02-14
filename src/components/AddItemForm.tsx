@@ -681,16 +681,26 @@ export default function AddItemForm() {
             })
             if (oembedResponse.ok) {
               const oembedData = await oembedResponse.json()
-              // For TikTok, the title field from oEmbed is actually the caption text
-              // Use caption_text if available, otherwise fallback to title
-              if (oembedData.caption_text) {
-                oembedCaption = oembedData.caption_text
-                console.log('AddItemForm: Extracted TikTok caption from oEmbed (init):', oembedData.caption_text.substring(0, 100))
-              } else if (oembedData.title) {
-                // TikTok's title field contains the caption, use it as caption
-                oembedCaption = oembedData.title
-                console.log('AddItemForm: Using TikTok title as caption from oEmbed (init):', oembedData.title.substring(0, 100))
-              }
+            // For TikTok, the title field from oEmbed is actually the caption text
+            // Use caption_text if available, otherwise fallback to title
+            console.log('AddItemForm: TikTok oEmbed response (init):', {
+              hasCaptionText: !!oembedData.caption_text,
+              captionTextLength: oembedData.caption_text?.length || 0,
+              captionTextPreview: oembedData.caption_text?.substring(0, 100) || null,
+              hasTitle: !!oembedData.title,
+              titleLength: oembedData.title?.length || 0,
+              titlePreview: oembedData.title?.substring(0, 100) || null,
+            })
+            if (oembedData.caption_text) {
+              oembedCaption = oembedData.caption_text
+              console.log('AddItemForm: Extracted TikTok caption from oEmbed (init):', oembedData.caption_text.substring(0, 100))
+            } else if (oembedData.title) {
+              // TikTok's title field contains the caption, use it as caption
+              oembedCaption = oembedData.title
+              console.log('AddItemForm: Using TikTok title as caption from oEmbed (init):', oembedData.title.substring(0, 100))
+            } else {
+              console.warn('AddItemForm: TikTok oEmbed returned no caption_text or title (init)')
+            }
             }
           } catch (err) {
             console.debug('AddItemForm: Error fetching oEmbed data (init, non-blocking):', err)
@@ -970,6 +980,14 @@ export default function AddItemForm() {
             const oembedData = await oembedResponse.json()
             // For TikTok, the title field from oEmbed is actually the caption text
             // Use caption_text if available, otherwise fallback to title
+            console.log('AddItemForm: TikTok oEmbed response:', {
+              hasCaptionText: !!oembedData.caption_text,
+              captionTextLength: oembedData.caption_text?.length || 0,
+              captionTextPreview: oembedData.caption_text?.substring(0, 100) || null,
+              hasTitle: !!oembedData.title,
+              titleLength: oembedData.title?.length || 0,
+              titlePreview: oembedData.title?.substring(0, 100) || null,
+            })
             if (oembedData.caption_text) {
               oembedCaption = oembedData.caption_text
               console.log('AddItemForm: Extracted TikTok caption from oEmbed:', oembedData.caption_text.substring(0, 100))
@@ -977,6 +995,8 @@ export default function AddItemForm() {
               // TikTok's title field contains the caption, use it as caption
               oembedCaption = oembedData.title
               console.log('AddItemForm: Using TikTok title as caption from oEmbed:', oembedData.title.substring(0, 100))
+            } else {
+              console.warn('AddItemForm: TikTok oEmbed returned no caption_text or title')
             }
           }
         } catch (err) {
@@ -1000,11 +1020,14 @@ export default function AddItemForm() {
         const descriptionToUse = oembedCaption || metadata.description || metadata.scrapedContent
         if (descriptionToUse) {
           console.log('AddItemForm: Setting description (handleUrlChange)', {
+            platform,
             oembedCaption: oembedCaption?.substring(0, 100) || null,
+            oembedCaptionLength: oembedCaption?.length || 0,
             metadataDescription: metadata.description?.substring(0, 100) || null,
             scrapedContent: metadata.scrapedContent?.substring(0, 100) || null,
             currentDescription: description.substring(0, 100),
             willSet: !description || description.trim() === '',
+            finalDescription: descriptionToUse.substring(0, 100),
           })
           if (!description || description.trim() === '') {
             setDescription(descriptionToUse)
@@ -1014,7 +1037,9 @@ export default function AddItemForm() {
           }
         } else {
           console.log('AddItemForm: No description found (handleUrlChange)', {
+            platform,
             hasOembedCaption: !!oembedCaption,
+            oembedCaption: oembedCaption?.substring(0, 100) || null,
             hasDescription: !!metadata.description,
             hasScrapedContent: !!metadata.scrapedContent,
             scrapedContentLength: metadata.scrapedContent?.length || 0,

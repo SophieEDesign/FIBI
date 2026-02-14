@@ -41,24 +41,62 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
     // Extract caption from TikTok HTML (WordPress-style extraction)
     // TikTok oEmbed HTML contains the caption in a <p> tag within a blockquote
     let captionText: string | undefined
+    
+    // Helper function to decode HTML entities
+    const decodeHtmlEntities = (text: string): string => {
+      return text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#x27;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&#8217;/g, "'")
+        .replace(/&#8216;/g, "'")
+        .replace(/&#8220;/g, '"')
+        .replace(/&#8221;/g, '"')
+        .replace(/&apos;/g, "'")
+    }
+    
     if (data.html) {
-      // Try to extract caption from <p> tag in the blockquote HTML
-      // Pattern: <blockquote><p>caption text</p></blockquote>
-      const captionMatch = data.html.match(/<blockquote[^>]*>\s*<p[^>]*>([^<]+)<\/p>/i) ||
-                                          data.html.match(/<p[^>]*class\s*=\s*["'][^"']*caption[^"']*["'][^>]*>([^<]+)<\/p>/i) ||
-                                          data.html.match(/<p[^>]*>([^<]{10,})<\/p>/i) // Fallback: any <p> with substantial text
+      // Try multiple patterns to extract caption from HTML
+      // Pattern 1: <blockquote><p>caption text</p></blockquote>
+      // Pattern 2: <p> inside blockquote with various attributes
+      // Pattern 3: Any <p> tag with substantial text (10+ chars)
+      // Pattern 4: Text content directly in blockquote
+      let captionMatch = data.html.match(/<blockquote[^>]*>\s*<p[^>]*>([^<]+)<\/p>/i) ||
+                          data.html.match(/<blockquote[^>]*>\s*<p[^>]*>([\s\S]*?)<\/p>/i) ||
+                          data.html.match(/<p[^>]*class\s*=\s*["'][^"']*caption[^"']*["'][^>]*>([^<]+)<\/p>/i) ||
+                          data.html.match(/<p[^>]*>([^<]{10,})<\/p>/i) ||
+                          data.html.match(/<blockquote[^>]*>([^<]+)<\/blockquote>/i)
       
       if (captionMatch && captionMatch[1]) {
         let extractedText = captionMatch[1].trim()
-        // Clean up HTML entities
-        extractedText = extractedText
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&nbsp;/g, ' ')
-        captionText = extractedText
+        // Remove any remaining HTML tags
+        extractedText = extractedText.replace(/<[^>]*>/g, '')
+        // Decode HTML entities
+        extractedText = decodeHtmlEntities(extractedText)
+        // Clean up whitespace
+        extractedText = extractedText.replace(/\s+/g, ' ').trim()
+        
+        if (extractedText.length > 0) {
+          captionText = extractedText
+        }
+      }
+    }
+    
+    // Fallback: TikTok's title field often contains the caption text
+    // Use it if HTML extraction failed or returned empty
+    if (!captionText && data.title) {
+      let titleText = data.title.trim()
+      // Remove common TikTok prefixes like "TikTok - " or "@username - "
+      titleText = titleText.replace(/^TikTok\s*[-–—]\s*/i, '')
+      titleText = titleText.replace(/^@[\w.-]+\s*[-–—]\s*/i, '')
+      titleText = decodeHtmlEntities(titleText)
+      
+      if (titleText.length > 0) {
+        captionText = titleText
       }
     }
     

@@ -2936,6 +2936,7 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
               )
             })}
           </div>
+          </div>
         </div>
 
         {/* Actions */}
