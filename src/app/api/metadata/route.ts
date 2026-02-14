@@ -7,6 +7,31 @@ interface MetadataResponse {
   scrapedContent: string | null // Visible text content from the page
 }
 
+/** Resolve TikTok short URLs to canonical tiktok.com URL so OG tags are returned. */
+async function resolveTikTokUrlIfNeeded(url: string): Promise<string> {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    if (!host.includes('tiktok.com') || host === 'www.tiktok.com') return url
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    })
+    clearTimeout(timeoutId)
+    const finalUrl = response.url
+    if (finalUrl && finalUrl !== url && finalUrl.includes('tiktok.com')) return finalUrl
+  } catch (_) {
+    // Ignore; use original URL
+  }
+  return url
+}
+
 async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -247,7 +272,8 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const response = await fetchWithTimeout(url, 8000)
+      const fetchUrl = await resolveTikTokUrlIfNeeded(url)
+      const response = await fetchWithTimeout(fetchUrl, 8000)
       
       if (!response.ok) {
         return NextResponse.json({

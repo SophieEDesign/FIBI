@@ -481,7 +481,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             {filteredItems.map((item) => {
               const displayTitle = item.title || getHostname(item.url)
               const itemStatuses = parseItemField(item.status)
-              
+              const itemCategories = parseItemField(item.category)
+              const rawSummary = [item.description, item.notes].filter(Boolean).join(' ').trim()
+              const summaryText = rawSummary ? rawSummary.slice(0, 120) + (rawSummary.length > 120 ? '…' : '') : ''
+
               const getPlatformStyle = (platform: string) => {
                 const styles: Record<string, string> = {
                   'TikTok': 'bg-black text-white',
@@ -505,54 +508,83 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               return (
                 <div
                   key={item.id}
-                  onClick={(e) => handleItemClick(e, item)}
-                  className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col cursor-pointer"
+                  className="bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col relative group"
                 >
-                  <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                    {item.screenshot_url ? (
-                      <>
-                        <img
-                          src={item.screenshot_url}
-                          alt={displayTitle}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
+                  <Link href={`/item/${item.id}`} className="flex flex-col flex-1 min-h-0">
+                    <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                      {item.screenshot_url ? (
+                        <>
+                          <img
+                            src={item.screenshot_url}
+                            alt={displayTitle}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                          <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
+                            Screenshot
+                          </div>
+                        </>
+                      ) : (
+                        <EmbedPreview
+                          url={item.url}
+                          thumbnailUrl={item.thumbnail_url}
+                          platform={item.platform}
+                          displayTitle={displayTitle}
                         />
-                        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
-                          Screenshot
-                        </div>
-                      </>
-                    ) : (
-                      <EmbedPreview
-                        url={item.url}
-                        thumbnailUrl={item.thumbnail_url}
-                        platform={item.platform}
-                        displayTitle={displayTitle}
-                      />
-                    )}
-                    <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformStyle(item.platform)}`}>
-                      {item.platform}
-                    </div>
-                  </div>
-
-                  <div className="p-3 md:p-4 flex-1 flex flex-col">
-                    <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 text-sm md:text-base">
-                      {displayTitle}
-                    </h3>
-                    {(item.location_city || item.location_country) && (
-                      <p className="text-xs md:text-sm text-gray-600 mb-2">
-                        {[item.location_city, item.location_country].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                    {itemStatuses.length > 0 && (
-                      <div className="mt-auto pt-2 flex flex-wrap gap-1.5">
-                        {itemStatuses.map((status, idx) => (
-                          <span key={idx} className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(status)}`}>
-                            {status}
-                          </span>
-                        ))}
+                      )}
+                      <div className={`absolute bottom-2 left-2 md:top-2 md:right-2 md:bottom-auto md:left-auto px-2 py-1 rounded text-xs font-medium ${getPlatformStyle(item.platform)}`}>
+                        {item.platform}
                       </div>
-                    )}
-                  </div>
+                    </div>
+
+                    <div className="p-3 md:p-4 flex-1 flex flex-col min-h-0">
+                      <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 text-sm md:text-base">
+                        {displayTitle}
+                      </h3>
+                      {(item.location_city || item.location_country) && (
+                        <p className="text-xs md:text-sm text-gray-600 mb-1">
+                          {[item.location_city, item.location_country].filter(Boolean).join(', ')}
+                        </p>
+                      )}
+                      {itemCategories.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {itemCategories.slice(0, 3).map((cat, idx) => (
+                            <span key={idx} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
+                              {cat}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {summaryText && (
+                        <p className="text-xs text-gray-500 line-clamp-2 mb-2 flex-1 min-h-0">
+                          {summaryText}
+                        </p>
+                      )}
+                      {itemStatuses.length > 0 && (
+                        <div className="mt-auto pt-2 flex flex-wrap gap-1.5">
+                          {itemStatuses.map((status, idx) => (
+                            <span key={idx} className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(status)}`}>
+                              {status}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleItemClick(e as unknown as React.MouseEvent, item)
+                    }}
+                    className="absolute top-2 right-2 md:top-2 md:right-2 z-10 p-2 rounded-lg bg-white/90 hover:bg-white shadow-sm border border-gray-200 text-gray-700 hover:text-gray-900 transition-colors"
+                    aria-label="Add to calendar"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </button>
                 </div>
               )
             })}
@@ -834,6 +866,18 @@ function CalendarAssignmentModal({
   }
 
   const displayTitle = item.title || getHostname(item.url)
+  const parseField = (field: string | null): string[] => {
+    if (!field) return []
+    try {
+      const parsed = JSON.parse(field)
+      if (Array.isArray(parsed)) return parsed
+    } catch {}
+    return [field]
+  }
+  const modalCategories = parseField(item.category)
+  const modalStatuses = parseField(item.status)
+  const rawModalSummary = [item.description, item.notes].filter(Boolean).join(' ').trim()
+  const modalSummary = rawModalSummary ? rawModalSummary.slice(0, 160) + (rawModalSummary.length > 160 ? '…' : '') : ''
   const getPlatformStyle = (platform: string) => {
     const styles: Record<string, string> = {
       TikTok: 'bg-black text-white',
@@ -841,6 +885,16 @@ function CalendarAssignmentModal({
       YouTube: 'bg-red-600 text-white',
     }
     return styles[platform] || 'bg-gray-700 text-white'
+  }
+  const getStatusStyle = (status: string) => {
+    const styles: Record<string, string> = {
+      'To plan': 'bg-gray-100 text-gray-700',
+      'Planned': 'bg-blue-100 text-blue-700',
+      'Been': 'bg-green-100 text-green-700',
+      'Would love to go': 'bg-purple-100 text-purple-700',
+      'Maybe': 'bg-yellow-100 text-yellow-700',
+    }
+    return styles[status] || 'bg-gray-100 text-gray-700'
   }
 
   return (
@@ -893,16 +947,35 @@ function CalendarAssignmentModal({
                 {item.platform}
               </div>
             </div>
-            <div className="p-3">
+            <div className="p-3 space-y-2">
               <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{displayTitle}</h3>
               {(item.location_city || item.location_country) && (
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-xs text-gray-600">
                   {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                 </p>
               )}
+              {(modalCategories.length > 0 || modalStatuses.length > 0) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {modalCategories.map((cat, idx) => (
+                    <span key={`c-${idx}`} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
+                      {cat}
+                    </span>
+                  ))}
+                  {modalStatuses.map((status, idx) => (
+                    <span key={`s-${idx}`} className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusStyle(status)}`}>
+                      {status}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {modalSummary && (
+                <p className="text-xs text-gray-500 line-clamp-2">
+                  {modalSummary}
+                </p>
+              )}
               <Link
-                href={`/app/item/${item.id}`}
-                className="inline-block text-xs font-medium text-gray-600 hover:text-gray-900 mt-2"
+                href={`/item/${item.id}`}
+                className="inline-block text-xs font-medium text-gray-600 hover:text-gray-900 pt-1"
               >
                 View full place →
               </Link>

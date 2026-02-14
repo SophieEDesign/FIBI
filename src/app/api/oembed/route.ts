@@ -21,6 +21,31 @@ function detectPlatformFromUrl(url: string): 'tiktok' | 'instagram' | 'youtube' 
   return 'generic'
 }
 
+/** Resolve TikTok short URLs (vm.tiktok.com, vt.tiktok.com) to full tiktok.com URL. oEmbed works more reliably with canonical URLs. */
+async function resolveTikTokUrl(url: string): Promise<string> {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    if (!host.includes('tiktok.com') || host === 'www.tiktok.com') return url
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 8000)
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    })
+    clearTimeout(timeoutId)
+    const finalUrl = response.url
+    if (finalUrl && finalUrl !== url && finalUrl.includes('tiktok.com')) return finalUrl
+  } catch (_) {
+    // Ignore; use original URL
+  }
+  return url
+}
+
 async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
   try {
     const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
@@ -43,11 +68,11 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
 
     const data = await response.json()
     
-    // Check if TikTok returned an error in the JSON response
-    if (data.error || !data.html) {
-      console.warn('TikTok oEmbed returned error or empty HTML:', data)
+    if (data.error) {
+      console.warn('TikTok oEmbed returned error:', data)
       return { error: 'TikTok oEmbed returned no data' }
     }
+    // Accept partial responses: title and/or thumbnail_url are still useful even without html
     
     // Extract caption from TikTok HTML (WordPress-style extraction)
     // TikTok oEmbed HTML contains the caption in a <p> tag within a blockquote
@@ -112,10 +137,10 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
     }
     
     return {
-      html: data.html,
-      thumbnail_url: data.thumbnail_url,
-      author_name: data.author_name,
-      title: data.title,
+      html: data.html || undefined,
+      thumbnail_url: data.thumbnail_url || undefined,
+      author_name: data.author_name || undefined,
+      title: data.title || undefined,
       provider_name: 'TikTok',
       caption_text: captionText,
     }
@@ -262,10 +287,16 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
   const platform = detectPlatformFromUrl(url)
   let oembedData: OEmbedResponse | null = null
 
+  // For TikTok, resolve short links (vm.tiktok.com) to canonical URL so oEmbed and metadata fetch both work
+  let fetchUrl = url
+  if (platform === 'tiktok') {
+    fetchUrl = await resolveTikTokUrl(url)
+  }
+
   // Try platform-specific oEmbed first
   switch (platform) {
     case 'tiktok':
-      oembedData = await fetchTikTokOEmbed(url)
+      oembedData = await fetchTikTokOEmbed(fetchUrl)
       break
     case 'instagram':
       oembedData = await fetchInstagramOEmbed(url)
@@ -294,7 +325,7 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 10000) // Increased timeout for slower sites
         
-        const response = await fetch(url, {
+        const response = await fetch(fetchUrl, {
           signal: controller.signal,
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -327,7 +358,7 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
             // Handle relative URLs
             if (thumbnailUrl && !thumbnailUrl.startsWith('http')) {
               try {
-                const baseUrl = new URL(url)
+                const baseUrl = new URL(fetchUrl)
                 thumbnailUrl = new URL(thumbnailUrl, baseUrl.origin).toString()
               } catch {
                 // If URL construction fails, use original
