@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { getSiteUrl } from '@/lib/utils'
 import Link from 'next/link'
+
+const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
 
 export default function SignupClient() {
   const [email, setEmail] = useState('')
@@ -14,10 +15,18 @@ export default function SignupClient() {
   const [error, setError] = useState<string | null>(null)
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const [turnstileReady, setTurnstileReady] = useState(false)
+  const turnstileWidgetIdRef = useRef<string | null>(null)
+  const turnstileContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  
-  // Safely create Supabase client
+
+  const siteKey = typeof process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY === 'string'
+    ? process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    : ''
+
+  // Safely create Supabase client (for session check only)
   let supabase: ReturnType<typeof createClient> | null = null
   try {
     supabase = createClient()
@@ -28,6 +37,60 @@ export default function SignupClient() {
       setCheckingAuth(false)
     }
   }
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken(null)
+    const tw = typeof window !== 'undefined' ? (window as unknown as { turnstile?: { reset?: (id?: string) => void } }).turnstile : undefined
+    if (tw?.reset && turnstileWidgetIdRef.current) {
+      tw.reset(turnstileWidgetIdRef.current)
+    }
+  }, [])
+
+  // Load Turnstile script
+  useEffect(() => {
+    if (!siteKey || typeof document === 'undefined') {
+      setTurnstileReady(true)
+      return
+    }
+    const existing = document.querySelector(`script[src="${TURNSTILE_SCRIPT_URL}"]`)
+    if (existing) {
+      setTurnstileReady(true)
+      return
+    }
+    const script = document.createElement('script')
+    script.src = TURNSTILE_SCRIPT_URL
+    script.async = true
+    script.defer = true
+    script.onload = () => setTurnstileReady(true)
+    document.head.appendChild(script)
+  }, [siteKey])
+
+  // Explicit render Turnstile when script is ready and container is mounted
+  useEffect(() => {
+    if (!siteKey || !turnstileReady || typeof window === 'undefined') return
+    const container = turnstileContainerRef.current
+    if (!container) return
+    const tw = (window as unknown as { turnstile?: { ready: (cb: () => void) => void; render: (el: HTMLElement, opts: { sitekey: string; callback: (token: string) => void }) => string; remove?: (id: string) => void } }).turnstile
+    if (!tw) return
+    let cancelled = false
+    tw.ready(() => {
+      if (cancelled || !container.isConnected) return
+      if (turnstileWidgetIdRef.current) return
+      const widgetId = tw.render(container, {
+        sitekey: siteKey,
+        callback: (token: string) => setTurnstileToken(token),
+      })
+      turnstileWidgetIdRef.current = widgetId
+    })
+    return () => {
+      cancelled = true
+      const id = turnstileWidgetIdRef.current
+      if (id && tw.remove) {
+        tw.remove(id)
+        turnstileWidgetIdRef.current = null
+      }
+    }
+  }, [siteKey, turnstileReady])
 
   // Check for error or success messages from URL params
   useEffect(() => {
@@ -84,89 +147,66 @@ export default function SignupClient() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!supabase) {
-      setError('Configuration error: Supabase client not available')
-      return
-    }
-    
     setLoading(true)
     setError(null)
     setSuccessMessage(null)
 
     try {
-      // Validate password match
       if (password !== confirmPassword) {
         setError('Passwords do not match.')
         setLoading(false)
         return
       }
 
-      // Validate password length
       if (password.length < 6) {
         setError('Password must be at least 6 characters long.')
         setLoading(false)
         return
       }
 
-      const siteUrl = getSiteUrl()
-      const redirectUrl = `${siteUrl}/auth/callback`
-      
-      // Simple, straightforward signup
-      const { error, data } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-        },
+      if (siteKey && !turnstileToken) {
+        setError('Please complete the verification challenge below.')
+        setLoading(false)
+        return
+      }
+
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          captchaToken: turnstileToken || undefined,
+        }),
       })
-      
-      if (error) {
-        console.error('Sign up error:', error)
-        
-        // If email already exists, redirect to login
-        if (error.message.includes('already registered') || 
-            error.message.includes('already exists') ||
-            error.message.includes('User already registered')) {
-          setError('An account with this email already exists. Please sign in instead.')
-          setTimeout(() => {
-            router.push('/login')
-          }, 2000)
-          setLoading(false)
-          return
-        }
-        
-        // SMTP/Email sending errors
-        if (error.message.includes('timeout') || 
-            error.message.includes('504') ||
-            error.message.includes('Gateway Timeout') ||
-            error.message.includes('SMTP') ||
-            error.message.includes('email')) {
-          setError('Unable to send confirmation email. Please check your SMTP settings in Supabase or try again in a moment.')
+
+      const data = await res.json().catch(() => ({}))
+      const message = typeof data.error === 'string' ? data.error : data.message
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          setError(message || 'Too many signup attempts. Please try again in an hour.')
+        } else if (res.status === 409) {
+          setError(message || 'An account with this email already exists. Please sign in instead.')
+          setTimeout(() => router.push('/login'), 2000)
         } else {
-          setError(error.message || 'Failed to sign up. Please try again.')
+          setError(message || 'Failed to sign up. Please try again.')
         }
+        resetTurnstile()
         setLoading(false)
         return
       }
-      
-      // Success!
-      if (data?.user) {
-        setSuccessMessage('Account created! Please check your email to confirm your account, then you can sign in.')
-        setEmail('')
-        setPassword('')
-        setConfirmPassword('')
-        setLoading(false)
-        return
-      }
-      
-      // If we get here, something unexpected happened
-      setError('Sign up completed but something went wrong. Please try signing in.')
+
+      setSuccessMessage(message || 'Account created! Please check your email to confirm your account, then you can sign in.')
+      setEmail('')
+      setPassword('')
+      setConfirmPassword('')
+      resetTurnstile()
       setLoading(false)
     } catch (err: any) {
       console.error('Signup error:', err)
-      const errorMessage = err.message || err.error?.message || 'An error occurred. Please try again.'
-      setError(errorMessage)
-      
+      setError(err.message || err.error?.message || 'An error occurred. Please try again.')
+      resetTurnstile()
       if (process.env.NODE_ENV === 'development') {
         console.error('Full error details:', err)
       }
@@ -263,6 +303,16 @@ export default function SignupClient() {
                 placeholder="••••••••"
               />
             </div>
+
+            {siteKey && (
+              <div className="flex justify-center">
+                {turnstileReady ? (
+                  <div ref={turnstileContainerRef} />
+                ) : (
+                  <p className="text-sm text-gray-500">Loading verification...</p>
+                )}
+              </div>
+            )}
 
             <button
               type="submit"

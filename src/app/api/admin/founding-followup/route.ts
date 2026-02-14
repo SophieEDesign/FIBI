@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const users = (rows || []).filter((r) => r.email)
+    const users = (rows || []).filter((r: { email?: string | null }) => r.email)
     return NextResponse.json({ count: users.length, users })
   } catch (err: unknown) {
     console.error('Founding follow-up GET error:', err)
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const eligible = (rows || []).filter((r) => r.email) as { id: string; email: string }[]
+    const eligible = (rows || []).filter((r: { id: string; email?: string | null }) => r.email) as { id: string; email: string }[]
     const html = getFoundingFollowupEmailHtml()
     let sent = 0
     let failed = 0

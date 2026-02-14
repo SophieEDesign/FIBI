@@ -112,10 +112,10 @@ export async function GET(request: NextRequest) {
       return dateB - dateA
     })
 
-    // Calculate metrics
+    // Calculate metrics (confirmed = email confirmed via link)
     const metrics = {
       totalUsers: usersData.length,
-      confirmedUsers: usersData.filter((u) => u.email_confirmed_at !== null).length,
+      confirmedUsers: usersData.filter((u) => u.email_confirmed_at != null).length,
       usersWithLogin: usersData.filter((u) => u.last_login_at !== null).length,
       usersWithPlaces: usersData.filter((u) => u.places_count > 0).length,
       activeLast7Days: usersData.filter((u) => {

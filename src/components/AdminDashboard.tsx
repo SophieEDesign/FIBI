@@ -244,7 +244,7 @@ export default function AdminDashboard() {
               <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.totalUsers}</div>
             </div>
             <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm font-medium text-gray-500">Confirmed Users</div>
+              <div className="text-sm font-medium text-gray-500">Confirmed (email)</div>
               <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.confirmedUsers}</div>
             </div>
             <div className="bg-white rounded-lg shadow p-6">
