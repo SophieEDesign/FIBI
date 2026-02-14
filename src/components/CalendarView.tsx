@@ -1097,6 +1097,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
         )}
 
         {!hasPlacesNoTrips && (
+        <>
         {/* Drag and drop context - works on both desktop and mobile */}
         <DndContext
           sensors={sensors}
@@ -1879,6 +1880,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             ) : null}
           </DragOverlay>
         </DndContext>
+        </>
         )}
 
         {/* Place Preview Modal */}
