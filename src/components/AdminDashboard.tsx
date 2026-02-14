@@ -47,7 +47,7 @@ export default function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/admin/users')
+      const response = await fetch('/api/admin/users', { credentials: 'include' })
       if (!response.ok) {
         if (response.status === 403) {
           setError('Access denied. Admin role required.')

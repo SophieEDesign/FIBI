@@ -11,9 +11,10 @@ export type RequireAdminResult =
 /**
  * Verify the current request is from an authenticated user with role = 'admin'.
  * Use in API routes that require admin.
+ * Uses createClient() without request so Next.js cookies() is used (reliable in Route Handlers on Vercel).
  */
-export async function requireAdmin(request: NextRequest): Promise<RequireAdminResult> {
-  const supabase = await createClient(request)
+export async function requireAdmin(_request?: NextRequest): Promise<RequireAdminResult> {
+  const supabase = await createClient()
   const {
     data: { user },
     error: authError,
