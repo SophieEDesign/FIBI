@@ -21,11 +21,13 @@ export default function AdminPage() {
     }
     let cancelled = false
     const client = createClient()
-    client
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    Promise.resolve(
+      client
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+    )
       .then(({ data, error }) => {
         if (cancelled) return
         setAdminChecked(true)
