@@ -7,9 +7,6 @@ import DesktopNavigation from '@/components/DesktopNavigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
-// Force dynamic rendering
-export const dynamic = 'force-dynamic'
-
 export default function ProtectedLayout({
   children,
 }: {

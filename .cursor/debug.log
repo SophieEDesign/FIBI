@@ -1,0 +1,3 @@
+{"location":"protected/layout.tsx:renderContent","message":"Layout rendering content","data":{"userId":"c839be3e-442c-4eda-b375-bb29a91508c7"},"timestamp":1771095488234,"hypothesisId":"redirectLoop"}
+{"location":"protected/layout.tsx:renderContent","message":"Layout rendering content","data":{"userId":"c839be3e-442c-4eda-b375-bb29a91508c7"},"timestamp":1771095489381,"hypothesisId":"redirectLoop"}
+{"location":"protected/layout.tsx:renderContent","message":"Layout rendering content","data":{"userId":"c839be3e-442c-4eda-b375-bb29a91508c7"},"timestamp":1771095494584,"hypothesisId":"redirectLoop"}
