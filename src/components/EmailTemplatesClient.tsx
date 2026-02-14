@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import DOMPurify from 'dompurify'
 import { createClient } from '@/lib/supabase/client'
+import { wrapEmailWithLayout } from '@/lib/email-layout'
 
 interface Template {
   id: string
@@ -167,9 +168,10 @@ export default function EmailTemplatesClient() {
     }
   }
 
-  const sanitizedPreview = DOMPurify.sanitize(form.html_content || '', {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'div', 'span', 'img'],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt'],
+  const wrappedForPreview = wrapEmailWithLayout(form.html_content || '')
+  const sanitizedPreview = DOMPurify.sanitize(wrappedForPreview, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'div', 'span', 'img', 'table', 'tr', 'td', 'tbody', 'body'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'style'],
   })
 
   if (loading) {

@@ -12,6 +12,7 @@
 
 import { getAdminSupabase } from '@/lib/admin'
 import { sendEmail } from '@/lib/resend'
+import { wrapEmailWithLayout } from '@/lib/email-layout'
 import {
   type UserWithStats,
   type AutomationRow,
@@ -185,10 +186,11 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
       continue
     }
     try {
+      const html = wrapEmailWithLayout(template.html_content)
       await sendEmail({
         to: user.email,
         subject: template.subject,
-        html: template.html_content,
+        html,
         from: FROM_EMAIL,
       })
       await adminClient.from('email_logs').insert({
@@ -313,10 +315,11 @@ export async function runEmailAutomations(): Promise<RunResult> {
       }
 
       try {
+        const html = wrapEmailWithLayout(template.html_content)
         await sendEmail({
           to: user.email,
           subject: template.subject,
-          html: template.html_content,
+          html,
           from: FROM_EMAIL,
         })
         await adminClient.from('email_logs').insert({
