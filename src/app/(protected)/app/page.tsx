@@ -25,12 +25,7 @@ function AppHomeContent() {
     }
   }, [searchParams, router])
 
-  // Redirect to login if not authenticated (after loading)
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/login')
-    }
-  }, [loading, user, router])
+  // Auth redirect is handled by (protected) layout; no redirect here to avoid loop
 
   if (loading) {
     return (
@@ -41,7 +36,7 @@ function AppHomeContent() {
   }
 
   if (!user) {
-    return null // Will redirect via useEffect
+    return null // Layout handles redirect; defensive guard
   }
 
   const confirmed = searchParams.get('confirmed') === 'true'

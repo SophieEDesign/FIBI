@@ -2,32 +2,15 @@
 
 import CalendarView from '@/components/CalendarView'
 import { useAuth } from '@/lib/useAuth'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
 export default function CalendarPage() {
   const { user, loading } = useAuth()
-  const router = useRouter()
-  const [authChecked, setAuthChecked] = useState(false)
 
-  // Redirect to login if not authenticated (after loading)
-  useEffect(() => {
-    // Only check once loading is complete
-    if (loading) return
-    
-    setAuthChecked(true)
-    
-    if (!user) {
-      console.log('Calendar: No user found, redirecting to login')
-      router.replace('/login')
-    }
-  }, [loading, user, router])
-
-  // Show loading state while checking auth
-  if (loading || !authChecked) {
+  // Auth redirect is handled by (protected) layout
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-500">
         <div className="text-center">
@@ -38,10 +21,7 @@ export default function CalendarPage() {
     )
   }
 
-  // If no user after loading, show nothing (redirect will happen)
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   return <CalendarView user={user} />
 }

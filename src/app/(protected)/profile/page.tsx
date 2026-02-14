@@ -42,11 +42,7 @@ export default function ProfilePage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login')
-    }
-  }, [authLoading, user, router])
+  // Auth redirect is handled by (protected) layout
 
   const loadProfileData = useCallback(async () => {
     if (!user) return

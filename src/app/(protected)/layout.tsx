@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
 import { useAuth } from '@/lib/useAuth'
@@ -14,6 +15,7 @@ export default function ProtectedLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
   const mountCountRef = useRef(0)
@@ -28,6 +30,14 @@ export default function ProtectedLayout({
     }
   }, [])
   // #endregion
+
+  // Single place for auth redirect: avoid redirect loop from page also redirecting
+  useEffect(() => {
+    if (loading) return
+    if (!user) {
+      router.replace('/login')
+    }
+  }, [loading, user, router])
 
   useEffect(() => {
     if (!user?.id) {
@@ -52,9 +62,21 @@ export default function ProtectedLayout({
     return () => { cancelled = true }
   }, [user?.id])
 
+  // Don't render protected content or children until we know auth; avoids flash and redirect loop
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading…
+      </div>
+    )
+  }
+  if (!user) {
+    return null // redirect to /login is in progress
+  }
+
   return (
     <>
-      {!loading && <DesktopNavigation user={user} isAdmin={isAdmin} />}
+      <DesktopNavigation user={user} isAdmin={isAdmin} />
       {children}
       <BottomNavigation isAdmin={isAdmin} />
     </>
