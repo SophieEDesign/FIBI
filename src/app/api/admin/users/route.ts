@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { User } from '@supabase/supabase-js'
 import { requireAdmin, getAdminSupabase } from '@/lib/admin'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     // Fetch all users from auth.users (listUsers defaults to 50 per page — paginate to get all)
     const perPage = 1000
     let page = 1
-    const allUsers: Awaited<ReturnType<typeof adminClient.auth.admin.listUsers>>['data']['users'] = []
+    const allUsers: User[] = []
     let hasMore = true
     while (hasMore) {
       const { data, error: authUsersError } = await adminClient.auth.admin.listUsers({ perPage, page })
