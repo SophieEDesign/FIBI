@@ -3,10 +3,13 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 
 /**
- * Public manifest endpoint – no auth.
- * Use this URL for the PWA manifest so it can be fetched without cookies.
- * If you use Vercel Deployment Protection, allowlist this path or disable protection
- * so the manifest returns 200 and the app can be installed as a PWA.
+ * Public manifest endpoint – no auth. Used by <link rel="manifest" href="/api/manifest" />.
+ *
+ * If you see 401 on this URL (e.g. on Vercel previews):
+ * - Vercel Deployment Protection (password/auth) applies to the whole deployment.
+ * - To fix: Project → Settings → Deployment Protection → add the preview domain to
+ *   "Deployment Protection Exceptions" (unprotect that domain), or disable protection
+ *   for previews, so the manifest returns 200 and PWA install works.
  */
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'

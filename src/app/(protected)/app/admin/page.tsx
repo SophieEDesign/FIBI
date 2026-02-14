@@ -1,29 +1,60 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/useAuth'
+import { createClient } from '@/lib/supabase/client'
 import AdminDashboard from '@/components/AdminDashboard'
 
-export const dynamic = 'force-dynamic'
+export default function AdminPage() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+  const [adminChecked, setAdminChecked] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
 
-export default async function AdminPage() {
-  const supabase = await createClient()
+  useEffect(() => {
+    if (authLoading || !user?.id) {
+      if (!authLoading && !user) {
+        router.replace('/login?redirect=/app/admin')
+      }
+      return
+    }
+    let cancelled = false
+    const client = createClient()
+    client
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        setAdminChecked(true)
+        setIsAdmin(!error && data?.role === 'admin')
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAdminChecked(true)
+          setIsAdmin(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [authLoading, user, router])
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  useEffect(() => {
+    if (!adminChecked || isAdmin) return
+    router.replace('/app')
+  }, [adminChecked, isAdmin, router])
 
-  if (!user || authError) {
-    redirect('/login?redirect=/app/admin')
+  if (authLoading || !adminChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading…
+      </div>
+    )
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileError || !profile || profile.role !== 'admin') {
-    redirect('/app')
+  if (!isAdmin) {
+    return null
   }
 
   return <AdminDashboard />
