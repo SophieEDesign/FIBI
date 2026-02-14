@@ -10,7 +10,7 @@ import {
 } from '@react-email/components'
 
 const LOGO_URL = 'https://fibi.world/logo.png'
-const FOOTER_TEXT = 'FIBI · Save and organise places you don't want to forget.'
+const FOOTER_TEXT = "FIBI · Save and organise places you don't want to forget."
 
 export interface EmailLayoutProps {
   children: React.ReactNode
