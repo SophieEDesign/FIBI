@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
 import { useAuth } from '@/lib/useAuth'
@@ -9,8 +9,6 @@ import { createClient } from '@/lib/supabase/client'
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// Nav is always shown when !loading (no navReady deferral). Logs confirmed the layout
-// remounts repeatedly in dev (~130ms), so deferring nav caused a visible no-nav → nav flash.
 export default function ProtectedLayout({
   children,
 }: {
@@ -18,18 +16,6 @@ export default function ProtectedLayout({
 }) {
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
-  const mountCountRef = useRef(0)
-
-  // #region agent log
-  useEffect(() => {
-    mountCountRef.current += 1
-    const runId = mountCountRef.current
-    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'protected/layout.tsx:mount', message: 'ProtectedLayout mounted', data: { runId }, timestamp: Date.now(), hypothesisId: 'verify' }) }).catch(() => {})
-    return () => {
-      fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'protected/layout.tsx:unmount', message: 'ProtectedLayout unmounting', data: { runId }, timestamp: Date.now(), hypothesisId: 'verify' }) }).catch(() => {})
-    }
-  }, [])
-  // #endregion
 
   useEffect(() => {
     if (!user?.id) {

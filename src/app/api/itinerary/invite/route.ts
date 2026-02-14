@@ -134,8 +134,16 @@ export async function POST(request: NextRequest) {
       })
     } catch (emailError: any) {
       console.error('Error sending invite email:', emailError)
+      const message = emailError?.message || ''
+      // Don't expose env var names to the client; show a friendly message when email isn't configured
+      if (message.includes('RESEND_API_KEY') || message.includes('not set')) {
+        return NextResponse.json(
+          { error: 'Email is not configured. Copy the share link above to send it yourself, or ask the site owner to set RESEND_API_KEY.' },
+          { status: 503 }
+        )
+      }
       return NextResponse.json(
-        { error: 'Failed to send email: ' + (emailError.message || 'Unknown error') },
+        { error: 'Failed to send email: ' + (message || 'Unknown error') },
         { status: 500 }
       )
     }
