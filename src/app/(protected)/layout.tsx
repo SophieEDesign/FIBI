@@ -9,7 +9,8 @@ import { createClient } from '@/lib/supabase/client'
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// Pages are public - auth is checked at action level (save/share)
+// Defer nav until after mount so the correct layout (mobile vs desktop) shows
+// without flashing. Reserve space so content doesn't jump when nav appears.
 export default function ProtectedLayout({
   children,
 }: {
@@ -17,6 +18,11 @@ export default function ProtectedLayout({
 }) {
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [navReady, setNavReady] = useState(false)
+
+  useEffect(() => {
+    setNavReady(true)
+  }, [])
 
   useEffect(() => {
     if (!user?.id) {
@@ -43,9 +49,16 @@ export default function ProtectedLayout({
 
   return (
     <>
-      {!loading && <DesktopNavigation user={user} isAdmin={isAdmin} />}
+      {/* Placeholder reserves space so content doesn't jump when nav mounts */}
+      {!loading && (
+        navReady ? (
+          <DesktopNavigation user={user} isAdmin={isAdmin} />
+        ) : (
+          <div className="h-12 w-full bg-white border-b border-gray-200 md:block hidden" aria-hidden />
+        )
+      )}
       {children}
-      <BottomNavigation isAdmin={isAdmin} />
+      {navReady && <BottomNavigation isAdmin={isAdmin} />}
     </>
   )
 }

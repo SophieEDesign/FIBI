@@ -17,7 +17,6 @@ async function getAppVersion() {
 }
 
 const urlsToCache = [
-  '/manifest.json',
   '/FIBI Logo.png',
   '/icon.svg'
 ]
@@ -118,7 +117,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/api') || 
     url.pathname.startsWith('/auth') ||
     url.pathname === '/sw.js' ||
-    url.pathname === '/manifest.json'
+    url.pathname === '/manifest.json' ||
+    url.pathname === '/api/manifest'
   ) {
     return
   }

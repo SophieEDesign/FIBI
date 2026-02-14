@@ -1466,7 +1466,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   </UnplannedDropZone>
                 ) : (
                   <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-600">
                       {(unplannedLocationFilters.length === 0 && unplannedCategoryFilters.length === 0 && unplannedStatusFilters.length === 0)
                         ? 'No unplanned places. All places are scheduled!'
                         : 'No items match the selected filters'}
@@ -1801,7 +1801,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-600 mt-2">
                     Anyone with this link can view your itinerary. They won&apos;t be able to edit it.
                   </p>
                 </div>

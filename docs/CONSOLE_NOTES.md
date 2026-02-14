@@ -1,12 +1,14 @@
 # Console messages – what they mean
 
-## Manifest 401 (fixed in app)
+## Manifest 401
 
-- **What:** `manifest.json` returned 401 when the browser tried to load it for PWA install.
-- **Change made:** The app now serves the manifest only as a **static file** from `public/manifest.json` (the dynamic route handler was removed). That avoids the manifest request going through any auth.
-- **If you still see 401:** If your project uses **Vercel Deployment Protection** (or similar), it can return 401 for all requests, including `/manifest.json`. In that case either:
-  - Turn off deployment protection for this project, or
-  - Use a setting (if available) to allow public access to `/manifest.json` so the PWA can be installed.
+- **What:** The PWA manifest request returns 401, so “Add to Home Screen” / install can fail.
+- **In the app:** The manifest is now served from **`/api/manifest`** (no auth in that route). The `<link rel="manifest">` in the layout points there.
+- **If you still see 401:** It’s almost certainly **Vercel Deployment Protection** (or Password Protection). That runs before your app and returns 401 for unauthenticated requests, including the manifest.
+  - **Fix:** In Vercel → your project → **Settings** → **Deployment Protection**, either:
+    - Turn **off** “Vercel Authentication” / “Password Protection” for this project, or
+    - Use **Standard Protection** and add a bypass (e.g. allowlist) for the production URL if your plan supports it.
+  - After that, open `https://your-app.vercel.app/api/manifest` in an incognito window; it should return 200 and JSON.
 
 ---
 

@@ -1353,7 +1353,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       </option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600">
                     Assign this place to an itinerary to filter it in the calendar view
                   </p>
                 </div>
@@ -1378,11 +1378,11 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           })}`
                         : 'Add to calendar'}
                     </span>
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </button>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600">
                     Schedule this place for a specific date
                   </p>
                 </div>
@@ -1401,7 +1401,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                   onBlur={handleSaveLocation}
                   rows={4}
                   placeholder={item.platform === 'TikTok' || item.platform === 'Instagram' ? 'Original post caption...' : 'Original post text...'}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none text-gray-900 bg-white"
                 />
               </div>
 

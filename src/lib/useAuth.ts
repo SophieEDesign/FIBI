@@ -60,7 +60,9 @@ export function useAuth() {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!isMounted) return
-        console.log('Auth state changed:', event, session?.user?.id ? 'user logged in' : 'user logged out')
+        if (event !== 'INITIAL_SESSION') {
+          console.log('Auth state changed:', event, session?.user?.id ? 'user logged in' : 'user logged out')
+        }
         setUser(session?.user ?? null)
         setLoading(false)
       }

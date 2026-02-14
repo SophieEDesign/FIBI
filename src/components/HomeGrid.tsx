@@ -834,6 +834,14 @@ function CalendarAssignmentModal({
   }
 
   const displayTitle = item.title || getHostname(item.url)
+  const getPlatformStyle = (platform: string) => {
+    const styles: Record<string, string> = {
+      TikTok: 'bg-black text-white',
+      Instagram: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
+      YouTube: 'bg-red-600 text-white',
+    }
+    return styles[platform] || 'bg-gray-700 text-white'
+  }
 
   return (
     <div
@@ -845,7 +853,6 @@ function CalendarAssignmentModal({
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
-            <p className="text-sm text-gray-600 mt-1 line-clamp-1">{displayTitle}</p>
           </div>
           <button
             onClick={onClose}
@@ -860,6 +867,48 @@ function CalendarAssignmentModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
+          {/* Place preview (same as home page card) */}
+          <div className="rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+            <div className="aspect-[4/3] relative overflow-hidden">
+              {item.screenshot_url ? (
+                <>
+                  <img
+                    src={item.screenshot_url}
+                    alt={displayTitle}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-black/70 text-white text-xs rounded">
+                    Screenshot
+                  </div>
+                </>
+              ) : (
+                <EmbedPreview
+                  url={item.url}
+                  thumbnailUrl={item.thumbnail_url}
+                  platform={item.platform}
+                  displayTitle={displayTitle}
+                />
+              )}
+              <div className={`absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-medium ${getPlatformStyle(item.platform)}`}>
+                {item.platform}
+              </div>
+            </div>
+            <div className="p-3">
+              <h3 className="font-medium text-gray-900 text-sm line-clamp-2">{displayTitle}</h3>
+              {(item.location_city || item.location_country) && (
+                <p className="text-xs text-gray-600 mt-1">
+                  {[item.location_city, item.location_country].filter(Boolean).join(', ')}
+                </p>
+              )}
+              <Link
+                href={`/app/item/${item.id}`}
+                className="inline-block text-xs font-medium text-gray-600 hover:text-gray-900 mt-2"
+              >
+                View full place →
+              </Link>
+            </div>
+          </div>
+
           {/* Itinerary Selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -999,7 +1048,7 @@ function CalendarAssignmentModal({
         </div>
 
         {/* Actions */}
-        <div className="border-t border-gray-200 p-5 bg-gray-50">
+        <div className="border-t border-gray-200 p-5 bg-gray-50 space-y-3">
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -1015,6 +1064,13 @@ function CalendarAssignmentModal({
               {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
+          <p className="text-center text-xs text-gray-500">
+            You can also set date & itinerary on the{' '}
+            <Link href="/app/calendar" className="font-medium text-gray-700 hover:text-gray-900">
+              Planner
+            </Link>
+            .
+          </p>
         </div>
       </div>
     </div>

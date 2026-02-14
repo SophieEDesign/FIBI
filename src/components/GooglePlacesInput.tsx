@@ -421,12 +421,12 @@ export default function GooglePlacesInput({
           } ${className}`}
         />
         {!isGoogleLoaded && process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
-          <p className="mt-1 text-xs text-gray-500">Loading location search...</p>
+          <p className="mt-1 text-xs text-gray-600">Loading location search...</p>
         )}
         {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
-          <p className="mt-1 text-xs text-gray-500">Google Maps API key not configured. Manual entry available below.</p>
+          <p className="mt-1 text-xs text-gray-600">Google Maps API key not configured. Manual entry available below.</p>
         )}
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-gray-600">
           Click to search from Google Maps, or type to use autocomplete
         </p>
       </div>

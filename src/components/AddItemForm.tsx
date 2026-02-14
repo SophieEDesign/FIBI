@@ -1534,7 +1534,7 @@ export default function AddItemForm() {
                       </>
                     )}
                   </button>
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-gray-600">
                     Some apps don&apos;t share previews. A screenshot helps keep the context.
                   </p>
                 </div>
@@ -1583,7 +1583,7 @@ export default function AddItemForm() {
                 className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
               />
               {fetchingMetadata && (
-                <p className="mt-1 text-sm text-gray-500">Fetching metadata...</p>
+                <p className="mt-1 text-sm text-gray-600">Fetching metadata...</p>
               )}
             </div>
 
@@ -1618,7 +1618,7 @@ export default function AddItemForm() {
                   </div>
                 )}
                 {aiLoading && !aiSuggestions && (
-                  <p className="text-xs text-gray-500 italic">Thinking...</p>
+                  <p className="text-xs text-gray-600 italic">Thinking...</p>
                 )}
               </div>
             </div>
@@ -1628,7 +1628,7 @@ export default function AddItemForm() {
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
                 Description / Post Caption
                 {description && (clipboardTextUsed || sharedTextImported) && (
-                  <span className="ml-2 text-xs font-normal text-gray-500">
+                  <span className="ml-2 text-xs font-normal text-gray-600">
                     ({clipboardTextUsed ? 'Copied text' : 'Imported text'})
                   </span>
                 )}
@@ -1644,7 +1644,7 @@ export default function AddItemForm() {
                 }`}
               />
               {description && !clipboardTextUsed && !sharedTextImported && (
-                <p className="mt-1 text-xs text-gray-500">Fetched from the original post. You can edit this.</p>
+                <p className="mt-1 text-xs text-gray-600">Fetched from the original post. You can edit this.</p>
               )}
             </div>
 
@@ -1678,7 +1678,7 @@ export default function AddItemForm() {
                   {/* Show description text below screenshot for copying */}
                   {description && (
                     <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 select-text">
-                      <p className="text-xs text-gray-500 mb-1">Post caption:</p>
+                      <p className="text-xs text-gray-600 mb-1">Post caption:</p>
                       <p className="text-sm text-gray-900 whitespace-pre-wrap break-words select-text">{description}</p>
                     </div>
                   )}

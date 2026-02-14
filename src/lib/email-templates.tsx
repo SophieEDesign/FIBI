@@ -426,3 +426,24 @@ export function getNudgeNiceStartEmailHtml(): string {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Nice start</title></head><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#171717;">${body}</body></html>`
 }
 
+// --- Founding follow-up (personal feedback ask from Sophie) ---
+
+export const FOUNDING_FOLLOWUP_EMAIL_SUBJECT =
+  'You joined FIBI recently — can I ask you something?'
+
+/**
+ * Founding follow-up email: human, invites replies, asks why they signed up.
+ */
+export function getFoundingFollowupEmailHtml(): string {
+  const body = `
+<h2>Quick question</h2>
+<p>I noticed you joined FIBI recently — thank you.</p>
+<p>I'm still shaping the product and would genuinely love to know:</p>
+<p><strong>What made you sign up?</strong></p>
+<p>Was there something specific that frustrates you about planning trips?</p>
+<p>You can just reply to this email — I read every response.</p>
+<p>– Sophie</p>
+  `.trim()
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Quick question</title></head><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.6;color:#171717;">${body}</body></html>`
+}
+

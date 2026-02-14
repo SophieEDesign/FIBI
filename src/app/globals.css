@@ -20,6 +20,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Better contrast for placeholder text (WCAG-friendly on white) */
+::placeholder {
+  color: #4b5563; /* gray-600 */
+  opacity: 1;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
