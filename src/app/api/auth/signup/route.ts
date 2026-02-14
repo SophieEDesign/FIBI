@@ -106,12 +106,13 @@ export async function POST(request: NextRequest) {
   const redirectUrl = getRedirectUrl(request)
   const supabase = getAdminSupabase()
 
+  type CreateUserOptions = Parameters<typeof supabase.auth.admin.createUser>[0]
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: false,
     email_redirect_to: redirectUrl,
-  })
+  } as CreateUserOptions)
 
   if (error) {
     // Do not log as blocked - we already recorded the attempt; user may retry with same email

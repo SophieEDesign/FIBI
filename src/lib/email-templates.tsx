@@ -106,15 +106,22 @@ export function getInviteEmailTemplate({
   senderName = 'A friend',
   itineraryName = 'an itinerary',
   shareUrl,
+  shareType = 'copy',
 }: {
   recipientName?: string
   senderName?: string
   itineraryName?: string
   shareUrl: string
+  shareType?: 'copy' | 'collaborate'
 }): string {
+  const isCollaborate = shareType === 'collaborate'
+  const ctaText = isCollaborate ? 'Join as collaborator' : 'View itinerary'
+  const bodyCopy = isCollaborate
+    ? `<strong style="color: #2563eb;">${senderName}</strong> invited you to collaborate on <strong>${itineraryName}</strong>. You'll see it in your calendar and can edit it together.`
+    : `<strong style="color: #2563eb;">${senderName}</strong> wants to share <strong>${itineraryName}</strong> with you on FiBi! Check out their travel plans and you can add a copy to your account.`
   return BaseEmailTemplate({
-    title: `${senderName} shared an itinerary with you`,
-    preheader: `${senderName} wants to share ${itineraryName} with you on FiBi`,
+    title: isCollaborate ? `${senderName} invited you to collaborate` : `${senderName} shared an itinerary with you`,
+    preheader: isCollaborate ? `Collaborate on ${itineraryName} on FiBi` : `${senderName} wants to share ${itineraryName} with you on FiBi`,
     children: `
       ${EmailHeader()}
       <tr>
@@ -123,12 +130,12 @@ export function getInviteEmailTemplate({
             👋 Hey ${recipientName}!
           </h1>
           <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-            <strong style="color: #2563eb;">${senderName}</strong> wants to share <strong>${itineraryName}</strong> with you on FiBi!
+            ${bodyCopy}
           </p>
           <p style="margin: 0 0 30px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-            Check out their travel plans and start planning your next adventure together. 🗺️✨
+            ${isCollaborate ? 'Open the link below to join and start planning together.' : 'Check out their travel plans and start planning your next adventure together.'} 🗺️✨
           </p>
-          ${CTAButton({ text: 'View Itinerary', url: shareUrl })}
+          ${CTAButton({ text: ctaText, url: shareUrl })}
           <p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
             Or copy and paste this link into your browser:<br />
             <a href="${shareUrl}" style="color: #2563eb; text-decoration: underline; word-break: break-all;">${shareUrl}</a>
@@ -292,23 +299,30 @@ export async function sendInviteEmail({
   senderName,
   itineraryName,
   shareUrl,
+  shareType = 'copy',
 }: {
   to: string | string[]
   recipientName?: string
   senderName?: string
   itineraryName?: string
   shareUrl: string
+  shareType?: 'copy' | 'collaborate'
 }) {
   const html = getInviteEmailTemplate({
     recipientName,
     senderName,
     itineraryName,
     shareUrl,
+    shareType,
   })
+
+  const subject = shareType === 'collaborate'
+    ? `${senderName || 'Someone'} invited you to collaborate on ${itineraryName || 'an itinerary'} on FiBi`
+    : `${senderName || 'Someone'} shared ${itineraryName || 'an itinerary'} with you on FiBi`
 
   return sendEmail({
     to,
-    subject: `${senderName || 'Someone'} shared ${itineraryName || 'an itinerary'} with you on FiBi`,
+    subject,
     html,
   })
 }

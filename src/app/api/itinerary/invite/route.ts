@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { itinerary_id, recipientEmail, recipientName, itineraryName } = await request.json()
+    const body = await request.json()
+    const itinerary_id = body?.itinerary_id
+    const recipientEmail = body?.recipientEmail
+    const recipientName = body?.recipientName
+    const itineraryName = body?.itineraryName
+    const share_type = body?.share_type === 'collaborate' ? 'collaborate' : 'copy'
 
     if (!itinerary_id || typeof itinerary_id !== 'string') {
       return NextResponse.json({ error: 'itinerary_id is required' }, { status: 400 })
@@ -65,7 +70,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    // Get or create share token
+    // Get or create share token (with share_type)
     const { data: existingShare, error: shareCheckError } = await supabase
       .from('itinerary_shares')
       .select('id, share_token')
@@ -76,8 +81,11 @@ export async function POST(request: NextRequest) {
     let shareToken: string
     if (!shareCheckError && existingShare) {
       shareToken = existingShare.share_token
+      await supabase
+        .from('itinerary_shares')
+        .update({ share_type })
+        .eq('id', existingShare.id)
     } else {
-      // Generate a new share token if one doesn't exist
       const { randomBytes } = await import('crypto')
       const tokenBytes = randomBytes(32)
       shareToken = tokenBytes.toString('hex')
@@ -87,11 +95,24 @@ export async function POST(request: NextRequest) {
         .insert({
           itinerary_id,
           share_token: shareToken,
+          share_type,
         })
 
       if (shareError) {
         console.error('Error creating share token:', shareError)
         return NextResponse.json({ error: 'Failed to create share token' }, { status: 500 })
+      }
+    }
+
+    // For collaborate, add recipient as invited collaborator
+    if (share_type === 'collaborate') {
+      const { error: collabError } = await supabase.from('itinerary_collaborators').insert({
+        itinerary_id,
+        invited_email: recipientEmail.toLowerCase(),
+        invited_by: user.id,
+      })
+      if (collabError && collabError.code !== '23505') {
+        console.error('Error creating collaborator invite:', collabError)
       }
     }
 
@@ -126,6 +147,7 @@ export async function POST(request: NextRequest) {
         senderName,
         itineraryName: itineraryName || itinerary.name || 'an itinerary',
         shareUrl,
+        shareType: share_type,
       })
 
       return NextResponse.json({

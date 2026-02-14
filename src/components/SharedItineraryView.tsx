@@ -19,6 +19,7 @@ interface SharedItineraryData {
     created_at: string
   }
   items: SavedItem[]
+  share_type?: 'copy' | 'collaborate'
 }
 
 interface CalendarDay {
@@ -40,7 +41,11 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [addingToAccount, setAddingToAccount] = useState(false)
   const [addToAccountError, setAddToAccountError] = useState<string | null>(null)
   const [addToAccountSuccess, setAddToAccountSuccess] = useState<{ itinerary_id: string; name: string } | null>(null)
+  const [joiningCollaborator, setJoiningCollaborator] = useState(false)
+  const [joinCollaboratorError, setJoinCollaboratorError] = useState<string | null>(null)
   const supabase = createClient()
+
+  const isCollaborateShare = data?.share_type === 'collaborate'
 
   useEffect(() => {
     loadSharedItinerary()
@@ -114,6 +119,42 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       setAddToAccountError('Failed to add to your account. Please try again.')
     } finally {
       setAddingToAccount(false)
+    }
+  }
+
+  const handleJoinCollaborator = async () => {
+    if (!user) return
+    setJoiningCollaborator(true)
+    setJoinCollaboratorError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+      const response = await fetch(`/api/itinerary/share/${shareToken}/join-collaborator`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      })
+      const result = await response.json()
+      if (response.status === 401) {
+        window.location.href = `/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`
+        return
+      }
+      if (!response.ok) {
+        setJoinCollaboratorError(result.error || 'Failed to join as collaborator.')
+        return
+      }
+      if (result.redirect_url) {
+        window.location.href = result.redirect_url
+        return
+      }
+    } catch (err) {
+      console.error('Error joining as collaborator:', err)
+      setJoinCollaboratorError('Failed to join. Please try again.')
+    } finally {
+      setJoiningCollaborator(false)
     }
   }
 
@@ -305,7 +346,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">{data.itinerary.name}</h1>
               <p className="text-xs text-gray-500 mt-1">Shared itinerary</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               {addToAccountSuccess ? (
                 <Link
                   href={`/app/calendar?itinerary_id=${encodeURIComponent(addToAccountSuccess.itinerary_id)}`}
@@ -313,6 +354,46 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                 >
                   View in my account
                 </Link>
+              ) : isCollaborateShare ? (
+                <>
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={handleJoinCollaborator}
+                      disabled={joiningCollaborator}
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {joiningCollaborator ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Joining…
+                        </>
+                      ) : (
+                        'Join as collaborator'
+                      )}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                    >
+                      Join as collaborator
+                    </Link>
+                  )}
+                  {user && (
+                    <button
+                      type="button"
+                      onClick={handleAddToAccount}
+                      disabled={addingToAccount}
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingToAccount ? 'Adding…' : 'Add a copy to my account'}
+                    </button>
+                  )}
+                </>
               ) : user ? (
                 <button
                   type="button"
@@ -350,6 +431,9 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
           </div>
           {addToAccountError && (
             <p className="text-sm text-red-600 mt-2">{addToAccountError}</p>
+          )}
+          {joinCollaboratorError && (
+            <p className="text-sm text-red-600 mt-2">{joinCollaboratorError}</p>
           )}
           {addToAccountSuccess && (
             <p className="text-sm text-green-600 mt-2">Added &quot;{addToAccountSuccess.name}&quot; to your account.</p>

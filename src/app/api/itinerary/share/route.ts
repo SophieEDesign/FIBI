@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { itinerary_id } = await request.json()
+    const body = await request.json()
+    const itinerary_id = body?.itinerary_id
+    const share_type = body?.share_type === 'collaborate' ? 'collaborate' : 'copy'
+    const invite_email = typeof body?.invite_email === 'string' ? body.invite_email.trim() || null : null
 
     if (!itinerary_id || typeof itinerary_id !== 'string') {
       return NextResponse.json({ error: 'itinerary_id is required' }, { status: 400 })
@@ -104,15 +107,20 @@ export async function POST(request: NextRequest) {
       .is('revoked_at', null)
       .maybeSingle()
 
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ||
+      request.headers.get('origin') ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
     if (!shareCheckError && existingShare) {
-      // Get the base URL from request or environment variable
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                      request.headers.get('origin') || 
-                      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-      // Return existing token
+      // Optionally update share_type so the link reflects the latest choice
+      await supabase
+        .from('itinerary_shares')
+        .update({ share_type })
+        .eq('id', existingShare.id)
       return NextResponse.json({
         share_token: existingShare.share_token,
         share_url: `${baseUrl}/share/itinerary/${existingShare.share_token}`,
+        share_type,
       })
     }
 
@@ -120,12 +128,13 @@ export async function POST(request: NextRequest) {
     const tokenBytes = randomBytes(32)
     const share_token = tokenBytes.toString('hex')
 
-    // Create the share record
+    // Create the share record with share_type
     const { data: share, error: shareError } = await supabase
       .from('itinerary_shares')
       .insert({
         itinerary_id,
         share_token,
+        share_type,
       })
       .select('share_token')
       .single()
@@ -135,15 +144,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create share token' }, { status: 500 })
     }
 
-    // Get the base URL from request or environment variable
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                    request.headers.get('origin') || 
-                    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    // If collaborate and invite_email provided, create collaborator invite
+    if (share_type === 'collaborate' && invite_email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (emailRegex.test(invite_email)) {
+        const { error: collabError } = await supabase.from('itinerary_collaborators').insert({
+          itinerary_id,
+          invited_email: invite_email.toLowerCase(),
+          invited_by: user.id,
+        })
+        if (collabError && collabError.code !== '23505') {
+          console.error('Error creating collaborator invite:', collabError)
+        }
+      }
+    }
+
     const share_url = `${baseUrl}/share/itinerary/${share.share_token}`
 
     return NextResponse.json({
       share_token: share.share_token,
       share_url,
+      share_type,
     })
   } catch (error: any) {
     console.error('Error generating share token:', error)

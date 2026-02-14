@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 interface UserData {
@@ -45,6 +46,14 @@ export default function AdminDashboard() {
   const [sendingWelcomeId, setSendingWelcomeId] = useState<string | null>(null)
   const [sendingNudgeId, setSendingNudgeId] = useState<string | null>(null)
   const [rowActionError, setRowActionError] = useState<string | null>(null)
+  const [automationsRunning, setAutomationsRunning] = useState(false)
+  const [automationsResult, setAutomationsResult] = useState<{
+    sent: number
+    skipped: number
+    failed: number
+    limitReached?: boolean
+    errors?: string[]
+  } | null>(null)
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
@@ -140,6 +149,45 @@ export default function AdminDashboard() {
 
   const NUDGE_ELIGIBLE_AGE_MS = 48 * 60 * 60 * 1000
 
+  const handleRunAutomations = async () => {
+    setAutomationsResult(null)
+    setAutomationsRunning(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/emails/run-automations', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...headers },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAutomationsResult({
+          sent: 0,
+          skipped: 0,
+          failed: 0,
+          errors: [data.error || data.detail || 'Request failed'],
+        })
+        return
+      }
+      setAutomationsResult({
+        sent: data.sent ?? 0,
+        skipped: data.skipped ?? 0,
+        failed: data.failed ?? 0,
+        limitReached: data.limitReached,
+        errors: data.errors,
+      })
+    } catch (err) {
+      setAutomationsResult({
+        sent: 0,
+        skipped: 0,
+        failed: 0,
+        errors: [err instanceof Error ? err.message : 'Request failed'],
+      })
+    } finally {
+      setAutomationsRunning(false)
+    }
+  }
+
   const canSendWelcome = (user: UserData) =>
     user.email_confirmed_at != null && !user.welcome_email_sent
 
@@ -231,9 +279,31 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="mt-2 text-sm text-gray-600">User management and analytics</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+            <p className="mt-2 text-sm text-gray-600">User management and analytics</p>
+          </div>
+          <div className="flex gap-4">
+            <Link
+              href="/app/admin"
+              className="text-sm font-medium text-gray-900"
+            >
+              Users
+            </Link>
+            <Link
+              href="/app/admin/emails/templates"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Email Templates
+            </Link>
+            <Link
+              href="/app/admin/emails/automations"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Automations
+            </Link>
+          </div>
         </div>
 
         {/* Summary Metrics */}
@@ -261,6 +331,42 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Run Email Automations */}
+        <div className="mb-8 bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Run Email Automations Now</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Manually trigger the email automation runner. Processes active automations (excluding manual), respects 48h throttle and max 200 emails per run.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleRunAutomations}
+              disabled={automationsRunning}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {automationsRunning ? 'Running…' : 'Run Email Automations Now'}
+            </button>
+          </div>
+          {automationsResult && (
+            <div className="mt-4 p-4 rounded-lg border bg-gray-50 border-gray-200">
+              <p className="text-sm text-gray-800">
+                <strong>Done.</strong> Sent: {automationsResult.sent}, Skipped: {automationsResult.skipped}, Failed: {automationsResult.failed}
+                {automationsResult.limitReached && ' (limit reached)'}
+              </p>
+              {automationsResult.errors && automationsResult.errors.length > 0 && (
+                <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
+                  {automationsResult.errors.slice(0, 10).map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                  {automationsResult.errors.length > 10 && (
+                    <li>… and {automationsResult.errors.length - 10} more</li>
+                  )}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Send Founding Follow-Up */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">

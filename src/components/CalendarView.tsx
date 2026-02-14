@@ -66,6 +66,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [shareStep, setShareStep] = useState<'choose' | 'link'>('choose')
+  const [shareType, setShareType] = useState<'copy' | 'collaborate'>('copy')
+  const [shareCollaborators, setShareCollaborators] = useState<{ user_id: string | null; invited_email: string | null; full_name: string | null }[]>([])
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareToken, setShareToken] = useState<string | null>(null)
   const [loadingShare, setLoadingShare] = useState(false)
@@ -77,6 +80,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [showRemoveItineraryModal, setShowRemoveItineraryModal] = useState(false)
   const [removingItinerary, setRemovingItinerary] = useState(false)
+  const [itineraryComments, setItineraryComments] = useState<{ id: string; user_id: string; body: string; created_at: string; author_name: string }[]>([])
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [newCommentBody, setNewCommentBody] = useState('')
+  const [postingComment, setPostingComment] = useState(false)
   const [unplannedLocationFilters, setUnplannedLocationFilters] = useState<string[]>([])
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
@@ -195,6 +202,83 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
+  const loadComments = async (itineraryId: string) => {
+    if (!user) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = {}
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/itinerary/${itineraryId}/comments`, { credentials: 'include', headers })
+      if (res.ok) {
+        const data = await res.json()
+        setItineraryComments(data)
+      } else {
+        setItineraryComments([])
+      }
+    } catch {
+      setItineraryComments([])
+    }
+  }
+
+  const postComment = async () => {
+    if (!selectedItineraryId || !newCommentBody.trim() || !user) return
+    setPostingComment(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch(`/api/itinerary/${selectedItineraryId}/comments`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify({ body: newCommentBody.trim() }),
+      })
+      if (res.ok) {
+        setNewCommentBody('')
+        await loadComments(selectedItineraryId)
+      }
+    } catch (err) {
+      console.error('Failed to post comment:', err)
+    } finally {
+      setPostingComment(false)
+    }
+  }
+
+  const loadShareCollaborators = async (itineraryId: string) => {
+    if (!user) return
+    try {
+      const { data: rows, error } = await supabase
+        .from('itinerary_collaborators')
+        .select('user_id, invited_email')
+        .eq('itinerary_id', itineraryId)
+
+      if (error || !rows?.length) {
+        setShareCollaborators([])
+        return
+      }
+      const userIds = rows.map((r) => r.user_id).filter(Boolean) as string[]
+      if (userIds.length === 0) {
+        setShareCollaborators(rows.map((r) => ({ ...r, full_name: null })))
+        return
+      }
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds)
+      const nameByUserId = new Map((profiles || []).map((p) => [p.id, p.full_name]))
+      setShareCollaborators(
+        rows.map((r) => ({
+          user_id: r.user_id,
+          invited_email: r.invited_email,
+          full_name: r.user_id ? (nameByUserId.get(r.user_id) ?? null) : null,
+        }))
+      )
+    } catch (err) {
+      console.error('Error loading collaborators:', err)
+      setShareCollaborators([])
+    }
+  }
+
   const createItinerary = async (name: string) => {
     if (!user || !name.trim()) return null
 
@@ -240,52 +324,45 @@ export default function CalendarView({ user }: CalendarViewProps) {
       console.warn('Cannot share: No itinerary selected')
       return
     }
+    setShareStep('choose')
+    setShareUrl(null)
+    setShareToken(null)
+    setShareType('copy')
+    setInviteError(null)
+    setInviteSent(false)
+    setShowShareModal(true)
+  }
 
+  const handleShareContinue = async () => {
+    if (!selectedItineraryId) return
     setLoadingShare(true)
     setCopied(false)
     try {
-      console.log('Sharing itinerary:', selectedItineraryId)
-      
-      // Verify we have a session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
       if (sessionError || !session) {
-        console.error('No session available:', sessionError)
         throw new Error('You must be logged in to share itineraries')
       }
-
-      // Use cookies for auth - credentials: 'include' sends cookies automatically
-      // Also include Authorization header as fallback for better reliability
-      const headers: HeadersInit = { 
-        'Content-Type': 'application/json',
-      }
-      
-      // Add Authorization header with Bearer token as fallback
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
       if (session?.access_token) {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
-
       const response = await fetch('/api/itinerary/share', {
         method: 'POST',
-        credentials: 'include', // This sends cookies automatically
+        credentials: 'include',
         headers,
-        body: JSON.stringify({ itinerary_id: selectedItineraryId }),
+        body: JSON.stringify({ itinerary_id: selectedItineraryId, share_type: shareType }),
       })
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('Share API error:', response.status, errorData)
         throw new Error(errorData.error || 'Failed to generate share link')
       }
-
       const data = await response.json()
-      console.log('Share response:', data)
       if (!data.share_url || !data.share_token) {
         throw new Error('Invalid response from server')
       }
       setShareUrl(data.share_url)
       setShareToken(data.share_token)
-      setShowShareModal(true)
+      setShareStep('link')
     } catch (error: any) {
       console.error('Error sharing itinerary:', error)
       alert(error.message || 'Failed to generate share link. Please try again.')
@@ -379,15 +456,36 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
-  // Load existing share when itinerary is selected
+  // Load collaborators when share modal is on link step and share type is collaborate
   useEffect(() => {
-    if (!selectedItineraryId || selectedItineraryId === null) {
-      setShareUrl(null)
-      setShareToken(null)
+    if (showShareModal && shareStep === 'link' && selectedItineraryId && shareType === 'collaborate') {
+      loadShareCollaborators(selectedItineraryId)
+    } else {
+      setShareCollaborators([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showShareModal, shareStep, selectedItineraryId, shareType])
+
+  // Load comments when an itinerary is selected
+  useEffect(() => {
+    if (selectedItineraryId && user) {
+      loadComments(selectedItineraryId)
+    } else {
+      setItineraryComments([])
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItineraryId, user])
+
+  // Load existing share when itinerary is selected (only when share modal is closed so we don't overwrite the choose step)
+  useEffect(() => {
+    if (!selectedItineraryId || selectedItineraryId === null || showShareModal) {
+      if (!selectedItineraryId) {
+        setShareUrl(null)
+        setShareToken(null)
+      }
       return
     }
 
-    // Check if there's an existing share for this itinerary
     const checkExistingShare = async () => {
       try {
         const { data: shares, error } = await supabase
@@ -415,7 +513,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
     checkExistingShare()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedItineraryId])
+  }, [selectedItineraryId, showShareModal])
 
   // Filter items based on selected itinerary
   const filteredItems = useMemo(() => {
@@ -940,23 +1038,25 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         Share itinerary
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setShowRemoveItineraryModal(true)
-                      }}
-                      className="p-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors relative group"
-                      title="Remove itinerary"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        Remove itinerary
-                      </span>
-                    </button>
+                    {itinerary.user_id === user?.id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setShowRemoveItineraryModal(true)
+                        }}
+                        className="p-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors relative group"
+                        title="Remove itinerary"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                          Remove itinerary
+                        </span>
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -1577,6 +1677,63 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           </div>
 
+          {/* Comments (when an itinerary is selected) */}
+          {selectedItineraryId && (
+            <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <button
+                onClick={() => setCommentsOpen(!commentsOpen)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <h3 className="text-sm font-semibold text-gray-900">Comments</h3>
+                <svg
+                  className={`w-5 h-5 text-gray-500 transition-transform ${commentsOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {commentsOpen && (
+                <div className="border-t border-gray-200 p-4 space-y-3">
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {itineraryComments.length === 0 ? (
+                      <p className="text-sm text-gray-500">No comments yet.</p>
+                    ) : (
+                      itineraryComments.map((c) => (
+                        <div key={c.id} className="text-sm">
+                          <span className="font-medium text-gray-900">{c.author_name}</span>
+                          <span className="text-gray-500 text-xs ml-2">
+                            {new Date(c.created_at).toLocaleString()}
+                          </span>
+                          <p className="text-gray-700 mt-0.5">{c.body}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCommentBody}
+                      onChange={(e) => setNewCommentBody(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && postComment()}
+                      placeholder="Add a comment..."
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                    <button
+                      type="button"
+                      onClick={postComment}
+                      disabled={postingComment || !newCommentBody.trim()}
+                      className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {postingComment ? 'Sending…' : 'Send'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Expandable Date List */}
           {itemsByDate.length > 0 && (
             <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -1786,6 +1943,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setShowShareModal(false)
+                setShareStep('choose')
                 setInviteEmail('')
                 setInviteName('')
                 setInviteError(null)
@@ -1799,6 +1957,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 <button
                   onClick={() => {
                     setShowShareModal(false)
+                    setShareStep('choose')
                     setInviteEmail('')
                     setInviteName('')
                     setInviteError(null)
@@ -1823,6 +1982,57 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </button>
               </div>
               <div className="space-y-4">
+                {shareStep === 'choose' ? (
+                  <>
+                    <p className="text-sm text-gray-700 mb-3">How do you want to share?</p>
+                    <div className="space-y-2">
+                      <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="shareType"
+                          checked={shareType === 'collaborate'}
+                          onChange={() => setShareType('collaborate')}
+                          className="mt-1 text-gray-900 focus:ring-gray-900"
+                        />
+                        <div>
+                          <span className="font-medium text-gray-900">Collaborate</span>
+                          <p className="text-xs text-gray-600 mt-0.5">Work on the same itinerary together. They&apos;ll see it in their calendar and you&apos;ll see who it&apos;s shared with.</p>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="shareType"
+                          checked={shareType === 'copy'}
+                          onChange={() => setShareType('copy')}
+                          className="mt-1 text-gray-900 focus:ring-gray-900"
+                        />
+                        <div>
+                          <span className="font-medium text-gray-900">Send a copy</span>
+                          <p className="text-xs text-gray-600 mt-0.5">They get their own copy and can add it to their account from the link.</p>
+                        </div>
+                      </label>
+                    </div>
+                    <button
+                      onClick={handleShareContinue}
+                      disabled={loadingShare}
+                      className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {loadingShare ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          Generating link...
+                        </>
+                      ) : (
+                        'Continue'
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Share Link
@@ -1856,8 +2066,15 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     </button>
                   </div>
                   <p className="text-xs text-gray-600 mt-2">
-                    Anyone with this link can view your itinerary. They won&apos;t be able to edit it.
+                    {shareType === 'collaborate'
+                      ? 'Share this link so others can join as collaborators. They\'ll see the itinerary in their calendar and can edit it.'
+                      : 'Anyone with this link can view your itinerary. They can add a copy to their account.'}
                   </p>
+                  {shareType === 'collaborate' && shareCollaborators.length > 0 && (
+                    <p className="text-xs text-gray-600 mt-2">
+                      Shared with: {shareCollaborators.map((c) => c.full_name || c.invited_email || 'Unknown').join(', ')}
+                    </p>
+                  )}
                 </div>
 
                 {/* Email Invite Section */}
@@ -1916,6 +2133,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                               recipientEmail: inviteEmail.trim(),
                               recipientName: inviteName.trim() || undefined,
                               itineraryName: selectedItinerary?.name,
+                              share_type: shareType,
                             }),
                           })
 
@@ -1928,6 +2146,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           setInviteSent(true)
                           setInviteEmail('')
                           setInviteName('')
+                          if (shareType === 'collaborate' && selectedItineraryId) {
+                            loadShareCollaborators(selectedItineraryId)
+                          }
                         } catch (error: any) {
                           console.error('Error sending invite:', error)
                           setInviteError(error.message || 'Failed to send invite. Please try again.')
@@ -2007,6 +2228,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   <button
                     onClick={() => {
                       setShowShareModal(false)
+                      setShareStep('choose')
                       setInviteEmail('')
                       setInviteName('')
                       setInviteError(null)
@@ -2017,6 +2239,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     Close
                   </button>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

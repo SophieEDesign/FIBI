@@ -22,7 +22,7 @@ export async function GET(
     // Find the active (non-revoked) share
     const { data: share, error: shareError } = await supabase
       .from('itinerary_shares')
-      .select('itinerary_id, revoked_at')
+      .select('itinerary_id, revoked_at, share_type')
       .eq('share_token', token)
       .is('revoked_at', null)
       .single()
@@ -62,6 +62,7 @@ export async function GET(
         created_at: itinerary.created_at,
       },
       items: itemsData,
+      share_type: share.share_type || 'copy',
     })
   } catch (error: any) {
     console.error('Error fetching shared itinerary:', error)
