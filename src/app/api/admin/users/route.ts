@@ -16,16 +16,25 @@ export async function GET(request: NextRequest) {
 
     const adminClient = getAdminSupabase()
 
-    // Fetch all users from auth.users
-    const { data: authUsers, error: authUsersError } = await adminClient.auth.admin.listUsers()
-
-    if (authUsersError) {
-      console.error('Error fetching auth users:', authUsersError)
-      return NextResponse.json(
-        { error: 'Failed to fetch users' },
-        { status: 500 }
-      )
+    // Fetch all users from auth.users (listUsers defaults to 50 per page — paginate to get all)
+    const perPage = 1000
+    let page = 1
+    const allUsers: Awaited<ReturnType<typeof adminClient.auth.admin.listUsers>>['data']['users'] = []
+    let hasMore = true
+    while (hasMore) {
+      const { data, error: authUsersError } = await adminClient.auth.admin.listUsers({ perPage, page })
+      if (authUsersError) {
+        console.error('Error fetching auth users:', authUsersError)
+        return NextResponse.json(
+          { error: 'Failed to fetch users' },
+          { status: 500 }
+        )
+      }
+      allUsers.push(...(data.users ?? []))
+      hasMore = (data.users?.length ?? 0) >= perPage
+      page += 1
     }
+    const authUsers = { users: allUsers }
 
     // Fetch profiles with onboarding flags for dashboard
     const { data: profiles, error: profilesError } = await adminClient
@@ -47,7 +56,8 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Fetch place counts and first place added for each user
+    // Fetch place counts and first place added for each user.
+    // Note: PostgREST returns max 1000 rows per request; if saved_items exceeds that, place counts can be undercounted — consider a DB view or pagination.
     const { data: placeStats, error: placeStatsError } = await adminClient
       .from('saved_items')
       .select('user_id, created_at')
