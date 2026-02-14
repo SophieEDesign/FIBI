@@ -19,7 +19,7 @@ import {
 import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 interface CalendarViewProps {
   user: any
@@ -75,6 +75,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteSent, setInviteSent] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
+  const [showRemoveItineraryModal, setShowRemoveItineraryModal] = useState(false)
+  const [removingItinerary, setRemovingItinerary] = useState(false)
   const [unplannedLocationFilters, setUnplannedLocationFilters] = useState<string[]>([])
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
@@ -92,6 +94,16 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const stageDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Preselect itinerary from URL (e.g. after "Add to my account" -> "View in my account")
+  useEffect(() => {
+    const id = searchParams.get('itinerary_id')
+    if (id && itineraries.some((i) => i.id === id)) {
+      setSelectedItineraryId(id)
+      router.replace('/app/calendar')
+    }
+  }, [searchParams, itineraries, router])
 
   // Detect mobile device
   useEffect(() => {
@@ -341,6 +353,29 @@ export default function CalendarView({ user }: CalendarViewProps) {
     } catch (error) {
       console.error('Error revoking share:', error)
       alert('Failed to revoke share link. Please try again.')
+    }
+  }
+
+  const handleRemoveItinerary = async () => {
+    if (!user || !selectedItineraryId) return
+    setRemovingItinerary(true)
+    try {
+      const { error } = await supabase
+        .from('itineraries')
+        .delete()
+        .eq('id', selectedItineraryId)
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      setSelectedItineraryId(null)
+      setShowRemoveItineraryModal(false)
+      await loadItineraries()
+      await loadItems()
+    } catch (error) {
+      console.error('Error removing itinerary:', error)
+      alert('Failed to remove itinerary. Please try again.')
+    } finally {
+      setRemovingItinerary(false)
     }
   }
 
@@ -879,31 +914,50 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   {itinerary.name}
                 </button>
                 {selectedItineraryId === itinerary.id && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleShareItinerary()
-                    }}
-                    disabled={loadingShare}
-                    className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Share itinerary"
-                  >
-                    {loadingShare ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleShareItinerary()
+                      }}
+                      disabled={loadingShare}
+                      className="p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Share itinerary"
+                    >
+                      {loadingShare ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                      )}
+                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Share itinerary
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowRemoveItineraryModal(true)
+                      }}
+                      className="p-2 rounded-lg text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors relative group"
+                      title="Remove itinerary"
+                    >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
-                    )}
-                    <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                      Share itinerary
-                    </span>
-                  </button>
+                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        Remove itinerary
+                      </span>
+                    </button>
+                  </>
                 )}
               </div>
             ))}
@@ -1963,6 +2017,34 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     Close
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Remove Itinerary Modal */}
+        {showRemoveItineraryModal && selectedItineraryId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove itinerary?</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Remove &quot;{itineraries.find((i) => i.id === selectedItineraryId)?.name ?? 'this itinerary'}&quot;? Places in it will become unplanned.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRemoveItineraryModal(false)}
+                  disabled={removingItinerary}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRemoveItinerary}
+                  disabled={removingItinerary}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {removingItinerary ? 'Removing…' : 'Remove'}
+                </button>
               </div>
             </div>
           </div>

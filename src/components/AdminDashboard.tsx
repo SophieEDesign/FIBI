@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 interface UserData {
   id: string
@@ -45,12 +46,24 @@ export default function AdminDashboard() {
   const [sendingNudgeId, setSendingNudgeId] = useState<string | null>(null)
   const [rowActionError, setRowActionError] = useState<string | null>(null)
 
+  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` }
+    }
+    return {}
+  }, [])
+
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/admin/users', { credentials: 'include' })
+      const headers = await getAuthHeaders()
+      const response = await fetch('/api/admin/users', { credentials: 'include', headers })
       if (!response.ok) {
         if (response.status === 403) {
           setError('Access denied. Admin role required.')
+        } else if (response.status === 401) {
+          setError('Could not load user data (401). If this is a Vercel preview with Deployment Protection, add the preview URL to Deployment Protection Exceptions in Vercel project settings.')
         } else {
           setError('Failed to load user data')
         }
@@ -76,7 +89,8 @@ export default function AdminDashboard() {
     setFoundingLoading(true)
     setFoundingResult(null)
     try {
-      const res = await fetch('/api/admin/founding-followup')
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/founding-followup', { credentials: 'include', headers })
       if (!res.ok) {
         setFoundingEligible(null)
         return
@@ -100,7 +114,8 @@ export default function AdminDashboard() {
     setShowFoundingConfirm(false)
     setFoundingResult(null)
     try {
-      const res = await fetch('/api/admin/founding-followup', { method: 'POST' })
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/founding-followup', { method: 'POST', credentials: 'include', headers })
       const data = await res.json()
       if (!res.ok) {
         setFoundingResult({ sent: 0, failed: foundingEligible.count, errors: [data.error] })
@@ -138,9 +153,11 @@ export default function AdminDashboard() {
     setRowActionError(null)
     setSendingWelcomeId(userId)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch('/api/admin/send-welcome', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ userId }),
       })
       const data = await res.json().catch(() => ({}))
@@ -160,9 +177,11 @@ export default function AdminDashboard() {
     setRowActionError(null)
     setSendingNudgeId(userId)
     try {
+      const authHeaders = await getAuthHeaders()
       const res = await fetch('/api/admin/send-onboarding-nudge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({ userId }),
       })
       const data = await res.json().catch(() => ({}))

@@ -6,6 +6,7 @@ import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import CollapsibleOptions from '@/components/CollapsibleOptions'
+import { createClient } from '@/lib/supabase/client'
 
 interface SharedItineraryViewProps {
   shareToken: string
@@ -35,10 +36,27 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [viewMode, setViewMode] = useState<'calendar' | 'map' | 'list'>('calendar')
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
+  const [user, setUser] = useState<{ id: string } | null>(null)
+  const [addingToAccount, setAddingToAccount] = useState(false)
+  const [addToAccountError, setAddToAccountError] = useState<string | null>(null)
+  const [addToAccountSuccess, setAddToAccountSuccess] = useState<{ itinerary_id: string; name: string } | null>(null)
+  const supabase = createClient()
 
   useEffect(() => {
     loadSharedItinerary()
   }, [shareToken])
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+    }
+    loadUser()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const loadSharedItinerary = async () => {
     try {
@@ -63,6 +81,39 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       setError('Failed to load itinerary. Please try again later.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAddToAccount = async () => {
+    if (!user) return
+    setAddingToAccount(true)
+    setAddToAccountError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+      const response = await fetch(`/api/itinerary/share/${shareToken}/add-to-account`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      })
+      const result = await response.json()
+      if (response.status === 401) {
+        window.location.href = `/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`
+        return
+      }
+      if (!response.ok) {
+        setAddToAccountError(result.error || 'Failed to add to your account.')
+        return
+      }
+      setAddToAccountSuccess({ itinerary_id: result.itinerary_id, name: result.name })
+    } catch (err) {
+      console.error('Error adding to account:', err)
+      setAddToAccountError('Failed to add to your account. Please try again.')
+    } finally {
+      setAddingToAccount(false)
     }
   }
 
@@ -249,18 +300,60 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">{data.itinerary.name}</h1>
               <p className="text-xs text-gray-500 mt-1">Shared itinerary</p>
             </div>
-            <Link
-              href="/"
-              className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-            >
-              FiBi
-            </Link>
+            <div className="flex items-center gap-3">
+              {addToAccountSuccess ? (
+                <Link
+                  href={`/app/calendar?itinerary_id=${encodeURIComponent(addToAccountSuccess.itinerary_id)}`}
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                >
+                  View in my account
+                </Link>
+              ) : user ? (
+                <button
+                  type="button"
+                  onClick={handleAddToAccount}
+                  disabled={addingToAccount}
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {addingToAccount ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Adding…
+                    </>
+                  ) : (
+                    'Add to my account'
+                  )}
+                </button>
+              ) : (
+                <Link
+                  href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                >
+                  Add to my account
+                </Link>
+              )}
+              <Link
+                href="/"
+                className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                FiBi
+              </Link>
+            </div>
           </div>
+          {addToAccountError && (
+            <p className="text-sm text-red-600 mt-2">{addToAccountError}</p>
+          )}
+          {addToAccountSuccess && (
+            <p className="text-sm text-green-600 mt-2">Added &quot;{addToAccountSuccess.name}&quot; to your account.</p>
+          )}
         </div>
       </header>
 

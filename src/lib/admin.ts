@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createClientWithToken } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
 
@@ -10,21 +10,46 @@ export type RequireAdminResult =
 
 /**
  * Verify the current request is from an authenticated user with role = 'admin'.
- * Use in API routes that require admin.
- * Uses createClient() without request so Next.js cookies() is used (reliable in Route Handlers on Vercel).
+ * Accepts either cookies (createClient(request)) or Authorization: Bearer <token>.
+ * Bearer token is more reliable when cookies are blocked (e.g. Vercel Deployment Protection).
  */
-export async function requireAdmin(_request?: NextRequest): Promise<RequireAdminResult> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+export async function requireAdmin(request?: NextRequest): Promise<RequireAdminResult> {
+  const authHeader = request?.headers.get('Authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
 
-  if (!user || authError) {
+  let user: User | null = null
+  let authError: Error | null = null
+  let supabaseForProfile: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createClientWithToken> | null = null
+
+  if (token) {
+    const supabase = createClientWithToken(token)
+    const result = await supabase.auth.getUser(token)
+    user = result.data.user
+    authError = result.error ?? null
+    if (user) supabaseForProfile = supabase
+  }
+
+  if (!user && request) {
+    const supabase = await createClient(request)
+    const result = await supabase.auth.getUser()
+    user = result.data.user
+    authError = result.error ?? null
+    if (user) supabaseForProfile = supabase
+  }
+
+  if (!user && supabaseForProfile === null) {
+    const supabase = await createClient()
+    const result = await supabase.auth.getUser()
+    user = result.data.user
+    authError = result.error ?? null
+    if (user) supabaseForProfile = supabase
+  }
+
+  if (!user || authError || !supabaseForProfile) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await supabaseForProfile
     .from('profiles')
     .select('role')
     .eq('id', user.id)
