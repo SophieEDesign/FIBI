@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
 import { useAuth } from '@/lib/useAuth'
@@ -16,6 +16,18 @@ export default function ProtectedLayout({
 }) {
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
+  const mountCountRef = useRef(0)
+
+  // #region agent log
+  useEffect(() => {
+    mountCountRef.current += 1
+    const runId = mountCountRef.current
+    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'protected/layout.tsx:mount', message: 'ProtectedLayout mounted', data: { runId }, timestamp: Date.now(), hypothesisId: 'strictMode' }) }).catch(() => {})
+    return () => {
+      fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'protected/layout.tsx:unmount', message: 'ProtectedLayout unmounting', data: { runId }, timestamp: Date.now(), hypothesisId: 'strictMode' }) }).catch(() => {})
+    }
+  }, [])
+  // #endregion
 
   useEffect(() => {
     if (!user?.id) {

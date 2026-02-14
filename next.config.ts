@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  reactStrictMode: false, // was causing ProtectedLayout to mount/unmount in a loop in dev → visible flash
   // Ensure static files in /public are served correctly
   // This prevents Next.js from trying to process them as routes
   async headers() {
