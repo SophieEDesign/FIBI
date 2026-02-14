@@ -16,6 +16,7 @@ import {
 
 const MAX_SEND_PER_RUN = 200
 const THROTTLE_HOURS = 48
+const MAX_LIFECYCLE_EMAILS_PER_USER = 3
 const MS_PER_HOUR = 60 * 60 * 1000
 const FROM_EMAIL = 'hello@fibi.world'
 
@@ -60,6 +61,36 @@ async function getThrottledUserIds(
   }
 
   return new Set((data ?? []).map((r: { user_id: string }) => r.user_id))
+}
+
+/**
+ * Fetch user IDs who have already received >= MAX_LIFECYCLE_EMAILS_PER_USER automation emails (all time).
+ * Never stack emails; early-stage products burn trust with over-emailing.
+ */
+async function getUsersAtLifecycleLimit(
+  adminClient: ReturnType<typeof getAdminSupabase>
+): Promise<Set<string>> {
+  const { data, error } = await adminClient
+    .from('email_logs')
+    .select('user_id')
+    .eq('status', 'sent')
+
+  if (error) {
+    console.error('Error fetching email_logs for lifecycle limit:', error)
+    return new Set()
+  }
+
+  const countByUser = new Map<string, number>()
+  for (const row of data ?? []) {
+    const uid = (row as { user_id: string }).user_id
+    countByUser.set(uid, (countByUser.get(uid) ?? 0) + 1)
+  }
+
+  const atLimit = new Set<string>()
+  for (const [uid, count] of countByUser) {
+    if (count >= MAX_LIFECYCLE_EMAILS_PER_USER) atLimit.add(uid)
+  }
+  return atLimit
 }
 
 /**
@@ -127,6 +158,7 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
   const candidates = await getUsersForAutomation(adminClient, automation as AutomationRow, allUsers)
   const throttledIds = await getThrottledUserIds(adminClient)
   const templateSentIds = await getUsersWhoReceivedTemplate(adminClient, automation.template_slug)
+  const lifecycleLimitIds = await getUsersAtLifecycleLimit(adminClient)
 
   for (const user of candidates) {
     if (result.sent >= MAX_SEND_PER_RUN) {
@@ -134,7 +166,7 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
       result.errors.push(`Stopped: max ${MAX_SEND_PER_RUN} emails per run reached`)
       break
     }
-    if (throttledIds.has(user.id) || templateSentIds.has(user.id)) {
+    if (throttledIds.has(user.id) || templateSentIds.has(user.id) || lifecycleLimitIds.has(user.id)) {
       result.skipped += 1
       continue
     }
@@ -149,15 +181,18 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
         html: template.html_content,
         from: FROM_EMAIL,
       })
-      await adminClient.from('email_logs').insert({
-        user_id: user.id,
-        template_slug: automation.template_slug,
-        automation_id: automation.id,
-        status: 'sent',
-      })
-      throttledIds.add(user.id)
-      templateSentIds.add(user.id)
-      result.sent += 1
+        await adminClient.from('email_logs').insert({
+          user_id: user.id,
+          template_slug: automation.template_slug,
+          automation_id: automation.id,
+          status: 'sent',
+        })
+        if (automation.template_slug === 'founding-followup') {
+          await adminClient.from('profiles').update({ founding_followup_sent: true }).eq('id', user.id)
+        }
+        throttledIds.add(user.id)
+        templateSentIds.add(user.id)
+        result.sent += 1
     } catch (err) {
       result.failed += 1
       result.errors.push(`User ${user.email}: ${err instanceof Error ? err.message : String(err)}`)
@@ -246,6 +281,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
     const candidates = await getUsersForAutomation(adminClient, automation, allUsers)
     const throttledIds = await getThrottledUserIds(adminClient)
     const templateSentIds = await getUsersWhoReceivedTemplate(adminClient, automation.template_slug)
+    const lifecycleLimitIds = await getUsersAtLifecycleLimit(adminClient)
 
     for (const user of candidates) {
       if (result.sent >= MAX_SEND_PER_RUN) {
@@ -254,7 +290,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
         break
       }
 
-      if (throttledIds.has(user.id) || templateSentIds.has(user.id)) {
+      if (throttledIds.has(user.id) || templateSentIds.has(user.id) || lifecycleLimitIds.has(user.id)) {
         result.skipped += 1
         continue
       }
@@ -278,7 +314,9 @@ export async function runEmailAutomations(): Promise<RunResult> {
           automation_id: automation.id,
           status: 'sent',
         })
-
+        if (automation.template_slug === 'founding-followup') {
+          await adminClient.from('profiles').update({ founding_followup_sent: true }).eq('id', user.id)
+        }
         throttledIds.add(user.id)
         templateSentIds.add(user.id)
         result.sent += 1

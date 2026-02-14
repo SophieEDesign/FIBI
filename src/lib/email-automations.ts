@@ -9,10 +9,12 @@ import type { User } from '@supabase/supabase-js'
 export type AutomationConditions = {
   confirmed?: boolean
   places_count_gt?: number
+  places_count_lt?: number
   last_login_days_gt?: number
   created_days_gt?: number
   created_days_lt?: number
   itineraries_count_gt?: number
+  founding_followup_sent?: boolean
 }
 
 export type AutomationRow = {
@@ -39,6 +41,7 @@ export type UserWithStats = {
   email_confirmed_at: string | null
   places_count: number
   itineraries_count: number
+  founding_followup_sent: boolean
 }
 
 const MS_PER_HOUR = 60 * 60 * 1000
@@ -68,6 +71,10 @@ export function evaluateUserConditions(
     if ((user.places_count ?? 0) <= conditions.places_count_gt) return false
   }
 
+  if (typeof conditions.places_count_lt === 'number') {
+    if ((user.places_count ?? 0) >= conditions.places_count_lt) return false
+  }
+
   if (typeof conditions.last_login_days_gt === 'number') {
     const days = daysSince(user.last_sign_in_at)
     if (days === null) return false // never logged in
@@ -86,6 +93,10 @@ export function evaluateUserConditions(
 
   if (typeof conditions.itineraries_count_gt === 'number') {
     if ((user.itineraries_count ?? 0) <= conditions.itineraries_count_gt) return false
+  }
+
+  if (typeof conditions.founding_followup_sent === 'boolean') {
+    if (conditions.founding_followup_sent !== user.founding_followup_sent) return false
   }
 
   return true
@@ -157,6 +168,14 @@ export async function fetchUsersWithStats(
     itineraryCounts.set(r.user_id, (itineraryCounts.get(r.user_id) ?? 0) + 1)
   })
 
+  const { data: profiles } = await adminClient
+    .from('profiles')
+    .select('id, founding_followup_sent')
+  const foundingMap = new Map<string, boolean>()
+  profiles?.forEach((p: { id: string; founding_followup_sent: boolean | null }) => {
+    foundingMap.set(p.id, p.founding_followup_sent ?? false)
+  })
+
   return allUsers.map((u) => ({
     id: u.id,
     email: u.email ?? null,
@@ -165,6 +184,7 @@ export async function fetchUsersWithStats(
     email_confirmed_at: u.email_confirmed_at ?? null,
     places_count: placeCounts.get(u.id) ?? 0,
     itineraries_count: itineraryCounts.get(u.id) ?? 0,
+    founding_followup_sent: foundingMap.get(u.id) ?? false,
   }))
 }
 

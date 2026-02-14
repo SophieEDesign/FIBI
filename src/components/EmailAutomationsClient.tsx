@@ -30,10 +30,12 @@ interface Template {
 type ConditionsForm = {
   confirmed?: boolean | null
   places_count_gt?: number | null
+  places_count_lt?: number | null
   last_login_days_gt?: number | null
   created_days_gt?: number | null
   created_days_lt?: number | null
   itineraries_count_gt?: number | null
+  founding_followup_sent?: boolean | null
 }
 
 function conditionsToForm(c: Record<string, unknown> | null | undefined): ConditionsForm {
@@ -41,10 +43,12 @@ function conditionsToForm(c: Record<string, unknown> | null | undefined): Condit
   return {
     confirmed: c.confirmed === true ? true : c.confirmed === false ? false : null,
     places_count_gt: typeof c.places_count_gt === 'number' ? c.places_count_gt : null,
+    places_count_lt: typeof c.places_count_lt === 'number' ? c.places_count_lt : null,
     last_login_days_gt: typeof c.last_login_days_gt === 'number' ? c.last_login_days_gt : null,
     created_days_gt: typeof c.created_days_gt === 'number' ? c.created_days_gt : null,
     created_days_lt: typeof c.created_days_lt === 'number' ? c.created_days_lt : null,
     itineraries_count_gt: typeof c.itineraries_count_gt === 'number' ? c.itineraries_count_gt : null,
+    founding_followup_sent: c.founding_followup_sent === true ? true : c.founding_followup_sent === false ? false : null,
   }
 }
 
@@ -52,10 +56,12 @@ function formToConditions(f: ConditionsForm): Record<string, unknown> {
   const c: Record<string, unknown> = {}
   if (typeof f.confirmed === 'boolean') c.confirmed = f.confirmed
   if (typeof f.places_count_gt === 'number') c.places_count_gt = f.places_count_gt
+  if (typeof f.places_count_lt === 'number') c.places_count_lt = f.places_count_lt
   if (typeof f.last_login_days_gt === 'number') c.last_login_days_gt = f.last_login_days_gt
   if (typeof f.created_days_gt === 'number') c.created_days_gt = f.created_days_gt
   if (typeof f.created_days_lt === 'number') c.created_days_lt = f.created_days_lt
   if (typeof f.itineraries_count_gt === 'number') c.itineraries_count_gt = f.itineraries_count_gt
+  if (typeof f.founding_followup_sent === 'boolean') c.founding_followup_sent = f.founding_followup_sent
   return c
 }
 
@@ -418,6 +424,17 @@ export default function EmailAutomationsClient() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs text-gray-500 mb-1">places_count &lt;</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={form.conditions.places_count_lt ?? ''}
+                    onChange={(e) => updateCondition('places_count_lt', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                    placeholder="—"
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs text-gray-500 mb-1">last_login_days &gt;</label>
                   <input
                     type="number"
@@ -460,6 +477,21 @@ export default function EmailAutomationsClient() {
                     placeholder="—"
                     className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Founding follow-up sent</label>
+                  <select
+                    value={form.conditions.founding_followup_sent === true ? 'true' : form.conditions.founding_followup_sent === false ? 'false' : ''}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      updateCondition('founding_followup_sent', v === 'true' ? true : v === 'false' ? false : null)
+                    }}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">Any</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No (eligible for founding follow-up)</option>
+                  </select>
                 </div>
               </div>
             </div>
