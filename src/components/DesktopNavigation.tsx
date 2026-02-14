@@ -7,10 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 
 interface DesktopNavigationProps {
   user: any
+  isAdmin?: boolean
   onSignOut?: () => void
 }
 
-export default function DesktopNavigation({ user, onSignOut }: DesktopNavigationProps) {
+export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopNavigationProps) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
@@ -90,6 +91,18 @@ export default function DesktopNavigation({ user, onSignOut }: DesktopNavigation
             >
               How to Use
             </Link>
+            {isAdmin && (
+              <Link
+                href="/app/admin"
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive('/app/admin')
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Admin
+              </Link>
+            )}
             <Link
               href="/profile"
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${

@@ -116,6 +116,21 @@ export async function GET(request: NextRequest) {
       })) || [],
     })
 
+    // Get itinerary name if itinerary_id is provided (needed for filename in both empty and non-empty responses)
+    let itineraryName: string | null = null
+    if (itineraryId) {
+      const { data: itinerary } = await supabase
+        .from('itineraries')
+        .select('name')
+        .eq('id', itineraryId)
+        .eq('user_id', user.id)
+        .single()
+      
+      if (itinerary) {
+        itineraryName = itinerary.name
+      }
+    }
+
     // If no items found, return an empty calendar file instead of 204
     // This is more user-friendly and prevents client-side errors
     if (!items || items.length === 0) {
@@ -143,21 +158,6 @@ export async function GET(request: NextRequest) {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
         },
       })
-    }
-
-    // Get itinerary name if itinerary_id is provided
-    let itineraryName: string | null = null
-    if (itineraryId) {
-      const { data: itinerary } = await supabase
-        .from('itineraries')
-        .select('name')
-        .eq('id', itineraryId)
-        .eq('user_id', user.id)
-        .single()
-      
-      if (itinerary) {
-        itineraryName = itinerary.name
-      }
     }
 
     // Generate iCal content
