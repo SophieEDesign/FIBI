@@ -1289,6 +1289,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             </div>
           </div>
         </div>
+        </div>
       </main>
 
     </div>
