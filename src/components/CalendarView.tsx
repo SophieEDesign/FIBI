@@ -1720,7 +1720,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </div>
               )}
             </div>
-            )}
             
             {/* Unplanned Items Display - Hidden on mobile when collapsed */}
             {(!isMobile || isUnplannedExpanded) && (
@@ -1765,6 +1764,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
               </>
             )}
           </div>
+        )}
 
           {/* Calendar Grid */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
