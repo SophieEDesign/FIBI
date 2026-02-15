@@ -954,104 +954,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }, [showLocationDropdown, showCategoryDropdown])
 
-  const handleDownloadCalendar = async (e?: React.MouseEvent) => {
-    // Prevent any default behavior (form submission, navigation, etc.)
-    if (e) {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-    
-    try {
-      // Build URL with itinerary_id query parameter if an itinerary is selected
-      let url = '/api/calendar/download'
-      if (selectedItineraryId) {
-        url += `?itinerary_id=${encodeURIComponent(selectedItineraryId)}`
-      }
-
-      console.log('Downloading calendar:', { url, selectedItineraryId })
-
-      // Get the session token to pass as Authorization header
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      const headers: HeadersInit = {
-        'Accept': 'text/calendar, application/octet-stream, */*',
-      }
-      
-      // Add Authorization header with the access token if available
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
-
-      const response = await fetch(url, {
-        method: 'GET',
-        credentials: 'include',
-        headers,
-      })
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          const errorData = await response.json().catch(() => ({}))
-          console.error('Authentication error:', errorData)
-          // Redirect to login with redirect parameter to return to calendar after sign-in
-          router.push('/login?redirect=/app/calendar')
-          return
-        }
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Download error:', response.status, errorData)
-        throw new Error(errorData.error || 'Failed to download calendar')
-      }
-
-      // Handle 204 No Content (no items to download)
-      if (response.status === 204) {
-        alert('No items with planned dates found to download.')
-        return
-      }
-
-      // Check if response is actually a blob/ICS file
-      const contentType = response.headers.get('content-type')
-      if (!contentType || (!contentType.includes('calendar') && !contentType.includes('octet-stream'))) {
-        // If we got HTML or JSON instead of ICS, something went wrong
-        const text = await response.text()
-        console.error('Unexpected response type:', contentType, text.substring(0, 200))
-        throw new Error('Server returned unexpected content type')
-      }
-
-      // Get filename from Content-Disposition header, or use default
-      const contentDisposition = response.headers.get('content-disposition')
-      let filename = 'fibi-calendar.ics'
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
-        if (filenameMatch) {
-          filename = filenameMatch[1]
-        }
-      }
-
-      const blob = await response.blob()
-      console.log('Calendar downloaded:', { filename, size: blob.size })
-      
-      if (blob.size === 0) {
-        throw new Error('Downloaded file is empty')
-      }
-
-      const urlObj = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = urlObj
-      a.download = filename
-      a.style.display = 'none'
-      document.body.appendChild(a)
-      a.click()
-      
-      // Clean up after a short delay
-      setTimeout(() => {
-        window.URL.revokeObjectURL(urlObj)
-        document.body.removeChild(a)
-      }, 100)
-    } catch (error: any) {
-      console.error('Error downloading calendar:', error)
-      alert(error.message || 'Failed to download calendar. Please try again.')
-    }
-  }
-
   const hasPlacesNoTrips = !loading && items.length > 0 && itineraries.length === 0
 
   return (
@@ -1177,7 +1079,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             {/* Trip view: moodboard when a trip is selected, or all places when "All" */}
           {selectedItineraryId ? (
             <>
-              {/* Trip cover hero: wide hero with soft gradient overlay and trip name */}
+              {/* Trip cover hero: reduced height, image only (title moved below) */}
               {(() => {
                 const trip = itineraries.find((t) => t.id === selectedItineraryId)
                 if (!trip) return null
@@ -1186,8 +1088,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   (tripPlacesOrdered[0]?.screenshot_url || tripPlacesOrdered[0]?.thumbnail_url) ||
                   null
                 return (
-                  <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 mb-6 overflow-hidden rounded-2xl">
-                    <div className="relative aspect-[21/6] min-h-[120px] md:min-h-[130px] bg-gray-100">
+                  <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 mb-4 overflow-hidden rounded-2xl">
+                    <div className="relative aspect-[21/7.5] min-h-[96px] md:min-h-[104px] bg-gray-100">
                       {coverUrl ? (
                         <img
                           src={coverUrl}
@@ -1198,121 +1100,123 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
                       )}
                       <div
-                        className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"
+                        className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
                         aria-hidden
                       />
-                      <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 flex items-end justify-between gap-4">
-                        <h2 className="text-xl md:text-2xl font-semibold text-white drop-shadow-sm">
-                          {trip.name}
-                        </h2>
-                        {trip.user_id === user?.id && (
-                          <>
-                            <input
-                              ref={coverInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={handleCoverUpload}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => coverInputRef.current?.click()}
-                              disabled={uploadingCover}
-                              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors disabled:opacity-50"
-                              title="Change cover"
-                              aria-label="Change cover"
-                            >
-                              {uploadingCover ? (
-                                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                              ) : (
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                              )}
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {trip.user_id === user?.id && (
+                        <div className="absolute top-3 right-3">
+                          <input
+                            ref={coverInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleCoverUpload}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => coverInputRef.current?.click()}
+                            disabled={uploadingCover}
+                            className="p-2 rounded-lg bg-black/30 hover:bg-black/40 text-white backdrop-blur-sm transition-colors disabled:opacity-50"
+                            title="Change cover"
+                            aria-label="Change cover"
+                          >
+                            {uploadingCover ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
               })()}
 
-              {/* Date range pill - minimal, subtle, directly below hero */}
+              {/* Title + Date: below hero, editorial hierarchy */}
               {selectedItineraryId && (() => {
                 const trip = itineraries.find((t) => t.id === selectedItineraryId)
                 if (!trip) return null
                 const canEditDates = trip.user_id === user?.id
+                const hasDates = trip.start_date || trip.end_date
+
                 if (editingTripDates && canEditDates) {
                   return (
-                    <div className="mb-4 flex items-center gap-2 flex-wrap">
-                      <input
-                        type="date"
-                        value={editTripStart}
-                        onChange={(e) => setEditTripStart(e.target.value)}
-                        className="px-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white/80 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400"
-                      />
-                      <span className="text-gray-400 text-sm">–</span>
-                      <input
-                        type="date"
-                        value={editTripEnd}
-                        onChange={(e) => setEditTripEnd(e.target.value)}
-                        className="px-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white/80 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={saveTripDates}
-                        disabled={savingTripDates}
-                        className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
-                      >
-                        {savingTripDates ? 'Saving…' : 'Save'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingTripDates(false)
-                          setEditTripStart(trip.start_date || '')
-                          setEditTripEnd(trip.end_date || '')
-                        }}
-                        className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
-                      >
-                        Cancel
-                      </button>
+                    <div className="mb-6">
+                      <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F] mb-2">{trip.name}</h2>
+                      <div className="flex items-center gap-2 flex-wrap text-sm">
+                        <input
+                          type="date"
+                          value={editTripStart}
+                          onChange={(e) => setEditTripStart(e.target.value)}
+                          className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900/20 focus:border-gray-400"
+                        />
+                        <span className="text-gray-400">–</span>
+                        <input
+                          type="date"
+                          value={editTripEnd}
+                          onChange={(e) => setEditTripEnd(e.target.value)}
+                          className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900/20 focus:border-gray-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={saveTripDates}
+                          disabled={savingTripDates}
+                          className="text-sm font-medium text-gray-700 hover:text-gray-900"
+                        >
+                          {savingTripDates ? 'Saving…' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTripDates(false)
+                            setEditTripStart(trip.start_date || '')
+                            setEditTripEnd(trip.end_date || '')
+                          }}
+                          className="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   )
                 }
-                const hasDates = trip.start_date || trip.end_date
-                if (!hasDates && !canEditDates) return null
+
                 return (
-                  <div className="mb-4">
+                  <div className="mb-6">
+                    <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F]">{trip.name}</h2>
                     {hasDates ? (
-                      <button
-                        type="button"
-                        onClick={() => canEditDates && (setEditingTripDates(true), setEditTripStart(trip.start_date || ''), setEditTripEnd(trip.end_date || ''))}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 rounded-full border border-gray-200 bg-white/60 ${canEditDates ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
-                      >
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {trip.start_date && new Date(trip.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                        {trip.start_date && trip.end_date && ' – '}
-                        {trip.end_date && new Date(trip.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </button>
-                    ) : (
+                      canEditDates ? (
+                        <button
+                          type="button"
+                          onClick={() => (setEditingTripDates(true), setEditTripStart(trip.start_date || ''), setEditTripEnd(trip.end_date || ''))}
+                          className="mt-1 text-sm text-gray-500 hover:text-gray-700 transition-colors block text-left"
+                        >
+                          {trip.start_date && new Date(trip.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          {trip.start_date && trip.end_date && ' – '}
+                          {trip.end_date && new Date(trip.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </button>
+                      ) : (
+                        <p className="mt-1 text-sm text-gray-500">
+                          {trip.start_date && new Date(trip.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          {trip.start_date && trip.end_date && ' – '}
+                          {trip.end_date && new Date(trip.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      )
+                    ) : canEditDates ? (
                       <button
                         type="button"
                         onClick={() => { setEditingTripDates(true); setEditTripStart(''); setEditTripEnd('') }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 rounded-full border border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 transition-colors"
+                        className="mt-1 text-sm text-gray-400 hover:text-gray-600 transition-colors underline underline-offset-2"
                       >
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Add dates
+                        Set trip dates
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 )
               })()}
@@ -1462,7 +1366,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       onClick={() => setSelectedItem(item)}
                       className="text-left bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
                     >
-                      <div className="aspect-[4/3] bg-gray-100">
+                      <div className="aspect-[4/5] bg-gray-100">
                         {item.screenshot_url || item.thumbnail_url ? (
                           <img
                             src={item.screenshot_url || item.thumbnail_url || ''}
@@ -1488,27 +1392,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   ))}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Download (when a trip is selected) */}
-          {selectedItineraryId && tripPlacesOrdered.length > 0 && (
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  handleDownloadCalendar(e)
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                title="Download trip"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                <span className="hidden sm:inline">Download</span>
-              </button>
             </div>
           )}
 
@@ -1803,7 +1686,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           <DragOverlay>
             {draggedItem ? (
               <div className="bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] w-48 opacity-95 cursor-grabbing">
-                <div className="aspect-[4/3] bg-gray-100">
+                <div className="aspect-[4/5] bg-gray-100">
                   {draggedItem.screenshot_url || draggedItem.thumbnail_url ? (
                     <img
                       src={draggedItem.screenshot_url || draggedItem.thumbnail_url || ''}
@@ -2345,7 +2228,7 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
     >
-      <div className="aspect-[4/3] bg-gray-100">
+      <div className="aspect-[4/5] bg-gray-100">
         {item.screenshot_url || item.thumbnail_url ? (
           <img
             src={item.screenshot_url || item.thumbnail_url || ''}

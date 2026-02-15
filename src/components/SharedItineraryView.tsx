@@ -412,33 +412,38 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         </div>
       </header>
 
-      {/* Trip cover hero */}
-      {(data.itinerary.cover_image_url || (data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url)) && (
-        <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 overflow-hidden">
-          <div className="relative aspect-[21/9] min-h-[180px] md:min-h-[200px] bg-gray-100">
-            {(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) ? (
-              <img
-                src={data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url || ''}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
-            )}
-            <div
-              className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"
-              aria-hidden
+      {/* Trip cover hero - reduced height, title moved below */}
+      <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 overflow-hidden rounded-2xl">
+        <div className="relative aspect-[21/11] min-h-[144px] md:min-h-[160px] bg-gray-100">
+          {(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) ? (
+            <img
+              src={data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url || ''}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
             />
-            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
-              <h2 className="text-xl md:text-2xl font-semibold text-white drop-shadow-sm">
-                {data.itinerary.name}
-              </h2>
-            </div>
-          </div>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
+          )}
+          <div
+            className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+            aria-hidden
+          />
         </div>
-      )}
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+      {/* Title + Date below hero */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+        <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F]">{data.itinerary.name}</h2>
+        {(data.itinerary.start_date || data.itinerary.end_date) && (
+          <p className="mt-1 text-sm text-gray-500">
+            {data.itinerary.start_date && new Date(data.itinerary.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+            {data.itinerary.start_date && data.itinerary.end_date && ' – '}
+            {data.itinerary.end_date && new Date(data.itinerary.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </p>
+        )}
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6 md:pb-8">
         {/* View Mode Tabs */}
         <div className="mb-6">
           <div className="flex items-center gap-2">
@@ -493,7 +498,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                     onClick={() => setSelectedItem(item)}
                     className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
                   >
-                    <div className="aspect-[4/3] bg-gray-100 relative">
+                    <div className="aspect-[4/5] bg-gray-100 relative">
                       {item.screenshot_url || item.thumbnail_url ? (
                         <img
                           src={item.screenshot_url || item.thumbnail_url || ''}
@@ -581,11 +586,6 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                       <h3 className="text-base font-medium text-gray-900 mb-1">
                         {item.title || getHostname(item.url)}
                       </h3>
-                      {item.description && (
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                          {item.description}
-                        </p>
-                      )}
                       {(item.place_name || item.formatted_address) && (
                         <p className="text-xs text-gray-500">
                           {item.place_name || item.formatted_address}

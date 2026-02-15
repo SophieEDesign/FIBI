@@ -29,10 +29,30 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [selectedItemForCalendar, setSelectedItemForCalendar] = useState<SavedItem | null>(null)
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
   const [savingCalendar, setSavingCalendar] = useState(false)
+  const [failedScreenshotIds, setFailedScreenshotIds] = useState<Set<string>>(new Set())
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMessage, setResendMessage] = useState<string | null>(null)
   const supabase = createClient()
   const router = useRouter()
   const confirmError = searchParams?.get('confirm') === 'error'
   const confirmExpired = searchParams?.get('confirm') === 'expired'
+
+  const handleResendConfirmation = async () => {
+    const email = user?.email
+    if (!email) return
+    setResendLoading(true)
+    setResendMessage(null)
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email })
+      if (error) throw error
+      setResendMessage('Check your inbox for the link.')
+    } catch (err) {
+      console.error('Resend confirmation error:', err)
+      setResendMessage('Something went wrong. Try again or check your email.')
+    } finally {
+      setResendLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (user) {
@@ -367,14 +387,26 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         )}
         {emailVerified === false && !showConfirmedMessage && (
           <div className="mb-6 bg-amber-50 text-amber-800 px-4 py-3 rounded-2xl shadow-soft flex items-center justify-between flex-wrap gap-2">
-            <span>Please confirm your email to get travel tips and updates. Check your inbox for the link.</span>
-            <button
-              onClick={() => setEmailVerified(true)}
-              className="text-amber-700 hover:text-amber-900 text-sm underline"
-              aria-label="Dismiss"
-            >
-              Dismiss
-            </button>
+            <span className="flex-1 min-w-0">
+              {resendMessage ?? 'Please confirm your email to get travel tips and updates. Check your inbox for the link.'}
+            </span>
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <button
+                onClick={handleResendConfirmation}
+                disabled={resendLoading}
+                className="text-amber-700 hover:text-amber-900 text-sm font-medium underline disabled:opacity-50"
+                aria-label="Resend confirmation email"
+              >
+                {resendLoading ? 'Sending…' : 'Resend'}
+              </button>
+              <button
+                onClick={() => setEmailVerified(true)}
+                className="text-amber-700 hover:text-amber-900 text-sm underline"
+                aria-label="Dismiss"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
         {confirmError && (
@@ -522,12 +554,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 >
                   <Link href={`/item/${item.id}`} className="flex flex-col flex-1 min-h-0">
                     <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
-                      {item.screenshot_url ? (
+                      {item.screenshot_url && !failedScreenshotIds.has(item.id) ? (
                         <img
                           src={item.screenshot_url}
                           alt={displayTitle}
                           className="w-full h-full object-cover"
                           loading="lazy"
+                          onError={() => setFailedScreenshotIds((prev) => new Set(prev).add(item.id))}
                         />
                       ) : (
                         <EmbedPreview
