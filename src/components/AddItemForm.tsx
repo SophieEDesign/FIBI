@@ -2003,6 +2003,8 @@ export default function AddItemForm() {
                 </div>
               )}
             </div>
+              )}
+            </div>
 
             {/* Stage removed - liked/visited set via grid card icons or item detail */}
 
