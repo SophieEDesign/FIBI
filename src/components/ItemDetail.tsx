@@ -1286,7 +1286,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               </button>
             </div>
           </div>
-        </div>
       </main>
 
     </div>

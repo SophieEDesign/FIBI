@@ -2003,6 +2003,7 @@ export default function AddItemForm() {
                 </div>
               )}
             </div>
+            </div>
               )}
             </div>
 
