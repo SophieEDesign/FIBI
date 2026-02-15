@@ -275,7 +275,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   }
 
   // Save a single field to Supabase
-  const saveField = async (fieldName: string, value: string | null) => {
+  const saveField = async (fieldName: string, value: string | null | boolean) => {
     try {
       const { error: updateError } = await supabase
         .from('saved_items')
