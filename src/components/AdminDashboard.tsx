@@ -40,6 +40,9 @@ export default function AdminDashboard() {
     limitReached?: boolean
     errors?: string[]
   } | null>(null)
+  const [emailFooterAddress, setEmailFooterAddress] = useState('')
+  const [emailFooterSaving, setEmailFooterSaving] = useState(false)
+  const [emailFooterMessage, setEmailFooterMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
@@ -79,6 +82,46 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchUsers()
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    getAuthHeaders().then((headers) => {
+      fetch('/api/admin/site-settings', { credentials: 'include', headers: { ...headers } })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!cancelled && json && typeof json.email_footer_address === 'string') {
+            setEmailFooterAddress(json.email_footer_address)
+          }
+        })
+        .catch(() => {})
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const handleSaveEmailFooterAddress = async () => {
+    setEmailFooterMessage(null)
+    setEmailFooterSaving(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/site-settings', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ email_footer_address: emailFooterAddress }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setEmailFooterMessage({ type: 'error', text: data.error || 'Failed to save' })
+        return
+      }
+      setEmailFooterMessage({ type: 'success', text: 'Email footer address saved. It will appear in all outgoing emails.' })
+      setTimeout(() => setEmailFooterMessage(null), 5000)
+    } catch {
+      setEmailFooterMessage({ type: 'error', text: 'Failed to save email footer address.' })
+    } finally {
+      setEmailFooterSaving(false)
+    }
+  }
 
   const NUDGE_ELIGIBLE_AGE_MS = 48 * 60 * 60 * 1000
 
@@ -264,6 +307,39 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Email footer address (CAN-SPAM) */}
+        <div className="mb-8 bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Email footer address</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Physical address shown at the bottom of all emails (CAN-SPAM). Leave blank to hide.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                value={emailFooterAddress}
+                onChange={(e) => setEmailFooterAddress(e.target.value)}
+                placeholder="e.g. FiBi, 123 Street, City, Country"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                aria-label="Email footer address"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveEmailFooterAddress}
+              disabled={emailFooterSaving}
+              className="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {emailFooterSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+          {emailFooterMessage && (
+            <p className={`mt-3 text-sm ${emailFooterMessage.type === 'success' ? 'text-green-700' : 'text-red-600'}`} role="alert">
+              {emailFooterMessage.text}
+            </p>
+          )}
+        </div>
 
         {/* Run Email Automations */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">

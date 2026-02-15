@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import LinkPreview from '@/components/LinkPreview'
+import { sanitizeOembedHtml } from '@/lib/sanitize-oembed'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -238,7 +239,7 @@ export default function OEmbedTestPage() {
               </h2>
               <div
                 className="border border-gray-200 rounded-lg p-4 bg-gray-50"
-                dangerouslySetInnerHTML={{ __html: oembedResult.html }}
+                dangerouslySetInnerHTML={{ __html: sanitizeOembedHtml(oembedResult.html) }}
               />
             </div>
           )}

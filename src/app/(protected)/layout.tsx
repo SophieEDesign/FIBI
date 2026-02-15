@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
@@ -15,11 +15,13 @@ export default function ProtectedLayout({
   const router = useRouter()
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
+  const redirectingRef = useRef(false)
 
-  // Single place for auth redirect: avoid redirect loop from page also redirecting
+  // Single place for auth redirect: avoid redirect loop (e.g. from Strict Mode double-invoke)
   useEffect(() => {
     if (loading) return
-    if (!user) {
+    if (!user && !redirectingRef.current) {
+      redirectingRef.current = true
       router.replace('/login')
     }
   }, [loading, user, router])

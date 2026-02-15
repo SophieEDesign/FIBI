@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { detectPlatform, isMobileDevice } from '@/lib/utils'
+import { sanitizeOembedHtml } from '@/lib/sanitize-oembed'
 
 interface LinkPreviewProps {
   url: string
@@ -204,7 +205,7 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
         <div 
           className="relative w-full flex items-center justify-center bg-white"
           style={{ minHeight: isTikTok ? '800px' : isYouTube ? '450px' : '400px' }}
-          dangerouslySetInnerHTML={{ __html: oembedData.html }}
+          dangerouslySetInnerHTML={{ __html: sanitizeOembedHtml(oembedData.html) }}
         />
         {description && (
           <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 select-text">

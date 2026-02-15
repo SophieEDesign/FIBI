@@ -20,6 +20,7 @@ import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
+import CreateItineraryModal from '@/components/CalendarView/CreateItineraryModal'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface CalendarViewProps {
@@ -1731,61 +1732,17 @@ export default function CalendarView({ user }: CalendarViewProps) {
           />
         )}
 
-        {/* Create trip modal */}
-        {showCreateItineraryModal && (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowCreateItineraryModal(false)
-                setNewItineraryName('')
-              }
-            }}
-          >
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create trip</h2>
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="trip-name" className="block text-sm font-medium text-gray-700 mb-2">
-                    Trip name
-                  </label>
-                  <input
-                    id="trip-name"
-                    type="text"
-                    value={newItineraryName}
-                    onChange={(e) => setNewItineraryName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newItineraryName.trim()) {
-                        handleCreateItinerary()
-                      }
-                    }}
-                    placeholder="e.g., Weekend Trip, Italy Ideas"
-                    className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleCreateItinerary}
-                    disabled={!newItineraryName.trim() || creatingItinerary}
-                    className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {creatingItinerary ? 'Creating...' : 'Create'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowCreateItineraryModal(false)
-                      setNewItineraryName('')
-                    }}
-                    className="px-6 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <CreateItineraryModal
+          isOpen={showCreateItineraryModal}
+          name={newItineraryName}
+          onNameChange={setNewItineraryName}
+          creating={creatingItinerary}
+          onCreate={handleCreateItinerary}
+          onClose={() => {
+            setShowCreateItineraryModal(false)
+            setNewItineraryName('')
+          }}
+        />
 
         {/* Share trip modal */}
         {showShareModal && (

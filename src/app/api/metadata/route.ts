@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/auth'
+import { isUrlSafeForFetch } from '@/lib/ssrf'
 
 interface MetadataResponse {
   title: string | null
@@ -9,6 +11,7 @@ interface MetadataResponse {
 
 /** Resolve short URLs to canonical (same as oEmbed: TikTok, Instagram, YouTube, etc.) so OG tags are returned. */
 async function resolveCanonicalUrlIfNeeded(url: string): Promise<string> {
+  if (!isUrlSafeForFetch(url)) return url
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase()
@@ -32,7 +35,7 @@ async function resolveCanonicalUrlIfNeeded(url: string): Promise<string> {
     })
     clearTimeout(timeoutId)
     const finalUrl = response.url
-    if (finalUrl && finalUrl !== url) return finalUrl
+    if (finalUrl && finalUrl !== url && isUrlSafeForFetch(finalUrl)) return finalUrl
   } catch (_) {
     // Ignore; use original URL
   }
@@ -250,6 +253,9 @@ function extractMetadata(html: string): MetadataResponse {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+
     const { url } = await request.json()
 
     if (!url || typeof url !== 'string') {
@@ -278,8 +284,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // SSRF protection: block internal/private URLs
+    if (!isUrlSafeForFetch(url)) {
+      return NextResponse.json({
+        title: null,
+        description: null,
+        image: null,
+        scrapedContent: null,
+      })
+    }
+
     try {
       const fetchUrl = await resolveCanonicalUrlIfNeeded(url)
+      if (!isUrlSafeForFetch(fetchUrl)) {
+        return NextResponse.json({
+          title: null,
+          description: null,
+          image: null,
+          scrapedContent: null,
+        })
+      }
       const response = await fetchWithTimeout(fetchUrl, 8000)
       
       if (!response.ok) {
@@ -305,7 +329,6 @@ export async function POST(request: NextRequest) {
         hasOGDescription,
         hasOGImage,
         hasMetaDescription,
-        first500Chars: html.substring(0, 500),
       })
       
       const metadata = extractMetadata(html)

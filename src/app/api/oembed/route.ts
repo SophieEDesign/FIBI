@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/auth'
+import { isUrlSafeForFetch } from '@/lib/ssrf'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +40,7 @@ async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram'
     })
     clearTimeout(timeoutId)
     const finalUrl = response.url
-    if (finalUrl && finalUrl !== url) return finalUrl
+    if (finalUrl && finalUrl !== url && isUrlSafeForFetch(finalUrl)) return finalUrl
   } catch (_) {
     // Ignore; use original URL
   }
@@ -283,6 +285,11 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
     return { error: 'Only HTTP and HTTPS URLs are allowed' }
   }
 
+  // SSRF protection: block internal/private URLs
+  if (!isUrlSafeForFetch(url)) {
+    return { error: 'URL not allowed' }
+  }
+
   const platform = detectPlatformFromUrl(url)
   let oembedData: OEmbedResponse | null = null
 
@@ -290,6 +297,9 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
   let fetchUrl = url
   if (platform !== 'generic') {
     fetchUrl = await resolveCanonicalUrl(url, platform)
+  }
+  if (!isUrlSafeForFetch(fetchUrl)) {
+    return { error: 'URL not allowed' }
   }
 
   // Try platform-specific oEmbed first (Facebook has no public oEmbed; we use generic metadata)
@@ -471,6 +481,9 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+
     const searchParams = request.nextUrl.searchParams
     const url = searchParams.get('url')
     const format = searchParams.get('format') || 'json'
@@ -533,6 +546,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+
     const { url } = await request.json()
 
     if (!url || typeof url !== 'string') {

@@ -41,10 +41,6 @@ export default function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const modalRef = useRef<HTMLDivElement>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [emailFooterAddress, setEmailFooterAddress] = useState('')
-  const [emailFooterSaving, setEmailFooterSaving] = useState(false)
-  const [emailFooterLoaded, setEmailFooterLoaded] = useState(false)
 
   // Auth redirect is handled by (protected) layout
 
@@ -111,31 +107,6 @@ export default function ProfilePage() {
       loadProfileData()
     }
   }, [user, loadProfileData])
-
-  // Admin: load role and site settings
-  useEffect(() => {
-    if (!user?.id) return
-    let cancelled = false
-    const client = createClient()
-    void (async () => {
-      try {
-        const { data: profile } = await client.from('profiles').select('role').eq('id', user.id).single()
-        if (cancelled) return
-        if (profile?.role === 'admin') {
-          setIsAdmin(true)
-          const res = await fetch('/api/admin/site-settings')
-          if (cancelled || !res.ok) return
-          const json = await res.json()
-          setEmailFooterAddress(json.email_footer_address ?? '')
-        }
-      } catch {
-        if (!cancelled) setIsAdmin(false)
-      } finally {
-        if (!cancelled) setEmailFooterLoaded(true)
-      }
-    })()
-    return () => { cancelled = true }
-  }, [user?.id])
 
   const handleClearTestData = async () => {
     if (!user) return
@@ -235,30 +206,6 @@ export default function ProfilePage() {
     setEmail(user?.email || '')
     setIsEditingEmail(false)
     setErrorMessage(null)
-  }
-
-  const handleSaveEmailFooterAddress = async () => {
-    setEmailFooterSaving(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-    try {
-      const res = await fetch('/api/admin/site-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email_footer_address: emailFooterAddress }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setErrorMessage(data.error || 'Failed to save')
-        return
-      }
-      setSuccessMessage('Email footer address saved. It will appear in all outgoing emails.')
-      setTimeout(() => setSuccessMessage(null), 5000)
-    } catch {
-      setErrorMessage('Failed to save email footer address.')
-    } finally {
-      setEmailFooterSaving(false)
-    }
   }
 
   const getInitials = (email: string) => {
@@ -412,32 +359,6 @@ export default function ProfilePage() {
             </div>
           </div>
         </section>
-
-        {/* Admin – Email footer address (CAN-SPAM) */}
-        {isAdmin && emailFooterLoaded && (
-          <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm border border-gray-200">
-            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Admin – Email footer</h2>
-            <p className="text-sm text-gray-500 mb-3">
-              Physical address shown at the bottom of all emails (CAN-SPAM). Leave blank to hide.
-            </p>
-            <input
-              type="text"
-              value={emailFooterAddress}
-              onChange={(e) => setEmailFooterAddress(e.target.value)}
-              placeholder="e.g. FiBi, 123 Street, City, Country"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent mb-2"
-              aria-label="Email footer address"
-            />
-            <button
-              onClick={handleSaveEmailFooterAddress}
-              disabled={emailFooterSaving}
-              className="px-4 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
-              aria-label="Save email footer address"
-            >
-              {emailFooterSaving ? 'Saving…' : 'Save'}
-            </button>
-          </section>
-        )}
 
         {/* Preferences Section */}
         <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">

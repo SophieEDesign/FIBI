@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/admin'
 import { sendEmail } from '@/lib/resend'
-import { createClient } from '@/lib/supabase/server'
 
 /**
- * Example API route for sending emails via Resend
- * 
+ * API route for sending emails via Resend.
+ * Restricted to admin only to prevent spam/phishing abuse.
+ *
  * POST /api/email
  * Body: {
  *   to: string | string[],
@@ -16,16 +17,8 @@ import { createClient } from '@/lib/supabase/server'
  */
 export async function POST(request: NextRequest) {
   try {
-    // Optional: Verify user is authenticated
-    const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const auth = await requireAdmin(request)
+    if (auth instanceof NextResponse) return auth
 
     const body = await request.json()
     const { to, subject, html, from, replyTo } = body

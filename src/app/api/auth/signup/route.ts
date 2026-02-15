@@ -143,17 +143,22 @@ export async function POST(request: NextRequest) {
   }
 
   // Send confirmation email (soft verify – user can use app immediately)
+  let confirmationSent = false
   try {
     const origin = request.nextUrl.origin
     const token = createConfirmEmailToken(data.user.id)
     const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
     await sendConfirmEmail({ to: email, confirmUrl })
+    confirmationSent = true
   } catch (err) {
-    console.warn('Signup: failed to send confirmation email', err)
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn('Signup: confirmation email not sent:', message)
     // Don't fail signup – user can still use app
   }
 
   return NextResponse.json({
-    message: "Account created! You can sign in now. We've sent an email to confirm your address for updates and tips.",
+    message: confirmationSent
+      ? "Account created! You can sign in now. We've sent an email to confirm your address for updates and tips."
+      : 'Account created! You can sign in now.',
   })
 }
