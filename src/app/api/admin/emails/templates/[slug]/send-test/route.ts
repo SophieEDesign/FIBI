@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin, getAdminSupabase } from '@/lib/admin'
 import { sendEmail } from '@/lib/resend'
-import { wrapEmailWithLayout } from '@/lib/email-layout'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,11 +41,10 @@ export async function POST(
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    const html = wrapEmailWithLayout(template.html_content)
     await sendEmail({
       to,
       subject: `[Test] ${template.subject}`,
-      html,
+      html: template.html_content,
       from: FROM_EMAIL,
     })
 

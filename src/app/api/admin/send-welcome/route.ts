@@ -52,10 +52,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const html = getAdminWelcomeEmailHtml()
     await sendEmail({
       to: row.email,
       subject: ADMIN_WELCOME_EMAIL_SUBJECT,
-      html: getAdminWelcomeEmailHtml(),
+      html,
     })
 
     const { error: updateError } = await admin

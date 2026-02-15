@@ -152,48 +152,50 @@ export default function EmbedPreview({
   const effectiveThumbnailUrl = thumbnailUrl || fetchedOgImage
   const rawImageUrl = oembedThumbnail || effectiveThumbnailUrl
 
-  if (!rawImageUrl) {
-    return null
-  }
-
   // Use proxied URL for Facebook/Instagram images to avoid 403 errors
-  const imageUrl = getProxiedImageUrl(rawImageUrl)
+  const imageUrl = rawImageUrl ? getProxiedImageUrl(rawImageUrl) : null
 
-  if (!imageUrl) {
-    return null
-  }
+  // Show built-in placeholder when: no image URL, or image failed to load (e.g. expired CDN)
+  // This ensures we always show something - fixes "disappeared" previews in grids that don't provide a placeholder sibling
+  const showPlaceholder = !rawImageUrl || !imageUrl || imageError
+
+  const placeholderContent = (
+    <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100">
+      <div className="text-center">
+        <div className="text-gray-400 text-4xl mb-2">
+          {platform === 'TikTok' ? '🎵' : platform === 'Instagram' ? '📷' : platform === 'YouTube' ? '▶️' : '🔗'}
+        </div>
+        <p className="text-xs text-gray-500">Preview unavailable</p>
+      </div>
+    </div>
+  )
 
   return (
-    <img
-      src={imageUrl}
-      alt={displayTitle}
-      className="w-full h-full object-cover"
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      onLoad={() => {
-        setImageError(false)
-        onImageLoad?.()
-      }}
-      onError={(e) => {
-        setImageError(true)
-        const target = e.target as HTMLImageElement
-        // If proxied image fails, try original URL as fallback
-        if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && target.src !== rawImageUrl) {
-          target.src = rawImageUrl
-          return // Don't hide yet, try original URL
-        }
-        target.style.display = 'none'
-        // Show placeholder sibling - find the next sibling div with hidden class
-        const parent = target.parentElement
-        if (parent) {
-          const placeholder = parent.querySelector('.hidden.w-full') as HTMLElement
-          if (placeholder) {
-            placeholder.classList.remove('hidden')
-            placeholder.classList.add('flex')
-          }
-        }
-      }}
-    />
+    <div className="w-full h-full relative">
+      {showPlaceholder && placeholderContent}
+      {rawImageUrl && imageUrl && (
+        <img
+          src={imageUrl}
+          alt={displayTitle}
+          className={`w-full h-full object-cover ${showPlaceholder ? 'hidden' : ''}`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onLoad={() => {
+            setImageError(false)
+            onImageLoad?.()
+          }}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            // If proxied image fails, try original URL as fallback once
+            if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && target.src !== rawImageUrl) {
+              target.src = rawImageUrl
+              return // Don't mark error yet, try original URL
+            }
+            setImageError(true)
+          }}
+        />
+      )}
+    </div>
   )
 }
 

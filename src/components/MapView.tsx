@@ -207,7 +207,7 @@ export default function MapView() {
     if (!selectedItem) return
     setCalendarModalItineraryId(selectedItem.itinerary_id || null)
     setCalendarModalDate(selectedItem.planned_date ? new Date(selectedItem.planned_date) : null)
-    setViewMonth(selectedItem.planned_date ? new Date(selectedItem.planned_date) : new Date())
+    setViewMonth(new Date()) // Default to today so user sees calendar context
     setShowCalendarModal(true)
   }
 
@@ -949,6 +949,7 @@ export default function MapView() {
         <MapCalendarAssignmentModal
           item={selectedItem}
           itineraries={itineraries}
+          itemsForContext={items}
           selectedItineraryId={calendarModalItineraryId}
           onItineraryChange={setCalendarModalItineraryId}
           selectedDate={calendarModalDate}
@@ -972,6 +973,7 @@ export default function MapView() {
 interface MapCalendarAssignmentModalProps {
   item: SavedItem
   itineraries: Itinerary[]
+  itemsForContext?: SavedItem[]
   selectedItineraryId: string | null
   onItineraryChange: (id: string | null) => void
   selectedDate: Date | null
@@ -986,6 +988,7 @@ interface MapCalendarAssignmentModalProps {
 function MapCalendarAssignmentModal({
   item,
   itineraries,
+  itemsForContext = [],
   selectedItineraryId,
   onItineraryChange,
   selectedDate,
@@ -1031,6 +1034,19 @@ function MapCalendarAssignmentModal({
     }
     return days
   }, [viewMonth])
+
+  // Count existing items per day (excluding current item) for calendar context
+  const itemsByDateStr = useMemo(() => {
+    const relevant = itemsForContext.filter(
+      (i) => i.id !== item.id && i.planned_date && (!selectedItineraryId || i.itinerary_id === selectedItineraryId)
+    )
+    const map: Record<string, number> = {}
+    relevant.forEach((i) => {
+      const d = i.planned_date!
+      map[d] = (map[d] || 0) + 1
+    })
+    return map
+  }, [itemsForContext, item.id, selectedItineraryId])
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1215,12 +1231,14 @@ function MapCalendarAssignmentModal({
                 const isSelected = isSameDay(day, selectedDate)
                 const today = new Date()
                 const isToday = isSameDay(day, today)
+                const dateStr = day.toISOString().split('T')[0]
+                const existingCount = itemsByDateStr[dateStr] || 0
 
                 return (
                   <button
                     key={index}
                     onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded-lg transition-colors ${
+                    className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
                       !isCurrentMonth
                         ? 'text-gray-300'
                         : isSelected
@@ -1231,6 +1249,9 @@ function MapCalendarAssignmentModal({
                     }`}
                   >
                     {day.getDate()}
+                    {isCurrentMonth && existingCount > 0 && (
+                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
+                    )}
                   </button>
                 )
               })}

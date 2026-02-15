@@ -105,18 +105,12 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Fetch oEmbed data when URL changes (only on desktop)
-  // On mobile, we'll still fetch oEmbed for thumbnail, but not for HTML embeds
+  // Fetch oEmbed data when URL changes – same on desktop and mobile so pull-through works everywhere
   useEffect(() => {
     if (!url.trim()) {
       setOembedData(null)
       return
     }
-
-    // Always try to fetch oEmbed data (including thumbnail_url) for all platforms
-    // This ensures we get previews when Meta/Facebook/Instagram publish proper meta tags
-    // On mobile, we'll use the thumbnail but not the HTML embed
-    // On desktop, we'll use HTML embeds when available for TikTok/Instagram/YouTube
 
     const fetchOEmbed = async () => {
       setLoading(true)
@@ -130,8 +124,6 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
 
         if (response.ok) {
           const data = await response.json()
-          // Always set oEmbed data if we get any response (html, thumbnail_url, or other data)
-          // This ensures we capture previews when they become available (e.g., when Meta publishes proper tags)
           if (data.html || data.thumbnail_url || Object.keys(data).length > 0) {
             setOembedData(data)
           } else {
@@ -148,12 +140,9 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
       }
     }
 
-    // Try oEmbed for all URLs (not just TikTok/Instagram/YouTube)
-    // This makes previews work automatically when platforms add proper meta tags
-    // Debounce oEmbed fetch
     const timeoutId = setTimeout(fetchOEmbed, 500)
     return () => clearTimeout(timeoutId)
-  }, [url, isMobile])
+  }, [url])
 
   // Determine preview source and label (priority order)
   // Priority: Screenshot > Embedded link image (oEmbed thumbnail) > OG image > oEmbed HTML

@@ -21,12 +21,10 @@ function detectPlatformFromUrl(url: string): 'tiktok' | 'instagram' | 'youtube' 
   return 'generic'
 }
 
-/** Resolve TikTok short URLs (vm.tiktok.com, vt.tiktok.com) to full tiktok.com URL. oEmbed works more reliably with canonical URLs. */
-async function resolveTikTokUrl(url: string): Promise<string> {
+/** Resolve short URLs to canonical URL by following redirects. Same pull-through for TikTok, Instagram, YouTube, etc. */
+async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram' | 'youtube' | 'generic'): Promise<string> {
+  if (platform === 'generic') return url
   try {
-    const parsed = new URL(url)
-    const host = parsed.hostname.toLowerCase()
-    if (!host.includes('tiktok.com') || host === 'www.tiktok.com') return url
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
     const response = await fetch(url, {
@@ -39,7 +37,7 @@ async function resolveTikTokUrl(url: string): Promise<string> {
     })
     clearTimeout(timeoutId)
     const finalUrl = response.url
-    if (finalUrl && finalUrl !== url && finalUrl.includes('tiktok.com')) return finalUrl
+    if (finalUrl && finalUrl !== url) return finalUrl
   } catch (_) {
     // Ignore; use original URL
   }
@@ -287,10 +285,10 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
   const platform = detectPlatformFromUrl(url)
   let oembedData: OEmbedResponse | null = null
 
-  // For TikTok, resolve short links (vm.tiktok.com) to canonical URL so oEmbed and metadata fetch both work
+  // Resolve short links to canonical URL so oEmbed and metadata fetch work (TikTok vm.*, Instagram, YouTube youtu.be, etc.)
   let fetchUrl = url
-  if (platform === 'tiktok') {
-    fetchUrl = await resolveTikTokUrl(url)
+  if (platform !== 'generic') {
+    fetchUrl = await resolveCanonicalUrl(url, platform)
   }
 
   // Try platform-specific oEmbed first
@@ -299,10 +297,10 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
       oembedData = await fetchTikTokOEmbed(fetchUrl)
       break
     case 'instagram':
-      oembedData = await fetchInstagramOEmbed(url)
+      oembedData = await fetchInstagramOEmbed(fetchUrl)
       break
     case 'youtube':
-      oembedData = await fetchYouTubeOEmbed(url)
+      oembedData = await fetchYouTubeOEmbed(fetchUrl)
       break
     default:
       oembedData = null
@@ -380,8 +378,8 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
             description = ogDescriptionMatch[1].trim()
           }
           
-          // For TikTok, also try to extract from JSON-LD structured data
-          if (platform === 'tiktok' && !description) {
+          // For TikTok, Instagram, YouTube: try JSON-LD / structured data if og:description missing
+          if ((platform === 'tiktok' || platform === 'instagram' || platform === 'youtube') && !description) {
             try {
               const jsonLdMatches = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
               if (jsonLdMatches) {
@@ -433,14 +431,17 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
             }
           }
           
-          // Return metadata in oEmbed format for consistency
+          const providerName =
+            platform === 'tiktok' ? 'TikTok'
+            : platform === 'instagram' ? 'Instagram'
+            : platform === 'youtube' ? 'YouTube'
+            : 'Generic'
           return {
-            html: undefined, // No HTML embed for generic URLs
+            html: undefined,
             thumbnail_url: thumbnailUrl || undefined,
             author_name: undefined,
             title: title || undefined,
-            provider_name: platform === 'tiktok' ? 'TikTok' : 'Generic',
-            // Include description as caption_text for consistency
+            provider_name: providerName,
             caption_text: description || undefined,
           }
         }

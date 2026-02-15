@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { wrapEmailWithLayout } from '@/lib/email-layout'
 
 /**
  * Initialize Resend client
@@ -6,21 +7,17 @@ import { Resend } from 'resend'
  */
 export function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY
-  
+
   if (!apiKey) {
     throw new Error('RESEND_API_KEY is not set in environment variables')
   }
-  
+
   return new Resend(apiKey)
 }
 
 /**
- * Send an email using Resend
- * @param to - Recipient email address or array of addresses
- * @param subject - Email subject
- * @param html - HTML content of the email
- * @param from - Sender email (defaults to hello@fibi.world)
- * @param replyTo - Reply-to email address (optional)
+ * Send an email using Resend.
+ * All HTML emails are wrapped with the shared header and footer (gradient logo, Made with ❤️).
  */
 export async function sendEmail({
   to,
@@ -37,12 +34,13 @@ export async function sendEmail({
 }) {
   try {
     const resend = getResendClient()
-    
+    const wrappedHtml = wrapEmailWithLayout(html)
+
     const { data, error } = await resend.emails.send({
       from,
       to: Array.isArray(to) ? to : [to],
       subject,
-      html,
+      html: wrappedHtml,
       ...(replyTo && { reply_to: replyTo }),
     })
     

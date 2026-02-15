@@ -1899,6 +1899,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
             currentItineraryId={itemToDate.itinerary_id || null}
             itineraries={itineraries}
             selectedItineraryId={selectedItineraryId}
+            itemsForContext={filteredItems}
             onSelect={handleDateSelected}
             onClose={() => {
               setShowDatePicker(false)
@@ -2951,14 +2952,15 @@ interface DatePickerModalProps {
   currentItineraryId: string | null
   itineraries: Itinerary[]
   selectedItineraryId: string | null
+  itemsForContext?: SavedItem[]
   onSelect: (date: Date | null) => void
   onClose: () => void
 }
 
-function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, selectedItineraryId, onSelect, onClose }: DatePickerModalProps) {
+function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, selectedItineraryId, itemsForContext = [], onSelect, onClose }: DatePickerModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(currentDate)
   const [selectedItinerary, setSelectedItinerary] = useState<string | null>(currentItineraryId || selectedItineraryId)
-  const [viewMonth, setViewMonth] = useState(new Date(currentDate || new Date()))
+  const [viewMonth, setViewMonth] = useState(new Date()) // Default to today for calendar context
   const [showCreateItinerary, setShowCreateItinerary] = useState(false)
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
@@ -2998,6 +3000,19 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
     }
     return days
   }, [viewMonth])
+
+  // Count existing items per day (excluding current item) for calendar context
+  const itemsByDateStr = useMemo(() => {
+    const relevant = itemsForContext.filter(
+      (i) => i.id !== item.id && i.planned_date && (!selectedItinerary || i.itinerary_id === selectedItinerary)
+    )
+    const map: Record<string, number> = {}
+    relevant.forEach((i) => {
+      const d = i.planned_date!
+      map[d] = (map[d] || 0) + 1
+    })
+    return map
+  }, [itemsForContext, item.id, selectedItinerary])
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -3268,12 +3283,14 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
               const isSelected = isSameDay(day, selectedDate)
               const today = new Date()
               const isToday = isSameDay(day, today)
+              const dateStr = day.toISOString().split('T')[0]
+              const existingCount = itemsByDateStr[dateStr] || 0
 
               return (
                 <button
                   key={index}
                   onClick={() => handleDateClick(day)}
-                  className={`p-2 text-sm rounded-lg transition-colors ${
+                  className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
                     !isCurrentMonth
                       ? 'text-gray-300'
                       : isSelected
@@ -3284,6 +3301,9 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
                   }`}
                 >
                   {day.getDate()}
+                  {isCurrentMonth && existingCount > 0 && (
+                    <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
+                  )}
                 </button>
               )
             })}

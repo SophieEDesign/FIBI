@@ -228,13 +228,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     setFilters({ categories: [], statuses: [] })
   }
 
-  // Handle item click - show calendar assignment modal
+  // Handle item click - show calendar assignment modal (default to today for context)
   const handleItemClick = (e: React.MouseEvent, item: SavedItem) => {
     e.preventDefault()
     setSelectedItemForCalendar(item)
     setSelectedItineraryId(item.itinerary_id || null)
     setSelectedDate(item.planned_date ? new Date(item.planned_date) : null)
-    setViewMonth(item.planned_date ? new Date(item.planned_date) : new Date())
+    setViewMonth(new Date()) // Default to today so user sees current context
     setShowCalendarModal(true)
   }
 
@@ -742,6 +742,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         <CalendarAssignmentModal
           item={selectedItemForCalendar}
           itineraries={itineraries}
+          itemsForContext={items}
           selectedItineraryId={selectedItineraryId}
           onItineraryChange={setSelectedItineraryId}
           selectedDate={selectedDate}
@@ -766,6 +767,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 interface CalendarAssignmentModalProps {
   item: SavedItem
   itineraries: Itinerary[]
+  itemsForContext?: SavedItem[]
   selectedItineraryId: string | null
   onItineraryChange: (id: string | null) => void
   selectedDate: Date | null
@@ -780,6 +782,7 @@ interface CalendarAssignmentModalProps {
 function CalendarAssignmentModal({
   item,
   itineraries,
+  itemsForContext = [],
   selectedItineraryId,
   onItineraryChange,
   selectedDate,
@@ -829,6 +832,19 @@ function CalendarAssignmentModal({
     }
     return days
   }, [viewMonth])
+
+  // Count existing items per day (excluding current item) for calendar context
+  const itemsByDateStr = useMemo(() => {
+    const relevant = itemsForContext.filter(
+      (i) => i.id !== item.id && i.planned_date && (!selectedItineraryId || i.itinerary_id === selectedItineraryId)
+    )
+    const map: Record<string, number> = {}
+    relevant.forEach((i) => {
+      const d = i.planned_date!
+      map[d] = (map[d] || 0) + 1
+    })
+    return map
+  }, [itemsForContext, item.id, selectedItineraryId])
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1125,12 +1141,14 @@ function CalendarAssignmentModal({
                 const isSelected = isSameDay(day, selectedDate)
                 const today = new Date()
                 const isToday = isSameDay(day, today)
+                const dateStr = day.toISOString().split('T')[0]
+                const existingCount = itemsByDateStr[dateStr] || 0
 
                 return (
                   <button
                     key={index}
                     onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded-lg transition-colors ${
+                    className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
                       !isCurrentMonth
                         ? 'text-gray-300'
                         : isSelected
@@ -1141,6 +1159,9 @@ function CalendarAssignmentModal({
                     }`}
                   >
                     {day.getDate()}
+                    {isCurrentMonth && existingCount > 0 && (
+                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
+                    )}
                   </button>
                 )
               })}

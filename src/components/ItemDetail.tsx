@@ -43,6 +43,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [viewMonth, setViewMonth] = useState(new Date())
   const [savingCalendar, setSavingCalendar] = useState(false)
+  const [itemsForCalendarContext, setItemsForCalendarContext] = useState<SavedItem[]>([])
   
   // Location fields (edit mode only)
   const [description, setDescription] = useState('')
@@ -82,6 +83,19 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     loadItineraries()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId])
+
+  // Load items for calendar context when modal opens (to show what's already scheduled)
+  useEffect(() => {
+    if (!showCalendarModal) return
+    const load = async () => {
+      const { data } = await supabase
+        .from('saved_items')
+        .select('*')
+        .not('planned_date', 'is', null)
+      setItemsForCalendarContext(data || [])
+    }
+    load()
+  }, [showCalendarModal, supabase])
 
   // Handle click outside dropdowns
   useEffect(() => {
@@ -293,9 +307,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setStatuses(parseStatuses(data.status))
         setSelectedItineraryId(data.itinerary_id || null)
         setSelectedDate(data.planned_date ? new Date(data.planned_date) : null)
-        if (data.planned_date) {
-          setViewMonth(new Date(data.planned_date))
-        }
+        // Keep viewMonth as today when loading - don't jump to item's date
         setCustomCategory('')
         setCustomStatus('')
         setShowCustomCategoryInput(false)
@@ -1365,7 +1377,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setShowCalendarModal(true)}
+                    onClick={() => {
+                      setViewMonth(new Date()) // Default to today so user sees calendar context
+                      setShowCalendarModal(true)
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-left text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
                   >
                     <span>
@@ -1522,6 +1537,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         <CalendarAssignmentModal
           item={item}
           itineraries={itineraries}
+          itemsForContext={itemsForCalendarContext}
           selectedItineraryId={selectedItineraryId}
           onItineraryChange={setSelectedItineraryId}
           selectedDate={selectedDate}
@@ -1549,6 +1565,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
 interface CalendarAssignmentModalProps {
   item: SavedItem
   itineraries: Itinerary[]
+  itemsForContext?: SavedItem[]
   selectedItineraryId: string | null
   onItineraryChange: (id: string | null) => void
   selectedDate: Date | null
@@ -1563,6 +1580,7 @@ interface CalendarAssignmentModalProps {
 function CalendarAssignmentModal({
   item,
   itineraries,
+  itemsForContext = [],
   selectedItineraryId,
   onItineraryChange,
   selectedDate,
@@ -1612,6 +1630,19 @@ function CalendarAssignmentModal({
     }
     return days
   }, [viewMonth])
+
+  // Count existing items per day (excluding current item) for calendar context
+  const itemsByDateStr = useMemo(() => {
+    const relevant = itemsForContext.filter(
+      (i) => i.id !== item.id && i.planned_date && (!selectedItineraryId || i.itinerary_id === selectedItineraryId)
+    )
+    const map: Record<string, number> = {}
+    relevant.forEach((i) => {
+      const d = i.planned_date!
+      map[d] = (map[d] || 0) + 1
+    })
+    return map
+  }, [itemsForContext, item.id, selectedItineraryId])
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -1818,12 +1849,14 @@ function CalendarAssignmentModal({
                 const isSelected = isSameDay(day, selectedDate)
                 const today = new Date()
                 const isToday = isSameDay(day, today)
+                const dateStr = day.toISOString().split('T')[0]
+                const existingCount = itemsByDateStr[dateStr] || 0
 
                 return (
                   <button
                     key={index}
                     onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded-lg transition-colors ${
+                    className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
                       !isCurrentMonth
                         ? 'text-gray-300'
                         : isSelected
@@ -1834,6 +1867,9 @@ function CalendarAssignmentModal({
                     }`}
                   >
                     {day.getDate()}
+                    {isCurrentMonth && existingCount > 0 && (
+                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
+                    )}
                   </button>
                 )
               })}
