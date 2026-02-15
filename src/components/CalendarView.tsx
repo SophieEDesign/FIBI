@@ -17,6 +17,7 @@ import {
   useDroppable,
 } from '@dnd-kit/core'
 import { getHostname, isMobileDevice } from '@/lib/utils'
+import { getProxiedImageUrl } from '@/lib/image-proxy'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
@@ -1370,7 +1371,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       <div className="flex-1 min-h-0 relative bg-gray-100">
                         {item.screenshot_url || item.thumbnail_url ? (
                           <img
-                            src={item.screenshot_url || item.thumbnail_url || ''}
+                            src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
                             alt={item.title || item.place_name || 'Place'}
                             className="absolute inset-0 w-full h-full object-cover"
                           />
@@ -1691,7 +1692,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 <div className="aspect-[4/5] relative bg-gray-100">
                   {draggedItem.screenshot_url || draggedItem.thumbnail_url ? (
                     <img
-                      src={draggedItem.screenshot_url || draggedItem.thumbnail_url || ''}
+                      src={getProxiedImageUrl(draggedItem.screenshot_url || draggedItem.thumbnail_url) || ''}
                       alt=""
                       className="absolute inset-0 w-full h-full object-cover"
                     />
@@ -2186,7 +2187,7 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
       <div className="flex-1 min-h-0 relative bg-gray-100">
         {item.screenshot_url || item.thumbnail_url ? (
           <img
-            src={item.screenshot_url || item.thumbnail_url || ''}
+            src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
             alt={title}
             className="absolute inset-0 w-full h-full object-cover"
           />
@@ -2307,7 +2308,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
         <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
           {item.screenshot_url ? (
             <img
-              src={item.screenshot_url}
+              src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
@@ -2343,7 +2344,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
         <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100">
           {item.screenshot_url ? (
             <img
-              src={item.screenshot_url}
+              src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
@@ -2378,7 +2379,7 @@ function PlaceCard({ item, isDragging, compact = false, overlay = false, onSelec
       <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
         {item.screenshot_url ? (
           <img
-            src={item.screenshot_url}
+            src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
             alt={displayTitle}
             className="w-full h-full object-cover"
           />

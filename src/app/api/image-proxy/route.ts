@@ -56,12 +56,15 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // Fetch the image with proper headers to avoid blocking
+      // Fetch with browser-like headers; some CDNs (e.g. Facebook/Instagram) block non-browser requests
       const response = await fetch(imageUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; FibiBot/1.0)',
-          'Referer': parsedUrl.origin,
-          'Accept': 'image/*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': `${parsedUrl.origin}/`,
+          'Sec-Fetch-Dest': 'image',
+          'Sec-Fetch-Mode': 'no-cors',
         },
         next: { revalidate: 3600 }, // Cache for 1 hour
       })

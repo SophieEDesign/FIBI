@@ -45,10 +45,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       const res = await fetch('/api/auth/resend-confirm-email', {
         method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
       })
-      const body = await res.json().catch(() => ({}))
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(body?.error ?? 'Failed to send')
+        throw new Error(data?.error ?? 'Failed to send')
       }
       setResendMessage('Check your inbox for the link.')
     } catch (err: unknown) {

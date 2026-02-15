@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { SavedItem } from '@/types/database'
 import { getHostname } from '@/lib/utils'
+import { getProxiedImageUrl } from '@/lib/image-proxy'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import { createClient } from '@/lib/supabase/client'
@@ -117,7 +118,7 @@ export default function PlaceDetailDrawer({
             {item.screenshot_url || item.thumbnail_url ? (
               <div className="aspect-video rounded-2xl overflow-hidden bg-gray-100 -mx-1">
                 <img
-                  src={item.screenshot_url || item.thumbnail_url || ''}
+                  src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
                   alt=""
                   className="w-full h-full object-cover"
                 />

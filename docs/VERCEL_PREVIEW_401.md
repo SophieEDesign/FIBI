@@ -19,8 +19,13 @@ the response is coming from **Vercel Deployment Protection**, not from the FiBi 
 
 After that, the same preview URL will return 200 for `/api/manifest`, `/api/oembed`, and `/api/metadata` (and the rest of the app will be reachable without the protection prompt).
 
-## Other 401s
+## Resend confirmation email
 
-- **`POST /api/auth/resend-confirm-email` 401** – This route requires an authenticated user. If the user is not logged in (or their session isn’t valid on the preview domain), 401 is expected. No code change needed.
+- **`POST /api/auth/resend-confirm-email`** – Works with or without a session. The app sends the session user when authenticated; when not (e.g. cookie blocked on preview), send the body `{ "email": "your@email.com" }` and the server will look up the user and send the confirmation email if the address is unverified. The UI already sends `email` in the body.
 
-- **403 on Facebook/Instagram image URLs** (`fbcdn.net`, `cdninstagram.com`) – Those are returned by Meta’s servers when they block hotlinking or non-browser requests. They are unrelated to Vercel or FiBi auth.
+## Preview images (403 on Facebook/Instagram)
+
+- **403 on `fbcdn.net` / `cdninstagram.com`** – Meta often blocks direct image loads. The app now:
+  - Uses **`/api/image-proxy?url=...`** for thumbnail/preview images from those hosts (LinkPreview, CalendarView, SharedItineraryView, PlaceDetailDrawer, EmbedPreview).
+  - Uses a **browser-like User-Agent** when the proxy fetches from Meta so more requests succeed.
+- If you still see broken preview images on a **Vercel preview** URL, the image-proxy request may be getting **401** from Vercel Deployment Protection. Disable protection for previews (see above) so the proxy (and manifest/oembed/metadata) return 200.

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { SavedItem } from '@/types/database'
 import { getHostname, isMobileDevice } from '@/lib/utils'
+import { getProxiedImageUrl } from '@/lib/image-proxy'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
@@ -417,7 +418,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         <div className="relative aspect-[21/11] min-h-[144px] md:min-h-[160px] bg-gray-100">
           {(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) ? (
             <img
-              src={data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url || ''}
+              src={getProxiedImageUrl(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) || data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url || ''}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
             />
@@ -498,7 +499,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                     <div className="flex-1 min-h-0 relative bg-gray-100">
                       {item.screenshot_url || item.thumbnail_url ? (
                         <img
-                          src={item.screenshot_url || item.thumbnail_url || ''}
+                          src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
                           alt={item.title || item.place_name || getHostname(item.url)}
                           className="absolute inset-0 w-full h-full object-cover"
                         />
@@ -565,7 +566,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                     <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                       {item.screenshot_url ? (
                         <img
-                          src={item.screenshot_url}
+                          src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
                           alt={item.title || getHostname(item.url)}
                           className="w-full h-full object-cover"
                         />
@@ -679,7 +680,7 @@ function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
         <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100">
           {item.screenshot_url ? (
             <img
-              src={item.screenshot_url}
+              src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
               alt={displayTitle}
               className="w-full h-full object-cover"
             />
@@ -705,7 +706,7 @@ function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
       <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
         {item.screenshot_url ? (
           <img
-            src={item.screenshot_url}
+            src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
             alt={displayTitle}
             className="w-full h-full object-cover"
           />
