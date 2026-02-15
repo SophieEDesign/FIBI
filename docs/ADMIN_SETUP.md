@@ -59,3 +59,17 @@ supabase db push
 ```
 
 After that, new signups will get a profile automatically, and you can set your own role to `admin` with the SQL above.
+
+---
+
+## Prevent bot signups (production)
+
+The app’s signup page uses **Turnstile**, **rate limiting**, and **email checks** (SMS gateways, disposable domains) via `POST /api/auth/signup`. Bots can still create accounts if they call **Supabase Auth directly** with the public anon key and skip the app.
+
+To stop that:
+
+1. In the [Supabase Dashboard](https://supabase.com/dashboard), open your project.
+2. Go to **Authentication** → **Providers** (or **Settings**).
+3. Turn **off** **“Allow new users to sign up”** (or **“Enable email signups”**, depending on UI).
+
+New users can then **only** be created through the app’s signup flow (which uses the service role and runs all checks). Existing users can still sign in.

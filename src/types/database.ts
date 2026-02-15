@@ -15,7 +15,9 @@ export interface SavedItem {
   longitude: number | null
   formatted_address: string | null
   category: string | null
-  status: string | null
+  status?: string | null // deprecated - kept for DB compatibility
+  liked?: boolean
+  visited?: boolean
   notes: string | null
   planned_date: string | null
   itinerary_id: string | null
@@ -25,24 +27,8 @@ export interface SavedItem {
 }
 
 export const CATEGORIES = ['Food', 'Stay', 'Nature', 'Activity', 'City', 'Beach', 'Other'] as const
-export const STATUSES = ['To plan', 'Planned', 'Been', 'Would love to go', 'Maybe'] as const
 
 export type Category = typeof CATEGORIES[number]
-export type Status = typeof STATUSES[number]
-
-// Migration helper: map old status values to new ones
-export const migrateStatus = (oldStatus: string | null): string | null => {
-  if (!oldStatus) return 'To plan'
-  
-  const mapping: Record<string, string> = {
-    'Want': 'Would love to go',
-    'Dream': 'Would love to go',
-    'Maybe': 'Maybe',
-    'Been': 'Been',
-  }
-  
-  return mapping[oldStatus] || 'To plan'
-}
 
 export interface Itinerary {
   id: string

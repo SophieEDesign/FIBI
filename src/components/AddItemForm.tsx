@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle, extractGoogleMapsPlace } from '@/lib/utils'
-import { CATEGORIES, STATUSES } from '@/types/database'
+import { CATEGORIES } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
@@ -36,17 +36,10 @@ export default function AddItemForm() {
   const [categories, setCategories] = useState<string[]>([])
   const [customCategory, setCustomCategory] = useState('')
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
-  const [statuses, setStatuses] = useState<string[]>([])
-  const [customStatus, setCustomStatus] = useState('')
-  const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
-  const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
-  const [showStageDropdown, setShowStageDropdown] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
-  const [stageSearch, setStageSearch] = useState('')
   const categoryDropdownRef = useRef<HTMLDivElement>(null)
-  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(false)
   const [fetchingMetadata, setFetchingMetadata] = useState(false)
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false)
@@ -129,7 +122,7 @@ export default function AddItemForm() {
     checkAuth()
   }, [supabase, router, searchParams])
 
-  // Load user's custom categories and statuses
+  // Load user's custom categories
   const loadUserCustomOptions = async (userId: string) => {
     try {
       const { data: categories, error: catError } = await supabase
@@ -139,21 +132,9 @@ export default function AddItemForm() {
         .eq('type', 'category')
         .order('created_at', { ascending: false })
 
-      const { data: statuses, error: statusError } = await supabase
-        .from('user_custom_options')
-        .select('value')
-        .eq('user_id', userId)
-        .eq('type', 'status')
-        .order('created_at', { ascending: false })
-
       if (catError) console.error('Error loading custom categories:', catError)
-      if (statusError) console.error('Error loading custom statuses:', statusError)
-
       if (categories) {
         setUserCustomCategories(categories.map(c => c.value))
-      }
-      if (statuses) {
-        setUserCustomStatuses(statuses.map(s => s.value))
       }
     } catch (err) {
       console.error('Error loading custom options:', err)
@@ -161,7 +142,7 @@ export default function AddItemForm() {
   }
 
   // Save custom option to database
-  const saveCustomOption = async (type: 'category' | 'status', value: string) => {
+  const saveCustomOption = async (type: 'category', value: string) => {
     if (!value.trim()) return
 
     try {
@@ -796,19 +777,16 @@ export default function AddItemForm() {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
         setShowCategoryDropdown(false)
       }
-      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
-        setShowStageDropdown(false)
-      }
     }
 
-    if (showCategoryDropdown || showStageDropdown) {
+    if (showCategoryDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showCategoryDropdown, showStageDropdown])
+  }, [showCategoryDropdown])
 
   // Handle URL changes (when user types)
   const handleUrlChange = async (newUrl: string) => {
@@ -1234,16 +1212,10 @@ export default function AddItemForm() {
         return
       }
 
-      // Use custom category/status if provided, otherwise use selected one
-      // Combine all categories and statuses (including custom ones)
+      // Use custom category if provided, otherwise use selected one
       const allCategories = [...categories]
       if (showCustomCategoryInput && customCategory.trim()) {
         allCategories.push(customCategory.trim())
-      }
-      
-      const allStatuses = [...statuses]
-      if (showCustomStatusInput && customStatus.trim()) {
-        allStatuses.push(customStatus.trim())
       }
 
       // Save custom options if they were used
@@ -1252,15 +1224,8 @@ export default function AddItemForm() {
           saveCustomOption('category', cat)
         }
       })
-      allStatuses.forEach(stat => {
-        if (stat && !STATUSES.includes(stat as any) && !userCustomStatuses.includes(stat)) {
-          saveCustomOption('status', stat)
-        }
-      })
 
-      // Convert to JSON strings for storage
       const finalCategory = allCategories.length > 0 ? JSON.stringify(allCategories) : null
-      const finalStatus = allStatuses.length > 0 ? JSON.stringify(allStatuses) : null
 
       // Prepare location data
       const locationData = selectedPlace
@@ -1320,7 +1285,8 @@ export default function AddItemForm() {
         screenshot_url: screenshotUrl,
         ...locationData,
         category: finalCategory,
-        status: finalStatus,
+        liked: false,
+        visited: false,
         itinerary_id: itineraryId || null,
         trip_position: tripPosition,
       }
@@ -2038,218 +2004,7 @@ export default function AddItemForm() {
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stage
-              </label>
-              
-              {/* Mobile Dropdown */}
-              <div className="md:hidden relative mb-2" ref={stageDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowStageDropdown(!showStageDropdown)
-                    setShowCategoryDropdown(false)
-                  }}
-                  className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <span>
-                    {statuses.length > 0 
-                      ? `${statuses.length} selected` 
-                      : 'Select stage'}
-                  </span>
-                  <svg 
-                    className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                
-                {showStageDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-40 max-h-64 overflow-y-auto">
-                    <div className="p-2 border-b border-gray-200">
-                      <input
-                        type="text"
-                        value={stageSearch}
-                        onChange={(e) => setStageSearch(e.target.value)}
-                        placeholder="Search stages..."
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="p-2">
-                      {[...STATUSES, ...userCustomStatuses]
-                        .filter((stat) => 
-                          stat.toLowerCase().includes(stageSearch.toLowerCase())
-                        )
-                        .map((stat) => {
-                          const isSelected = statuses.includes(stat)
-                          return (
-                            <button
-                              key={stat}
-                              type="button"
-                              onClick={() => {
-                                if (isSelected) {
-                                  setStatuses(statuses.filter(s => s !== stat))
-                                } else {
-                                  setStatuses([...statuses, stat])
-                                }
-                                setShowCustomStatusInput(false)
-                                setCustomStatus('')
-                              }}
-                              className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
-                                isSelected
-                                  ? 'bg-gray-900 text-white'
-                                  : 'hover:bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              <svg
-                                className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                              {stat}
-                            </button>
-                          )
-                        })}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowCustomStatusInput(!showCustomStatusInput)
-                          setShowStageDropdown(false)
-                          if (!showCustomStatusInput) {
-                            setCustomStatus('')
-                          }
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm rounded-md transition-colors hover:bg-gray-100 text-gray-700 flex items-center gap-2"
-                      >
-                        <span className="text-lg">+</span>
-                        Custom
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Desktop CollapsibleOptions */}
-              <CollapsibleOptions className="mb-2 hidden md:block">
-                {STATUSES.map((stat) => {
-                  const isSelected = statuses.includes(stat)
-                  return (
-                    <button
-                      key={stat}
-                      type="button"
-                      onClick={() => {
-                        if (isSelected) {
-                          setStatuses(statuses.filter(s => s !== stat))
-                        } else {
-                          setStatuses([...statuses, stat])
-                        }
-                        setShowCustomStatusInput(false)
-                        setCustomStatus('')
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {stat}
-                    </button>
-                  )
-                })}
-                {userCustomStatuses.map((stat) => {
-                  const isSelected = statuses.includes(stat)
-                  return (
-                    <button
-                      key={stat}
-                      type="button"
-                      onClick={() => {
-                        if (isSelected) {
-                          setStatuses(statuses.filter(s => s !== stat))
-                        } else {
-                          setStatuses([...statuses, stat])
-                        }
-                        setShowCustomStatusInput(false)
-                        setCustomStatus('')
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                        isSelected
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                      }`}
-                    >
-                      {stat}
-                    </button>
-                  )
-                })}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCustomStatusInput(!showCustomStatusInput)
-                    if (!showCustomStatusInput) {
-                      setCustomStatus('')
-                    }
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                    showCustomStatusInput
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  + Custom
-                </button>
-              </CollapsibleOptions>
-              {showCustomStatusInput && (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={customStatus}
-                    onChange={(e) => setCustomStatus(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        if (customStatus.trim()) {
-                          setStatuses([...statuses, customStatus.trim()])
-                          setCustomStatus('')
-                          setShowCustomStatusInput(false)
-                        }
-                      }
-                    }}
-                    placeholder="Enter custom status..."
-                    className="flex-1 px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (customStatus.trim()) {
-                        setStatuses([...statuses, customStatus.trim()])
-                        setCustomStatus('')
-                        setShowCustomStatusInput(false)
-                      }
-                    }}
-                    className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-                  >
-                    Add
-                  </button>
-                </div>
-              )}
-            </div>
-
-                </div>
-              )}
-            </div>
+            {/* Stage removed - liked/visited set via grid card icons or item detail */}
 
             <div className="flex flex-col sm:flex-row gap-4 pt-6">
               <button

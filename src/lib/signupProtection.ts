@@ -54,6 +54,8 @@ const DISPOSABLE_DOMAINS = new Set([
 /** SMS / gateway domains that are not real inboxes (lowercase). */
 const SMS_GATEWAY_DOMAINS = new Set([
   'txt.att.net',
+  'mms.att.net',
+  'message.att.net',
   'vtext.com',
   'tmomail.net',
   'messaging.sprintpcs.com',
@@ -63,10 +65,14 @@ const SMS_GATEWAY_DOMAINS = new Set([
   'myboostmobile.com',
   'vzwpix.com',
   'sms.myboostmobile.com',
-  'mms.att.net',
   'pm.sprint.com',
   'email.uscc.net',
   'mms.uscc.net',
+  'cingularme.com',
+  'mobile.celloneusa.com',
+  'page.nextel.com',
+  'messaging.nextel.com',
+  'qwestmp.com',
 ])
 
 /** Max number of dot-separated segments in the local part (e.g. a.l.e.x@x.com has 5). */

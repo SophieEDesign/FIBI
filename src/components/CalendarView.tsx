@@ -61,8 +61,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [draggedItem, setDraggedItem] = useState<SavedItem | null>(null)
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [itemToDate, setItemToDate] = useState<SavedItem | null>(null)
   const [showCreateItineraryModal, setShowCreateItineraryModal] = useState(false)
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
@@ -84,6 +82,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [tripNotesOpen, setTripNotesOpen] = useState(false)
   const [tripNotesValue, setTripNotesValue] = useState('')
   const [savingTripNotes, setSavingTripNotes] = useState(false)
+  const [editingTripDates, setEditingTripDates] = useState(false)
+  const [editTripStart, setEditTripStart] = useState('')
+  const [editTripEnd, setEditTripEnd] = useState('')
+  const [savingTripDates, setSavingTripDates] = useState(false)
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
   const [itineraryComments, setItineraryComments] = useState<{ id: string; user_id: string; body: string; created_at: string; author_name: string }[]>([])
@@ -92,18 +94,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [postingComment, setPostingComment] = useState(false)
   const [unplannedLocationFilters, setUnplannedLocationFilters] = useState<string[]>([])
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
-  const [unplannedStatusFilters, setUnplannedStatusFilters] = useState<string[]>([])
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
-  const [showStageDropdown, setShowStageDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
   const [locationSearch, setLocationSearch] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
-  const [stageSearch, setStageSearch] = useState('')
   const locationDropdownRef = useRef<HTMLDivElement>(null)
   const categoryDropdownRef = useRef<HTMLDivElement>(null)
-  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -438,6 +436,34 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
+  const saveTripDates = async () => {
+    if (!user || !selectedItineraryId) return
+    setSavingTripDates(true)
+    try {
+      const { error } = await supabase
+        .from('itineraries')
+        .update({
+          start_date: editTripStart || null,
+          end_date: editTripEnd || null,
+        })
+        .eq('id', selectedItineraryId)
+        .eq('user_id', user.id)
+      if (error) throw error
+      setItineraries((prev) =>
+        prev.map((t) =>
+          t.id === selectedItineraryId
+            ? { ...t, start_date: editTripStart || null, end_date: editTripEnd || null }
+            : t
+        )
+      )
+      setEditingTripDates(false)
+    } catch (err) {
+      console.error('Error saving trip dates:', err)
+    } finally {
+      setSavingTripDates(false)
+    }
+  }
+
   const saveTripNotes = async (notes: string) => {
     if (!user || !selectedItineraryId) return
     setSavingTripNotes(true)
@@ -689,45 +715,21 @@ export default function CalendarView({ user }: CalendarViewProps) {
       })
     }
     
-    // Apply status filter (if any statuses selected)
-    if (unplannedStatusFilters.length > 0) {
-      unplanned = unplanned.filter((item) => {
-        if (!item.status) return false
-        const status = item.status // Store in local variable for type narrowing
-        try {
-          const statuses = JSON.parse(status)
-          const statusArray = Array.isArray(statuses) ? statuses : [statuses]
-          const itemStatuses = statusArray.map((stat: string) => stat.toLowerCase())
-          return unplannedStatusFilters.some((filterValue) =>
-            itemStatuses.includes(filterValue.toLowerCase())
-          )
-        } catch {
-          return unplannedStatusFilters.some((filterValue) =>
-            status.toLowerCase() === filterValue.toLowerCase()
-          )
-        }
-      })
-    }
-    
     return unplanned
-  }, [items, unplannedLocationFilters, unplannedCategoryFilters, unplannedStatusFilters])
+  }, [items, unplannedLocationFilters, unplannedCategoryFilters])
 
   // Extract unique filter values from ALL unplanned items (not just current itinerary)
   const filterOptions = useMemo(() => {
     const locations = new Set<string>()
     const categories = new Set<string>()
-    const statuses = new Set<string>()
     
-    // Use all items, not filteredItems, so filter options include all unplanned items
     items
       .filter((item) => !item.planned_date)
       .forEach((item) => {
-        // Extract locations
         if (item.location_city) locations.add(item.location_city)
         if (item.location_country) locations.add(item.location_country)
         if (item.place_name) locations.add(item.place_name)
         
-        // Extract categories
         if (item.category) {
           try {
             const cats = JSON.parse(item.category)
@@ -737,23 +739,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
             categories.add(item.category)
           }
         }
-        
-        // Extract statuses
-        if (item.status) {
-          try {
-            const stats = JSON.parse(item.status)
-            const statArray = Array.isArray(stats) ? stats : [stats]
-            statArray.forEach((stat: string) => statuses.add(stat))
-          } catch {
-            statuses.add(item.status)
-          }
-        }
       })
     
     return {
       locations: Array.from(locations).sort(),
       categories: Array.from(categories).sort(),
-      statuses: Array.from(statuses).sort(),
     }
   }, [items])
 
@@ -914,24 +904,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
-  // Handle tap on item to show date picker (mobile only)
-  const handleItemTapForDate = (item: SavedItem) => {
-    if (isMobile) {
-      setItemToDate(item)
-      setShowDatePicker(true)
-    }
-  }
-
-  // Handle date selection from picker (mobile)
-  const handleDateSelected = async (date: Date | null) => {
-    if (!itemToDate) return
-
-    const dateStr = date ? date.toISOString().split('T')[0] : null
-    await assignDateToItem(itemToDate.id, dateStr)
-    setShowDatePicker(false)
-    setItemToDate(null)
-  }
-
   const monthNames = [
     'January',
     'February',
@@ -974,16 +946,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
         setShowCategoryDropdown(false)
       }
-      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
-        setShowStageDropdown(false)
-      }
     }
 
-    if (showLocationDropdown || showCategoryDropdown || showStageDropdown) {
+    if (showLocationDropdown || showCategoryDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showLocationDropdown, showCategoryDropdown, showStageDropdown])
+  }, [showLocationDropdown, showCategoryDropdown])
 
   const handleDownloadCalendar = async (e?: React.MouseEvent) => {
     // Prevent any default behavior (form submission, navigation, etc.)
@@ -1218,7 +1187,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   null
                 return (
                   <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 mb-6 overflow-hidden rounded-2xl">
-                    <div className="relative aspect-[21/9] min-h-[180px] md:min-h-[200px] bg-gray-100">
+                    <div className="relative aspect-[21/6] min-h-[120px] md:min-h-[130px] bg-gray-100">
                       {coverUrl ? (
                         <img
                           src={coverUrl}
@@ -1272,7 +1241,184 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 )
               })()}
 
-              {/* Moodboard empty state */}
+              {/* Date range pill - minimal, subtle, directly below hero */}
+              {selectedItineraryId && (() => {
+                const trip = itineraries.find((t) => t.id === selectedItineraryId)
+                if (!trip) return null
+                const canEditDates = trip.user_id === user?.id
+                if (editingTripDates && canEditDates) {
+                  return (
+                    <div className="mb-4 flex items-center gap-2 flex-wrap">
+                      <input
+                        type="date"
+                        value={editTripStart}
+                        onChange={(e) => setEditTripStart(e.target.value)}
+                        className="px-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white/80 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400"
+                      />
+                      <span className="text-gray-400 text-sm">–</span>
+                      <input
+                        type="date"
+                        value={editTripEnd}
+                        onChange={(e) => setEditTripEnd(e.target.value)}
+                        className="px-3 py-1.5 text-sm border border-gray-200 rounded-full bg-white/80 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveTripDates}
+                        disabled={savingTripDates}
+                        className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
+                      >
+                        {savingTripDates ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingTripDates(false)
+                          setEditTripStart(trip.start_date || '')
+                          setEditTripEnd(trip.end_date || '')
+                        }}
+                        className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )
+                }
+                const hasDates = trip.start_date || trip.end_date
+                if (!hasDates && !canEditDates) return null
+                return (
+                  <div className="mb-4">
+                    {hasDates ? (
+                      <button
+                        type="button"
+                        onClick={() => canEditDates && (setEditingTripDates(true), setEditTripStart(trip.start_date || ''), setEditTripEnd(trip.end_date || ''))}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 rounded-full border border-gray-200 bg-white/60 ${canEditDates ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'}`}
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        {trip.start_date && new Date(trip.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        {trip.start_date && trip.end_date && ' – '}
+                        {trip.end_date && new Date(trip.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingTripDates(true); setEditTripStart(''); setEditTripEnd('') }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-500 rounded-full border border-dashed border-gray-200 hover:border-gray-300 hover:bg-gray-50/80 transition-colors"
+                      >
+                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Add dates
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Trip Notes and Comments - side-by-side on desktop, stacked on mobile, collapsed if empty */}
+              {selectedItineraryId && (() => {
+                const trip = itineraries.find((t) => t.id === selectedItineraryId)
+                const canEditNotes = trip?.user_id === user?.id
+                const hasNotes = !!(trip?.notes && trip.notes.trim())
+                const showTripNotes = canEditNotes || hasNotes
+                return (
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {showTripNotes ? (
+                      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <button
+                          onClick={() => setTripNotesOpen(!tripNotesOpen)}
+                          className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <h3 className="text-sm font-semibold text-gray-900">Trip notes</h3>
+                          <svg
+                            className={`w-5 h-5 text-gray-500 transition-transform ${tripNotesOpen ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {tripNotesOpen && (
+                          <div className="border-t border-gray-200 p-4">
+                            <textarea
+                              value={tripNotesValue}
+                              onChange={(e) => setTripNotesValue(e.target.value)}
+                              onBlur={() => saveTripNotes(tripNotesValue)}
+                              placeholder="Add notes about this trip..."
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                            />
+                            {savingTripNotes && <p className="text-xs text-gray-500 mt-2">Saving…</p>}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  <div className={`bg-white rounded-xl border border-gray-200 overflow-hidden ${!showTripNotes ? 'md:col-span-2' : ''}`}>
+                    <button
+                      onClick={() => setCommentsOpen(!commentsOpen)}
+                      className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <h3 className="text-sm font-semibold text-gray-900">Comments</h3>
+                      {itineraryComments.length > 0 && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                          {itineraryComments.length}
+                        </span>
+                      )}
+                      <svg
+                        className={`w-5 h-5 text-gray-500 transition-transform ${commentsOpen ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {commentsOpen && (
+                      <div className="border-t border-gray-200 p-4 space-y-3">
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {itineraryComments.length === 0 ? (
+                            <p className="text-sm text-gray-500">No comments yet.</p>
+                          ) : (
+                            itineraryComments.map((c) => (
+                              <div key={c.id} className="text-sm">
+                                <span className="font-medium text-gray-900">{c.author_name}</span>
+                                <span className="text-gray-500 text-xs ml-2">
+                                  {new Date(c.created_at).toLocaleString()}
+                                </span>
+                                <p className="text-gray-700 mt-0.5">{c.body}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={newCommentBody}
+                            onChange={(e) => setNewCommentBody(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && postComment()}
+                            placeholder="Add a comment..."
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          />
+                          <button
+                            type="button"
+                            onClick={postComment}
+                            disabled={postingComment || !newCommentBody.trim()}
+                            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {postingComment ? 'Sending…' : 'Send'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                )
+              })()}
+
+              {/* Moodboard - primary visual focus with clean spacing */}
               {tripPlacesOrdered.length === 0 && (
                 <div className="max-w-xl mx-auto text-center py-14 md:py-20">
                   <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
@@ -1290,8 +1436,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </div>
               )}
 
-              {/* Moodboard grid: masonry-style, 16px radius, image-first, title + location only */}
               {tripPlacesOrdered.length > 0 && (
+                <div className="mt-8">
                 <MoodboardGrid
                   items={tripPlacesOrdered}
                   activeId={activeId}
@@ -1299,6 +1445,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   onSelect={(item) => setSelectedItem(item)}
                   isMobile={isMobile}
                 />
+                </div>
               )}
             </>
           ) : (
@@ -1376,7 +1523,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     onClick={() => {
                       setShowLocationDropdown(!showLocationDropdown)
                       setShowCategoryDropdown(false)
-                      setShowStageDropdown(false)
                     }}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
@@ -1474,7 +1620,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     onClick={() => {
                       setShowCategoryDropdown(!showCategoryDropdown)
                       setShowLocationDropdown(false)
-                      setShowStageDropdown(false)
                     }}
                     className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
@@ -1565,106 +1710,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 </div>
               )}
 
-              {/* Stage Filter Dropdown */}
-              {filterOptions.statuses.length > 0 && (
-                <div className="relative" ref={stageDropdownRef}>
-                  <button
-                    onClick={() => {
-                      setShowStageDropdown(!showStageDropdown)
-                      setShowLocationDropdown(false)
-                      setShowCategoryDropdown(false)
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <span>Stage</span>
-                    {unplannedStatusFilters.length > 0 && (
-                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
-                        {unplannedStatusFilters.length}
-                      </span>
-                    )}
-                    <svg 
-                      className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  
-                  {showStageDropdown && (
-                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-lg z-40">
-                      <div className="p-2 border-b border-gray-200">
-                        <input
-                          type="text"
-                          value={stageSearch}
-                          onChange={(e) => setStageSearch(e.target.value)}
-                          placeholder="Search stages..."
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                          autoFocus
-                        />
-                      </div>
-                      <div className="max-h-64 overflow-y-auto p-2">
-                        <button
-                          onClick={() => {
-                            setUnplannedStatusFilters([])
-                            setStageSearch('')
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
-                            unplannedStatusFilters.length === 0
-                              ? 'bg-gray-900 text-white'
-                              : 'hover:bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          All Stages
-                        </button>
-                        {filterOptions.statuses
-                          .filter((status) => 
-                            status.toLowerCase().includes(stageSearch.toLowerCase())
-                          )
-                          .map((option) => {
-                            const isSelected = unplannedStatusFilters.includes(option)
-                            return (
-                              <button
-                                key={option}
-                                onClick={() => {
-                                  if (isSelected) {
-                                    setUnplannedStatusFilters(unplannedStatusFilters.filter(v => v !== option))
-                                  } else {
-                                    setUnplannedStatusFilters([...unplannedStatusFilters, option])
-                                  }
-                                }}
-                                className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
-                                  isSelected
-                                    ? 'bg-gray-900 text-white'
-                                    : 'hover:bg-gray-100 text-gray-700'
-                                }`}
-                              >
-                                <svg
-                                  className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                                {option}
-                              </button>
-                            )
-                          })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Selected Filters Display */}
-              {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0 || unplannedStatusFilters.length > 0) && (
+              {(unplannedLocationFilters.length > 0 || unplannedCategoryFilters.length > 0) && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {unplannedLocationFilters.map((loc) => (
                     <span
@@ -1694,25 +1741,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       </button>
                     </span>
                   ))}
-                  {unplannedStatusFilters.map((status) => (
-                    <span
-                      key={status}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
-                    >
-                      {status}
-                      <button
-                        onClick={() => setUnplannedStatusFilters(unplannedStatusFilters.filter(s => s !== status))}
-                        className="hover:text-gray-300"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
                   <button
                     onClick={() => {
                       setUnplannedLocationFilters([])
                       setUnplannedCategoryFilters([])
-                      setUnplannedStatusFilters([])
                     }}
                     className="text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
                   >
@@ -1735,7 +1767,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                             item={item}
                             isDragging={activeId === item.id}
                             onSelect={() => setSelectedItem(item)}
-                            onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                            onAssignDate={undefined}
                             isMobile={isMobile}
                           />
                         ))}
@@ -1756,7 +1788,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 ) : (
                   <div className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center">
                     <p className="text-sm text-gray-600">
-                      {(unplannedLocationFilters.length === 0 && unplannedCategoryFilters.length === 0 && unplannedStatusFilters.length === 0)
+                      {(unplannedLocationFilters.length === 0 && unplannedCategoryFilters.length === 0)
                         ? 'No unplanned places. All places are scheduled!'
                         : 'No items match the selected filters'}
                     </p>
@@ -1766,149 +1798,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
             )}
           </>
         )}
-
-          {/* Calendar Grid */}
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            {/* Week day headers */}
-            <div className="grid grid-cols-7 border-b border-gray-200">
-              {weekDays.map((day) => (
-                <div
-                  key={day}
-                  className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700 bg-gray-50"
-                >
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar days */}
-            <div className="grid grid-cols-7">
-              {calendarDays.map((day, index) => {
-                const dateId = `date-${day.date.toISOString().split('T')[0]}`
-                return (
-                  <CalendarDayDropZone key={index} dateId={dateId} day={day}>
-                    <div
-                      className={`text-xs md:text-sm font-medium mb-1 ${
-                        day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                      } ${day.isToday ? 'text-blue-600 font-bold' : ''}`}
-                    >
-                      {day.date.getDate()}
-                    </div>
-                    <div className="space-y-1">
-                      {day.items.map((item) => (
-                        <PlaceCard
-                          key={item.id}
-                          item={item}
-                          isDragging={activeId === item.id}
-                          compact
-                          onSelect={() => setSelectedItem(item)}
-                          onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
-                          isMobile={isMobile}
-                        />
-                      ))}
-                    </div>
-                  </CalendarDayDropZone>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Trip notes (collapsed by default, when trip selected and user can edit) */}
-          {selectedItineraryId && (() => {
-            const trip = itineraries.find((t) => t.id === selectedItineraryId)
-            const canEdit = trip?.user_id === user?.id
-            if (!canEdit) return null
-            return (
-              <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => setTripNotesOpen(!tripNotesOpen)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                >
-                  <h3 className="text-sm font-semibold text-gray-900">Trip notes</h3>
-                  <svg
-                    className={`w-5 h-5 text-gray-500 transition-transform ${tripNotesOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {tripNotesOpen && (
-                  <div className="border-t border-gray-200 p-4">
-                    <textarea
-                      value={tripNotesValue}
-                      onChange={(e) => setTripNotesValue(e.target.value)}
-                      onBlur={() => saveTripNotes(tripNotesValue)}
-                      placeholder="Add notes about this trip..."
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
-                    />
-                    {savingTripNotes && (
-                      <p className="text-xs text-gray-500 mt-2">Saving…</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-
-          {/* Comments (when a trip is selected) */}
-          {selectedItineraryId && (
-            <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <button
-                onClick={() => setCommentsOpen(!commentsOpen)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <h3 className="text-sm font-semibold text-gray-900">Comments</h3>
-                <svg
-                  className={`w-5 h-5 text-gray-500 transition-transform ${commentsOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {commentsOpen && (
-                <div className="border-t border-gray-200 p-4 space-y-3">
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {itineraryComments.length === 0 ? (
-                      <p className="text-sm text-gray-500">No comments yet.</p>
-                    ) : (
-                      itineraryComments.map((c) => (
-                        <div key={c.id} className="text-sm">
-                          <span className="font-medium text-gray-900">{c.author_name}</span>
-                          <span className="text-gray-500 text-xs ml-2">
-                            {new Date(c.created_at).toLocaleString()}
-                          </span>
-                          <p className="text-gray-700 mt-0.5">{c.body}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newCommentBody}
-                      onChange={(e) => setNewCommentBody(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && postComment()}
-                      placeholder="Add a comment..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                    />
-                    <button
-                      type="button"
-                      onClick={postComment}
-                      disabled={postingComment || !newCommentBody.trim()}
-                      className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {postingComment ? 'Sending…' : 'Send'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Drag Overlay - matches MoodboardCard styling */}
           <DragOverlay>
@@ -1958,23 +1847,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
               setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
             }}
             isMobile={isMobile}
-          />
-        )}
-
-        {/* Date Picker Modal (Mobile) */}
-        {showDatePicker && itemToDate && (
-          <DatePickerModal
-            item={itemToDate}
-            currentDate={itemToDate.planned_date ? new Date(itemToDate.planned_date) : null}
-            currentItineraryId={itemToDate.itinerary_id || null}
-            itineraries={itineraries}
-            selectedItineraryId={selectedItineraryId}
-            itemsForContext={filteredItems}
-            onSelect={handleDateSelected}
-            onClose={() => {
-              setShowDatePicker(false)
-              setItemToDate(null)
-            }}
           />
         )}
 
@@ -2846,400 +2718,3 @@ function PlaceListItem({ item, isDragging, onSelect, onAssignDate, isMobile = fa
     </div>
   )
 }
-
-// Date Picker Modal Component (Mobile)
-interface DatePickerModalProps {
-  item: SavedItem
-  currentDate: Date | null
-  currentItineraryId: string | null
-  itineraries: Itinerary[]
-  selectedItineraryId: string | null
-  itemsForContext?: SavedItem[]
-  onSelect: (date: Date | null) => void
-  onClose: () => void
-}
-
-function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, selectedItineraryId, itemsForContext = [], onSelect, onClose }: DatePickerModalProps) {
-  const [selectedDate, setSelectedDate] = useState<Date | null>(currentDate)
-  const [selectedItinerary, setSelectedItinerary] = useState<string | null>(currentItineraryId || selectedItineraryId)
-  const [viewMonth, setViewMonth] = useState(new Date()) // Default to today for calendar context
-  const [showCreateItinerary, setShowCreateItinerary] = useState(false)
-  const [newItineraryName, setNewItineraryName] = useState('')
-  const [creatingItinerary, setCreatingItinerary] = useState(false)
-  const supabase = createClient()
-
-  // Close on backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
-
-  // Close on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [onClose])
-
-  // Generate calendar days for view month
-  const calendarDays = useMemo(() => {
-    const year = viewMonth.getFullYear()
-    const month = viewMonth.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const startDate = new Date(firstDay)
-    startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
-
-    const days: Date[] = []
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(startDate)
-      date.setDate(startDate.getDate() + i)
-      days.push(date)
-    }
-    return days
-  }, [viewMonth])
-
-  // Count existing items per day (excluding current item) for calendar context
-  const itemsByDateStr = useMemo(() => {
-    const relevant = itemsForContext.filter(
-      (i) => i.id !== item.id && i.planned_date && (!selectedItinerary || i.itinerary_id === selectedItinerary)
-    )
-    const map: Record<string, number> = {}
-    relevant.forEach((i) => {
-      const d = i.planned_date!
-      map[d] = (map[d] || 0) + 1
-    })
-    return map
-  }, [itemsForContext, item.id, selectedItinerary])
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ]
-
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  const isSameDay = (date1: Date, date2: Date | null) => {
-    if (!date2) return false
-    return (
-      date1.getDate() === date2.getDate() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getFullYear() === date2.getFullYear()
-    )
-  }
-
-  const handleDateClick = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    const currentDateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-    
-    // Toggle date if clicking the same date
-    if (dateStr === currentDateStr) {
-      setSelectedDate(null)
-    } else {
-      setSelectedDate(date)
-    }
-  }
-
-  const handleCreateItinerary = async () => {
-    if (!newItineraryName.trim()) return
-
-    setCreatingItinerary(true)
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from('itineraries')
-        .insert({
-          user_id: user.id,
-          name: newItineraryName.trim(),
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      if (data) {
-        setSelectedItinerary(data.id)
-        setShowCreateItinerary(false)
-        setNewItineraryName('')
-      }
-    } catch (error) {
-      console.error('Error creating itinerary:', error)
-      alert('Failed to create trip. Please try again.')
-    } finally {
-      setCreatingItinerary(false)
-    }
-  }
-
-  const handleSave = async () => {
-    const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-    
-    // Update the item with both date and itinerary
-    try {
-      // Parse current status from item
-      let currentStatuses: string[] = []
-      if (item.status) {
-        try {
-          const parsed = JSON.parse(item.status)
-          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
-        } catch {
-          currentStatuses = [item.status]
-        }
-      }
-
-      // Update status based on date assignment
-      let newStatuses: string[] = []
-      if (dateStr) {
-        // Assigning date: set status to "Planned"
-        newStatuses = currentStatuses.filter(s => s !== 'To plan')
-        if (!newStatuses.includes('Planned')) {
-          newStatuses.push('Planned')
-        }
-      } else {
-        // Removing date: revert to "To plan"
-        newStatuses = currentStatuses.filter(s => s !== 'Planned')
-        if (!newStatuses.includes('To plan')) {
-          newStatuses.push('To plan')
-        }
-      }
-
-      const updateData: {
-        planned_date: string | null
-        itinerary_id?: string | null
-        trip_position?: number | null
-        status?: string | null
-      } = {
-        planned_date: dateStr,
-        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
-      }
-
-      if (selectedItinerary) {
-        updateData.itinerary_id = selectedItinerary
-        const inTrip = itemsForContext.filter((i) => i.itinerary_id === selectedItinerary && i.id !== item.id)
-        updateData.trip_position = inTrip.length
-      } else {
-        updateData.itinerary_id = null
-        updateData.trip_position = null
-      }
-
-      const { error } = await supabase
-        .from('saved_items')
-        .update(updateData)
-        .eq('id', item.id)
-
-      if (error) throw error
-
-      // Call onSelect with the date (the parent will handle the rest)
-      onSelect(selectedDate)
-    } catch (error) {
-      console.error('Error saving calendar assignment:', error)
-      alert('Failed to save calendar assignment. Please try again.')
-    }
-  }
-
-  const displayTitle = item.title || getHostname(item.url)
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-t-2xl md:rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
-        {/* Header */}
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Assign Date</h2>
-            <p className="text-sm text-gray-600 mt-1 line-clamp-1">{displayTitle}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* Trip selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trip (optional)
-            </label>
-            <div className="space-y-2">
-              <select
-                value={selectedItinerary || ''}
-                onChange={(e) => setSelectedItinerary(e.target.value || null)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
-              >
-                <option value="">No trip</option>
-                {itineraries.map((itinerary) => (
-                  <option key={itinerary.id} value={itinerary.id}>
-                    {itinerary.name}
-                  </option>
-                ))}
-              </select>
-              {!showCreateItinerary ? (
-                <button
-                  onClick={() => setShowCreateItinerary(true)}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  + Create new trip
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={newItineraryName}
-                    onChange={(e) => setNewItineraryName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newItineraryName.trim()) {
-                        handleCreateItinerary()
-                      }
-                    }}
-                    placeholder="Trip name"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCreateItinerary}
-                      disabled={!newItineraryName.trim() || creatingItinerary}
-                      className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {creatingItinerary ? 'Creating...' : 'Create'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCreateItinerary(false)
-                        setNewItineraryName('')
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Date Picker */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date (optional)
-            </label>
-            {/* Month Navigation */}
-          <div className="mb-4 flex items-center justify-between">
-            <button
-              onClick={() => {
-                const newDate = new Date(viewMonth)
-                newDate.setMonth(viewMonth.getMonth() - 1)
-                setViewMonth(newDate)
-              }}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h3 className="text-lg font-semibold text-gray-900">
-              {monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-            </h3>
-            <button
-              onClick={() => {
-                const newDate = new Date(viewMonth)
-                newDate.setMonth(viewMonth.getMonth() + 1)
-                setViewMonth(newDate)
-              }}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Week day headers */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekDays.map((day) => (
-              <div key={day} className="p-2 text-center text-xs font-medium text-gray-700">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Calendar days */}
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((day, index) => {
-              const isCurrentMonth = day.getMonth() === viewMonth.getMonth()
-              const isSelected = isSameDay(day, selectedDate)
-              const today = new Date()
-              const isToday = isSameDay(day, today)
-              const dateStr = day.toISOString().split('T')[0]
-              const existingCount = itemsByDateStr[dateStr] || 0
-
-              return (
-                <button
-                  key={index}
-                  onClick={() => handleDateClick(day)}
-                  className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
-                    !isCurrentMonth
-                      ? 'text-gray-300'
-                      : isSelected
-                      ? 'bg-gray-900 text-white font-medium'
-                      : isToday
-                      ? 'bg-blue-50 text-blue-600 font-medium'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  {day.getDate()}
-                  {isCurrentMonth && existingCount > 0 && (
-                    <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 p-5 bg-gray-50">
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                setSelectedDate(null)
-                setSelectedItinerary(null)
-                onSelect(null)
-              }}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors"
-            >
-              Remove from calendar
-            </button>
-            <button
-              onClick={handleSave}
-              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
-            >
-              {selectedDate
-                ? `Assign ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                : 'Select date'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-

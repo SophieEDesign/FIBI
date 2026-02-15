@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { SavedItem, CATEGORIES, STATUSES, Itinerary } from '@/types/database'
+import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -17,20 +17,17 @@ interface HomeGridProps {
 export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({ categories: [] as string[], statuses: [] as string[] })
+  const [filters, setFilters] = useState({ categories: [] as string[] })
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null)
   const [showFirstPlaceFeedback, setShowFirstPlaceFeedback] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
   const searchParams = useSearchParams()
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
-  const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
   const [showCalendarModal, setShowCalendarModal] = useState(false)
   const [selectedItemForCalendar, setSelectedItemForCalendar] = useState<SavedItem | null>(null)
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [viewMonth, setViewMonth] = useState(new Date())
   const [savingCalendar, setSavingCalendar] = useState(false)
   const supabase = createClient()
   const router = useRouter()
@@ -121,7 +118,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     }
   }
 
-  // Load user's custom categories and statuses
+  // Load user's custom categories
   const loadUserCustomOptions = async () => {
     if (!user) return
 
@@ -133,21 +130,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         .eq('type', 'category')
         .order('created_at', { ascending: false })
 
-      const { data: statuses, error: statusError } = await supabase
-        .from('user_custom_options')
-        .select('value')
-        .eq('user_id', user.id)
-        .eq('type', 'status')
-        .order('created_at', { ascending: false })
-
       if (catError) console.error('Error loading custom categories:', catError)
-      if (statusError) console.error('Error loading custom statuses:', statusError)
-
       if (categories) {
         setUserCustomCategories(categories.map(c => c.value))
-      }
-      if (statuses) {
-        setUserCustomStatuses(statuses.map(s => s.value))
       }
     } catch (err) {
       console.error('Error loading custom options:', err)
@@ -194,16 +179,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   }
 
   // Calculate usage counts and sort options by popularity
-  const { sortedCategories, sortedStatuses, sortedUserCustomCategories, sortedUserCustomStatuses } = useMemo(() => {
+  const { sortedCategories, sortedUserCustomCategories } = useMemo(() => {
     const categoryCounts: Record<string, number> = {}
-    const statusCounts: Record<string, number> = {}
 
     items.forEach((item) => {
       parseItemField(item.category).forEach((cat) => {
         categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
-      })
-      parseItemField(item.status).forEach((stat) => {
-        statusCounts[stat] = (statusCounts[stat] || 0) + 1
       })
     })
 
@@ -215,102 +196,75 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
     return {
       sortedCategories: sortByPopularity([...CATEGORIES], categoryCounts),
-      sortedStatuses: sortByPopularity([...STATUSES], statusCounts),
       sortedUserCustomCategories: sortByPopularity([...userCustomCategories], categoryCounts),
-      sortedUserCustomStatuses: sortByPopularity([...userCustomStatuses], statusCounts),
     }
-  }, [items, userCustomCategories, userCustomStatuses])
+  }, [items, userCustomCategories])
 
   // Filter items based on selected filters
   const filteredItems = useMemo(() => {
-    if (filters.categories.length === 0 && filters.statuses.length === 0) return items
-    
+    if (filters.categories.length === 0) return items
     return items.filter((item) => {
       const itemCategories = parseItemField(item.category)
-      const itemStatuses = parseItemField(item.status)
-      
-      if (filters.categories.length > 0 && !filters.categories.some(cat => itemCategories.includes(cat))) {
-        return false
-      }
-      if (filters.statuses.length > 0 && !filters.statuses.some(status => itemStatuses.includes(status))) {
-        return false
-      }
-      return true
+      return filters.categories.some(cat => itemCategories.includes(cat))
     })
   }, [items, filters])
 
-  const activeFiltersCount = filters.categories.length + filters.statuses.length
+  const activeFiltersCount = filters.categories.length
 
-  const toggleFilter = (type: 'categories' | 'statuses', value: string) => {
+  const toggleFilter = (category: string) => {
     setFilters(prev => ({
       ...prev,
-      [type]: prev[type].includes(value)
-        ? prev[type].filter(v => v !== value)
-        : [...prev[type], value]
+      categories: prev.categories.includes(category)
+        ? prev.categories.filter(v => v !== category)
+        : [...prev.categories, category]
     }))
   }
 
   const clearFilters = () => {
-    setFilters({ categories: [], statuses: [] })
+    setFilters({ categories: [] })
   }
 
-  // Handle item click - show calendar assignment modal (default to today for context)
+  // Toggle liked or visited on an item
+  const handleToggleIcon = async (item: SavedItem, field: 'liked' | 'visited') => {
+    const newVal = !(item[field] ?? false)
+    try {
+      const { error } = await supabase
+        .from('saved_items')
+        .update({ [field]: newVal })
+        .eq('id', item.id)
+
+      if (error) throw error
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, [field]: newVal } : i))
+      )
+    } catch (err) {
+      console.error('Error toggling', field, err)
+    }
+  }
+
+  // Handle item click - show Add to Trip modal
   const handleItemClick = (e: React.MouseEvent, item: SavedItem) => {
     e.preventDefault()
     setSelectedItemForCalendar(item)
     setSelectedItineraryId(item.itinerary_id || null)
-    setSelectedDate(item.planned_date ? new Date(item.planned_date) : null)
-    setViewMonth(new Date()) // Default to today so user sees current context
     setShowCalendarModal(true)
   }
 
-  // Handle saving calendar assignment
+  // Handle saving trip assignment (no per-place dates)
   const handleSaveCalendar = async () => {
     if (!selectedItemForCalendar) return
 
     setSavingCalendar(true)
     try {
-      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-
-      // Parse current status from item
-      let currentStatuses: string[] = []
-      if (selectedItemForCalendar.status) {
-        try {
-          const parsed = JSON.parse(selectedItemForCalendar.status)
-          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
-        } catch {
-          currentStatuses = [selectedItemForCalendar.status]
-        }
-      }
-
-      // Update status based on date assignment
-      let newStatuses: string[] = []
-      if (dateStr) {
-        // Assigning date: set status to "Planned"
-        newStatuses = currentStatuses.filter(s => s !== 'To plan')
-        if (!newStatuses.includes('Planned')) {
-          newStatuses.push('Planned')
-        }
-      } else {
-        // Removing date: revert to "To plan"
-        newStatuses = currentStatuses.filter(s => s !== 'Planned')
-        if (!newStatuses.includes('To plan')) {
-          newStatuses.push('To plan')
-        }
-      }
-
       const updateData: {
-        planned_date: string | null
-        itinerary_id?: string | null
-        trip_position?: number | null
-        status?: string | null
+        itinerary_id: string | null
+        trip_position: number | null
       } = {
-        planned_date: dateStr,
-        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
+        itinerary_id: selectedItineraryId,
+        trip_position: null,
       }
 
       if (selectedItineraryId) {
-        updateData.itinerary_id = selectedItineraryId
         const { data: maxRow } = await supabase
           .from('saved_items')
           .select('trip_position')
@@ -319,9 +273,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           .limit(1)
           .maybeSingle()
         updateData.trip_position = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
-      } else {
-        updateData.itinerary_id = null
-        updateData.trip_position = null
       }
 
       const { error } = await supabase
@@ -337,10 +288,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           item.id === selectedItemForCalendar.id
             ? {
                 ...item,
-                planned_date: dateStr,
-                itinerary_id: selectedItineraryId || null,
-                trip_position: updateData.trip_position ?? null,
-                status: updateData.status || null,
+                itinerary_id: selectedItineraryId,
+                trip_position: updateData.trip_position,
               }
             : item
         )
@@ -349,10 +298,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       setShowCalendarModal(false)
       setSelectedItemForCalendar(null)
       setSelectedItineraryId(null)
-      setSelectedDate(null)
     } catch (error) {
-      console.error('Error saving calendar assignment:', error)
-      alert('Failed to save calendar assignment. Please try again.')
+      console.error('Error saving trip assignment:', error)
+      alert('Failed to save trip assignment. Please try again.')
     } finally {
       setSavingCalendar(false)
     }
@@ -459,7 +407,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 {[...sortedCategories, ...sortedUserCustomCategories].map((category) => (
                   <button
                     key={category}
-                    onClick={() => toggleFilter('categories', category)}
+                    onClick={() => toggleFilter(category)}
                     className={`px-3 py-1.5 text-sm rounded-xl ${
                       filters.categories.includes(category)
                         ? 'bg-charcoal text-white'
@@ -467,32 +415,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                     }`}
                   >
                     {category}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-secondary">Stage:</span>
-                <button
-                  onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}
-                  className={`px-3 py-1.5 text-sm rounded-xl ${
-                    filters.statuses.length === 0
-                      ? 'bg-charcoal text-white'
-                      : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                  }`}
-                >
-                  All
-                </button>
-                {[...sortedStatuses, ...sortedUserCustomStatuses].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => toggleFilter('statuses', status)}
-                    className={`px-3 py-1.5 text-sm rounded-xl ${
-                      filters.statuses.includes(status)
-                        ? 'bg-charcoal text-white'
-                        : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                    }`}
-                  >
-                    {status}
                   </button>
                 ))}
               </div>
@@ -588,21 +510,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {filteredItems.map((item) => {
               const displayTitle = item.title || getHostname(item.url)
-              const itemStatuses = parseItemField(item.status)
               const itemCategories = parseItemField(item.category)
               const oneCategory = itemCategories[0]
-              const oneStatus = itemStatuses[0]
-
-              const getStatusStyle = (status: string) => {
-                const styles: Record<string, string> = {
-                  'To plan': 'bg-gray-100 text-secondary',
-                  'Planned': 'bg-blue-50 text-blue-700',
-                  'Been': 'bg-green-50 text-green-700',
-                  'Would love to go': 'bg-purple-50 text-purple-700',
-                  'Maybe': 'bg-amber-50 text-amber-700',
-                }
-                return styles[status] || 'bg-gray-100 text-secondary'
-              }
+              const isLiked = item.liked ?? false
+              const isVisited = item.visited ?? false
 
               return (
                 <div
@@ -626,6 +537,55 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           displayTitle={displayTitle}
                         />
                       )}
+                      {/* Top-right overlay: liked, visited, add-to-trip */}
+                      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                        {isLiked && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleToggleIcon(item, 'liked')
+                            }}
+                            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
+                            aria-label="Remove liked"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                            </svg>
+                          </button>
+                        )}
+                        {isVisited && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleToggleIcon(item, 'visited')
+                            }}
+                            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
+                            aria-label="Remove visited"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleItemClick(e as unknown as React.MouseEvent, item)
+                          }}
+                          className="p-2 rounded-xl bg-white/90 hover:bg-white shadow-soft text-secondary hover:text-charcoal transition-colors"
+                          aria-label="Add to trip"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+                      </div>
                       <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-white/80 text-secondary text-xs font-normal backdrop-blur-sm">
                         {item.platform}
                       </div>
@@ -640,36 +600,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                         </p>
                       )}
-                      {(oneCategory || oneStatus) && (
+                      {oneCategory && (
                         <div className="flex flex-wrap gap-1.5 mt-auto">
-                          {oneCategory && (
-                            <span className="px-2 py-0.5 rounded-lg text-xs font-normal bg-gray-100 text-secondary">
-                              {oneCategory}
-                            </span>
-                          )}
-                          {oneStatus && (
-                            <span className={`px-2 py-0.5 rounded-lg text-xs font-normal ${getStatusStyle(oneStatus)}`}>
-                              {oneStatus}
-                            </span>
-                          )}
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-normal bg-gray-100 text-secondary">
+                            {oneCategory}
+                          </span>
                         </div>
                       )}
                     </div>
                   </Link>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleItemClick(e as unknown as React.MouseEvent, item)
-                    }}
-                    className="absolute top-2 right-2 z-10 p-2 rounded-xl bg-white/90 hover:bg-white shadow-soft text-secondary hover:text-charcoal transition-colors"
-                    aria-label="Add to calendar"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </button>
                 </div>
               )
             })}
@@ -728,7 +667,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                     {[...sortedCategories, ...sortedUserCustomCategories].map((category) => (
                       <button
                         key={category}
-                        onClick={() => toggleFilter('categories', category)}
+                        onClick={() => toggleFilter(category)}
                         className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
                           filters.categories.includes(category)
                             ? 'bg-charcoal text-white'
@@ -742,36 +681,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-xs font-medium text-secondary mb-3">Stage</h3>
-                <div className="overflow-x-auto pb-2 -mx-2 px-2">
-                  <div className="flex gap-2 min-w-max">
-                    <button
-                      onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}
-                      className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
-                        filters.statuses.length === 0
-                          ? 'bg-charcoal text-white'
-                          : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                      }`}
-                    >
-                      All
-                    </button>
-                    {[...sortedStatuses, ...sortedUserCustomStatuses].map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => toggleFilter('statuses', status)}
-                        className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
-                          filters.statuses.includes(status)
-                            ? 'bg-charcoal text-white'
-                            : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
 
               <div className="pt-4 space-y-2">
                 {activeFiltersCount > 0 && (
@@ -794,24 +703,18 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         </div>
       )}
 
-      {/* Calendar Assignment Modal */}
+      {/* Add to Trip Modal */}
       {showCalendarModal && selectedItemForCalendar && (
-        <CalendarAssignmentModal
+        <AddToTripModal
           item={selectedItemForCalendar}
           itineraries={itineraries}
-          itemsForContext={items}
           selectedItineraryId={selectedItineraryId}
           onItineraryChange={setSelectedItineraryId}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          viewMonth={viewMonth}
-          onViewMonthChange={setViewMonth}
           onSave={handleSaveCalendar}
           onClose={() => {
             setShowCalendarModal(false)
             setSelectedItemForCalendar(null)
             setSelectedItineraryId(null)
-            setSelectedDate(null)
           }}
           saving={savingCalendar}
         />
@@ -820,36 +723,26 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   )
 }
 
-// Calendar Assignment Modal Component
-interface CalendarAssignmentModalProps {
+// Add to Trip Modal Component
+interface AddToTripModalProps {
   item: SavedItem
   itineraries: Itinerary[]
-  itemsForContext?: SavedItem[]
   selectedItineraryId: string | null
   onItineraryChange: (id: string | null) => void
-  selectedDate: Date | null
-  onDateChange: (date: Date | null) => void
-  viewMonth: Date
-  onViewMonthChange: (date: Date) => void
   onSave: () => void
   onClose: () => void
   saving: boolean
 }
 
-function CalendarAssignmentModal({
+function AddToTripModal({
   item,
   itineraries,
-  itemsForContext = [],
   selectedItineraryId,
   onItineraryChange,
-  selectedDate,
-  onDateChange,
-  viewMonth,
-  onViewMonthChange,
   onSave,
   onClose,
   saving,
-}: CalendarAssignmentModalProps) {
+}: AddToTripModalProps) {
   const [showCreateItinerary, setShowCreateItinerary] = useState(false)
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
@@ -872,64 +765,6 @@ function CalendarAssignmentModal({
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [onClose])
-
-  // Generate calendar days for view month
-  const calendarDays = useMemo(() => {
-    const year = viewMonth.getFullYear()
-    const month = viewMonth.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const startDate = new Date(firstDay)
-    startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
-
-    const days: Date[] = []
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(startDate)
-      date.setDate(startDate.getDate() + i)
-      days.push(date)
-    }
-    return days
-  }, [viewMonth])
-
-  // Count existing items per day (excluding current item) for calendar context
-  const itemsByDateStr = useMemo(() => {
-    const relevant = itemsForContext.filter(
-      (i) => i.id !== item.id && i.planned_date && (!selectedItineraryId || i.itinerary_id === selectedItineraryId)
-    )
-    const map: Record<string, number> = {}
-    relevant.forEach((i) => {
-      const d = i.planned_date!
-      map[d] = (map[d] || 0) + 1
-    })
-    return map
-  }, [itemsForContext, item.id, selectedItineraryId])
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ]
-
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  const isSameDay = (date1: Date, date2: Date | null) => {
-    if (!date2) return false
-    return (
-      date1.getDate() === date2.getDate() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getFullYear() === date2.getFullYear()
-    )
-  }
-
-  const handleDateClick = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    const currentDateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-
-    // Toggle date if clicking the same date
-    if (dateStr === currentDateStr) {
-      onDateChange(null)
-    } else {
-      onDateChange(date)
-    }
-  }
 
   const handleCreateItinerary = async () => {
     if (!newItineraryName.trim()) return
@@ -976,7 +811,6 @@ function CalendarAssignmentModal({
     return [field]
   }
   const modalCategories = parseField(item.category)
-  const modalStatuses = parseField(item.status)
   const rawModalSummary = [item.description, item.notes].filter(Boolean).join(' ').trim()
   const modalSummary = rawModalSummary ? rawModalSummary.slice(0, 160) + (rawModalSummary.length > 160 ? '…' : '') : ''
   const getPlatformStyle = (platform: string) => {
@@ -986,16 +820,6 @@ function CalendarAssignmentModal({
       YouTube: 'bg-red-600 text-white',
     }
     return styles[platform] || 'bg-gray-700 text-white'
-  }
-  const getStatusStyle = (status: string) => {
-    const styles: Record<string, string> = {
-      'To plan': 'bg-gray-100 text-gray-700',
-      'Planned': 'bg-blue-100 text-blue-700',
-      'Been': 'bg-green-100 text-green-700',
-      'Would love to go': 'bg-purple-100 text-purple-700',
-      'Maybe': 'bg-yellow-100 text-yellow-700',
-    }
-    return styles[status] || 'bg-gray-100 text-gray-700'
   }
 
   return (
@@ -1007,7 +831,7 @@ function CalendarAssignmentModal({
         {/* Header */}
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Add to Trip</h2>
           </div>
           <button
             onClick={onClose}
@@ -1055,18 +879,23 @@ function CalendarAssignmentModal({
                   {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                 </p>
               )}
-              {(modalCategories.length > 0 || modalStatuses.length > 0) && (
-                <div className="flex flex-wrap gap-1.5">
+              {(modalCategories.length > 0 || item.liked || item.visited) && (
+                <div className="flex flex-wrap gap-1.5 items-center">
                   {modalCategories.map((cat, idx) => (
                     <span key={`c-${idx}`} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
                       {cat}
                     </span>
                   ))}
-                  {modalStatuses.map((status, idx) => (
-                    <span key={`s-${idx}`} className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusStyle(status)}`}>
-                      {status}
+                  {item.liked && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/10 text-gray-700 text-xs" title="Liked">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
                     </span>
-                  ))}
+                  )}
+                  {item.visited && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/10 text-gray-700 text-xs" title="Visited">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    </span>
+                  )}
                 </div>
               )}
               {modalSummary && (
@@ -1086,7 +915,7 @@ function CalendarAssignmentModal({
           {/* Trip selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trip (optional)
+              Trip
             </label>
             <div className="space-y-2">
               <select
@@ -1145,85 +974,6 @@ function CalendarAssignmentModal({
               )}
             </div>
           </div>
-
-          {/* Date Picker */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date (optional)
-            </label>
-            {/* Month Navigation */}
-            <div className="mb-4 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const newDate = new Date(viewMonth)
-                  newDate.setMonth(viewMonth.getMonth() - 1)
-                  onViewMonthChange(newDate)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-              </h3>
-              <button
-                onClick={() => {
-                  const newDate = new Date(viewMonth)
-                  newDate.setMonth(viewMonth.getMonth() + 1)
-                  onViewMonthChange(newDate)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Week day headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {weekDays.map((day) => (
-                <div key={day} className="p-2 text-center text-xs font-medium text-gray-700">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((day, index) => {
-                const isCurrentMonth = day.getMonth() === viewMonth.getMonth()
-                const isSelected = isSameDay(day, selectedDate)
-                const today = new Date()
-                const isToday = isSameDay(day, today)
-                const dateStr = day.toISOString().split('T')[0]
-                const existingCount = itemsByDateStr[dateStr] || 0
-
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
-                      !isCurrentMonth
-                        ? 'text-gray-300'
-                        : isSelected
-                        ? 'bg-gray-900 text-white font-medium'
-                        : isToday
-                        ? 'bg-blue-50 text-blue-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {day.getDate()}
-                    {isCurrentMonth && existingCount > 0 && (
-                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
         </div>
 
         {/* Actions */}
@@ -1244,7 +994,7 @@ function CalendarAssignmentModal({
             </button>
           </div>
           <p className="text-center text-xs text-gray-500">
-            You can also set trip on the{' '}
+            Manage trips in the{' '}
             <Link href="/app/calendar" className="font-medium text-gray-700 hover:text-gray-900">
               Planner
             </Link>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { SavedItem, CATEGORIES, STATUSES, Itinerary } from '@/types/database'
+import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getHostname, uploadScreenshot } from '@/lib/utils'
@@ -26,24 +26,19 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [categories, setCategories] = useState<string[]>([])
   const [customCategory, setCustomCategory] = useState('')
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
-  const [statuses, setStatuses] = useState<string[]>([])
-  const [customStatus, setCustomStatus] = useState('')
-  const [showCustomStatusInput, setShowCustomStatusInput] = useState(false)
+  const [liked, setLiked] = useState(false)
+  const [visited, setVisited] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
-  const [userCustomStatuses, setUserCustomStatuses] = useState<string[]>([])
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
-  const [showStageDropdown, setShowStageDropdown] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
-  const [stageSearch, setStageSearch] = useState('')
   const categoryDropdownRef = useRef<HTMLDivElement>(null)
-  const stageDropdownRef = useRef<HTMLDivElement>(null)
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
   const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
-  const [showCalendarModal, setShowCalendarModal] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null)
-  const [viewMonth, setViewMonth] = useState(new Date())
-  const [savingCalendar, setSavingCalendar] = useState(false)
-  const [itemsForCalendarContext, setItemsForCalendarContext] = useState<SavedItem[]>([])
+  const [showCreateItinerary, setShowCreateItinerary] = useState(false)
+  const [newItineraryName, setNewItineraryName] = useState('')
+  const [creatingItinerary, setCreatingItinerary] = useState(false)
+  const [organiseOpen, setOrganiseOpen] = useState(true)
+  const [notesValue, setNotesValue] = useState('')
   
   // Location fields (edit mode only)
   const [description, setDescription] = useState('')
@@ -84,38 +79,22 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId])
 
-  // Load items for calendar context when modal opens (to show what's already scheduled)
-  useEffect(() => {
-    if (!showCalendarModal) return
-    const load = async () => {
-      const { data } = await supabase
-        .from('saved_items')
-        .select('*')
-        .not('planned_date', 'is', null)
-      setItemsForCalendarContext(data || [])
-    }
-    load()
-  }, [showCalendarModal, supabase])
-
   // Handle click outside dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
         setShowCategoryDropdown(false)
       }
-      if (stageDropdownRef.current && !stageDropdownRef.current.contains(event.target as Node)) {
-        setShowStageDropdown(false)
-      }
     }
 
-    if (showCategoryDropdown || showStageDropdown) {
+    if (showCategoryDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showCategoryDropdown, showStageDropdown])
+  }, [showCategoryDropdown])
 
   // Load itineraries
   const loadItineraries = async () => {
@@ -143,7 +122,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     }
   }
 
-  // Load user's custom categories and statuses
+  // Load user's custom categories
   const loadUserCustomOptions = async () => {
     try {
       const {
@@ -159,21 +138,9 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         .eq('type', 'category')
         .order('created_at', { ascending: false })
 
-      const { data: statuses, error: statusError } = await supabase
-        .from('user_custom_options')
-        .select('value')
-        .eq('user_id', user.id)
-        .eq('type', 'status')
-        .order('created_at', { ascending: false })
-
       if (catError) console.error('Error loading custom categories:', catError)
-      if (statusError) console.error('Error loading custom statuses:', statusError)
-
       if (categories) {
         setUserCustomCategories(categories.map(c => c.value))
-      }
-      if (statuses) {
-        setUserCustomStatuses(statuses.map(s => s.value))
       }
     } catch (err) {
       console.error('Error loading custom options:', err)
@@ -181,7 +148,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   }
 
   // Save custom option to database
-  const saveCustomOption = async (type: 'category' | 'status', value: string) => {
+  const saveCustomOption = async (type: 'category', value: string) => {
     if (!value.trim()) return
 
     try {
@@ -280,7 +247,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
           // If we have city/country but no coordinates, show them in manual fields only
           setLocationSearchValue('')
         }
-        // Parse categories and statuses (support both single values and arrays)
+        // Parse categories (support both single values and arrays)
         const parseCategories = (cat: string | null): string[] => {
           if (!cat) return []
           try {
@@ -292,26 +259,13 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
           }
         }
         
-        const parseStatuses = (stat: string | null): string[] => {
-          if (!stat) return []
-          try {
-            const parsed = JSON.parse(stat)
-            if (Array.isArray(parsed)) return parsed
-            return [parsed]
-          } catch {
-            return [stat]
-          }
-        }
-        
         setCategories(parseCategories(data.category))
-        setStatuses(parseStatuses(data.status))
+        setLiked(!!data.liked)
+        setVisited(!!data.visited)
         setSelectedItineraryId(data.itinerary_id || null)
-        setSelectedDate(data.planned_date ? new Date(data.planned_date) : null)
-        // Keep viewMonth as today when loading - don't jump to item's date
+        setNotesValue(data.notes ?? '')
         setCustomCategory('')
-        setCustomStatus('')
         setShowCustomCategoryInput(false)
-        setShowCustomStatusInput(false)
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load item')
@@ -347,10 +301,18 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     await saveField('category', value)
   }
 
-  // Save statuses array
-  const saveStatuses = async (stats: string[]) => {
-    const value = stats.length > 0 ? JSON.stringify(stats) : null
-    await saveField('status', value)
+  // Toggle liked or visited
+  const handleToggleLiked = async () => {
+    const newVal = !liked
+    setLiked(newVal)
+    await saveField('liked', newVal)
+    if (item) setItem({ ...item, liked: newVal })
+  }
+  const handleToggleVisited = async () => {
+    const newVal = !visited
+    setVisited(newVal)
+    await saveField('visited', newVal)
+    if (item) setItem({ ...item, visited: newVal })
   }
 
   // Handle itinerary change
@@ -379,82 +341,39 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     loadItem()
   }
 
-  // Handle saving calendar assignment
-  const handleSaveCalendar = async () => {
-    if (!item) return
-
-    setSavingCalendar(true)
+  // Handle create new trip
+  const handleCreateItinerary = async () => {
+    if (!newItineraryName.trim()) return
+    setCreatingItinerary(true)
     try {
-      const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-
-      // Parse current status from item
-      let currentStatuses: string[] = []
-      if (item.status) {
-        try {
-          const parsed = JSON.parse(item.status)
-          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
-        } catch {
-          currentStatuses = [item.status]
-        }
-      }
-
-      // Update status based on date assignment
-      let newStatuses: string[] = []
-      if (dateStr) {
-        // Assigning date: set status to "Planned"
-        newStatuses = currentStatuses.filter(s => s !== 'To plan')
-        if (!newStatuses.includes('Planned')) {
-          newStatuses.push('Planned')
-        }
-      } else {
-        // Removing date: revert to "To plan"
-        newStatuses = currentStatuses.filter(s => s !== 'Planned')
-        if (!newStatuses.includes('To plan')) {
-          newStatuses.push('To plan')
-        }
-      }
-
-      const updateData: {
-        planned_date: string | null
-        itinerary_id?: string | null
-        trip_position?: number | null
-        status?: string | null
-      } = {
-        planned_date: dateStr,
-        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
-      }
-
-      if (selectedItineraryId) {
-        updateData.itinerary_id = selectedItineraryId
-        const { data: maxRow } = await supabase
-          .from('saved_items')
-          .select('trip_position')
-          .eq('itinerary_id', selectedItineraryId)
-          .order('trip_position', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        updateData.trip_position = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
-      } else {
-        updateData.itinerary_id = null
-        updateData.trip_position = null
-      }
-
-      const { error } = await supabase
-        .from('saved_items')
-        .update(updateData)
-        .eq('id', item.id)
-
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase
+        .from('itineraries')
+        .insert({ user_id: user.id, name: newItineraryName.trim() })
+        .select()
+        .single()
       if (error) throw error
-
-      // Reload item to reflect changes
-      loadItem()
-      setShowCalendarModal(false)
-    } catch (error) {
-      console.error('Error saving calendar assignment:', error)
-      alert('Failed to save calendar assignment. Please try again.')
+      if (data) {
+        setItineraries((prev) => [data, ...prev])
+        setSelectedItineraryId(data.id)
+        setShowCreateItinerary(false)
+        setNewItineraryName('')
+        await handleItineraryChange(data.id)
+      }
+    } catch (err) {
+      console.error('Error creating trip:', err)
+      alert('Failed to create trip. Please try again.')
     } finally {
-      setSavingCalendar(false)
+      setCreatingItinerary(false)
     }
+  }
+
+  // Handle notes save (debounced on blur)
+  const handleNotesBlur = async () => {
+    if (!item || notesValue === (item.notes ?? '')) return
+    await saveField('notes', notesValue.trim() || null)
+    if (item) setItem({ ...item, notes: notesValue.trim() || null })
   }
 
   // Handle title save on blur
@@ -481,22 +400,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     await saveCategories(newCategories)
   }
 
-  // Handle status toggle (add/remove from array)
-  const handleStatusToggle = async (status: string) => {
-    const newStatuses = statuses.includes(status)
-      ? statuses.filter(s => s !== status)
-      : [...statuses, status]
-    
-    setStatuses(newStatuses)
-    
-    // Save custom option if it was used
-    if (status && !STATUSES.includes(status as any) && !userCustomStatuses.includes(status)) {
-      await saveCustomOption('status', status)
-    }
-    
-    await saveStatuses(newStatuses)
-  }
-  
   // Handle custom category save
   const handleCustomCategorySave = async () => {
     if (!customCategory.trim()) return
@@ -514,23 +417,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     setCustomCategory('')
   }
   
-  // Handle custom status save
-  const handleCustomStatusSave = async () => {
-    if (!customStatus.trim()) return
-    
-    const finalStatus = customStatus.trim()
-    const newStatuses = [...statuses, finalStatus]
-    setStatuses(newStatuses)
-    setShowCustomStatusInput(false)
-    
-    // Save custom option
-    await saveCustomOption('status', finalStatus)
-    
-    // Save to item
-    await saveStatuses(newStatuses)
-    setCustomStatus('')
-  }
-
   // Handle screenshot upload
   const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -990,7 +876,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             )}
 
             <div className="mb-6">
-              {/* Title - always editable */}
+              {/* Title + Location */}
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Title</label>
                 <input
@@ -1004,11 +890,144 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 />
               </div>
 
-              {/* Category and Status - always editable */}
+              {/* Location - grouped with Title per spec */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <GooglePlacesInput
+                  value={locationSearchValue}
+                  onChange={handlePlaceChange}
+                  onSearchValueChange={handleSearchValueChange}
+                  onManualCityChange={handleManualCityChange}
+                  onManualCountryChange={handleManualCountryChange}
+                  onManualCityBlur={handleSaveLocation}
+                  onManualCountryBlur={handleSaveLocation}
+                  manualCity={locationCity}
+                  manualCountry={locationCountry}
+                  id="location-search-edit"
+                />
+                {(selectedPlace || locationCity || locationCountry) && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveLocation}
+                      disabled={saving}
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
+                    >
+                      {saving ? 'Saving...' : 'Save location'}
+                    </button>
+                    <span className="text-gray-300">•</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSaving(true)
+                        setError(null)
+                        try {
+                          const { error: updateError } = await supabase
+                            .from('saved_items')
+                            .update({
+                              place_name: null,
+                              place_id: null,
+                              latitude: null,
+                              longitude: null,
+                              formatted_address: null,
+                              location_city: null,
+                              location_country: null,
+                            })
+                            .eq('id', itemId)
+                          if (updateError) throw updateError
+                          selectedPlaceRef.current = null
+                          setSelectedPlace(null)
+                          setLocationSearchValue('')
+                          setLocationCity('')
+                          setLocationCountry('')
+                          loadItem()
+                        } catch (err: any) {
+                          setError(err.message || 'Failed to remove location')
+                        } finally {
+                          setSaving(false)
+                        }
+                      }}
+                      disabled={saving}
+                      className="text-sm text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                    >
+                      {saving ? 'Removing...' : 'Remove location'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-4">
+                {/* Trip selector */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Trip</label>
+                  <select
+                    value={selectedItineraryId || ''}
+                    onChange={(e) => handleItineraryChange(e.target.value || null)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
+                  >
+                    <option value="">No trip</option>
+                    {itineraries.map((itinerary) => (
+                      <option key={itinerary.id} value={itinerary.id}>
+                        {itinerary.name}
+                      </option>
+                    ))}
+                  </select>
+                  {!showCreateItinerary ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateItinerary(true)}
+                      className="mt-2 w-full px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      + Create new trip
+                    </button>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      <input
+                        type="text"
+                        value={newItineraryName}
+                        onChange={(e) => setNewItineraryName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && newItineraryName.trim() && handleCreateItinerary()}
+                        placeholder="Trip name"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCreateItinerary}
+                          disabled={!newItineraryName.trim() || creatingItinerary}
+                          className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {creatingItinerary ? 'Creating...' : 'Create'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowCreateItinerary(false); setNewItineraryName('') }}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Collapsible Organise (Category, Stage) */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOrganiseOpen(!organiseOpen)}
+                    className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
+                  >
+                    <span>Organise</span>
+                    <svg className={`w-4 h-4 text-gray-500 transition-transform ${organiseOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {organiseOpen && (
+                    <div className="p-4 space-y-4 bg-white border-t border-gray-200">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  
                   {/* Mobile Dropdown */}
                   <div className="md:hidden relative mb-2" ref={categoryDropdownRef}>
                     <button
@@ -1192,366 +1211,75 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Stage</label>
-                  
-                  {/* Mobile Dropdown */}
-                  <div className="md:hidden relative mb-2" ref={stageDropdownRef}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowStageDropdown(!showStageDropdown)
-                        setShowCategoryDropdown(false)
-                      }}
-                      className="w-full flex items-center justify-between px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <span>
-                        {statuses.length > 0 
-                          ? `${statuses.length} selected` 
-                          : 'Select stage'}
-                      </span>
-                      <svg 
-                        className={`w-4 h-4 transition-transform ${showStageDropdown ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                    
-                    {showStageDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-40 max-h-64 overflow-y-auto">
-                        <div className="p-2 border-b border-gray-200">
-                          <input
-                            type="text"
-                            value={stageSearch}
-                            onChange={(e) => setStageSearch(e.target.value)}
-                            placeholder="Search stages..."
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="p-2">
-                          {[...STATUSES, ...userCustomStatuses]
-                            .filter((stat) => 
-                              stat.toLowerCase().includes(stageSearch.toLowerCase())
-                            )
-                            .map((stat) => {
-                              const isSelected = statuses.includes(stat)
-                              return (
-                                <button
-                                  key={stat}
-                                  type="button"
-                                  onClick={() => {
-                                    handleStatusToggle(stat)
-                                    setShowCustomStatusInput(false)
-                                    setCustomStatus('')
-                                  }}
-                                  className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
-                                    isSelected
-                                      ? 'bg-gray-900 text-white'
-                                      : 'hover:bg-gray-100 text-gray-700'
-                                  }`}
-                                >
-                                  <svg
-                                    className={`w-4 h-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                  {stat}
-                                </button>
-                              )
-                            })}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowCustomStatusInput(!showCustomStatusInput)
-                              setShowStageDropdown(false)
-                              if (!showCustomStatusInput) {
-                                setCustomStatus('')
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm rounded-md transition-colors hover:bg-gray-100 text-gray-700 flex items-center gap-2"
-                          >
-                            <span className="text-lg">+</span>
-                            Custom
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Desktop Buttons */}
-                  <div className="hidden md:flex md:flex-wrap md:gap-2 mb-2 overflow-x-auto max-h-[calc(3*2.5rem+0.5rem)]" style={{ scrollbarWidth: 'thin' }}>
-                    {STATUSES.map((stat) => {
-                      const isSelected = statuses.includes(stat)
-                      return (
-                        <button
-                          key={stat}
-                          type="button"
-                          onClick={() => {
-                            handleStatusToggle(stat)
-                            setShowCustomStatusInput(false)
-                            setCustomStatus('')
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {stat}
-                        </button>
-                      )
-                    })}
-                    {userCustomStatuses.map((stat) => {
-                      const isSelected = statuses.includes(stat)
-                      return (
-                        <button
-                          key={stat}
-                          type="button"
-                          onClick={() => {
-                            handleStatusToggle(stat)
-                            setShowCustomStatusInput(false)
-                            setCustomStatus('')
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                            isSelected
-                              ? 'bg-gray-900 text-white'
-                              : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                          }`}
-                        >
-                          {stat}
-                        </button>
-                      )
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCustomStatusInput(!showCustomStatusInput)
-                        if (!showCustomStatusInput) {
-                          setCustomStatus('')
-                        }
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                        showCustomStatusInput
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      onClick={handleToggleLiked}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        liked
+                          ? 'bg-black/60 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
+                      aria-label={liked ? 'Remove liked' : 'Mark as liked'}
                     >
-                      + Custom
+                      <svg className="w-5 h-5" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                      Liked
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleVisited}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        visited
+                          ? 'bg-black/60 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      aria-label={visited ? 'Remove visited' : 'Mark as visited'}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Visited
                     </button>
                   </div>
-                  {showCustomStatusInput && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={customStatus}
-                        onChange={(e) => setCustomStatus(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleCustomStatusSave()
-                          }
-                        }}
-                        placeholder="Enter custom status..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleCustomStatusSave}
-                        className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Trip selector */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Trip
-                  </label>
-                  <select
-                    value={selectedItineraryId || ''}
-                    onChange={(e) => handleItineraryChange(e.target.value || null)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
-                  >
-                    <option value="">No trip</option>
-                    {itineraries.map((itinerary) => (
-                      <option key={itinerary.id} value={itinerary.id}>
-                        {itinerary.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-600">
-                    Assign this place to a trip to see it in your Trips
-                  </p>
-                </div>
-
-                {/* Calendar Assignment Button */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Calendar
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMonth(new Date()) // Default to today so user sees calendar context
-                      setShowCalendarModal(true)
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-left text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between"
-                  >
-                    <span>
-                      {selectedDate
-                        ? `Scheduled: ${selectedDate.toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}`
-                        : 'Add to calendar'}
-                    </span>
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  <p className="mt-1 text-xs text-gray-600">
-                    Schedule this place for a specific date
-                  </p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-6">
-              {/* Description/Caption - always editable */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {item.platform === 'TikTok' ? 'Post Caption' : item.platform === 'Instagram' ? 'Post Caption' : 'Description'}
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onBlur={handleSaveLocation}
-                  rows={4}
-                  placeholder={item.platform === 'TikTok' || item.platform === 'Instagram' ? 'Original post caption...' : 'Original post text...'}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none text-gray-900 bg-white"
-                />
-              </div>
 
-              {/* Location - always visible and editable inline */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location
-                </label>
-                <GooglePlacesInput
-                  value={locationSearchValue}
-                  onChange={handlePlaceChange}
-                  onSearchValueChange={handleSearchValueChange}
-                  onManualCityChange={handleManualCityChange}
-                  onManualCountryChange={handleManualCountryChange}
-                  onManualCityBlur={handleSaveLocation}
-                  onManualCountryBlur={handleSaveLocation}
-                  manualCity={locationCity}
-                  manualCountry={locationCountry}
-                  id="location-search-edit"
-                />
-                {(selectedPlace || locationCity || locationCountry) && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveLocation}
-                      disabled={saving}
-                      className="text-sm text-gray-600 hover:text-gray-900 font-medium disabled:opacity-50"
-                    >
-                      {saving ? 'Saving...' : 'Save location'}
-                    </button>
-                    <span className="text-gray-300">•</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setSaving(true)
-                        setError(null)
-                        
-                        try {
-                          // Directly clear all location fields in database
-                          const { error: updateError, data: updateData } = await supabase
-                            .from('saved_items')
-                            .update({
-                              place_name: null,
-                              place_id: null,
-                              latitude: null,
-                              longitude: null,
-                              formatted_address: null,
-                              location_city: null,
-                              location_country: null,
-                            })
-                            .eq('id', itemId)
-                            .select()
-
-                          if (updateError) {
-                            console.error('ItemDetail: Error removing location:', updateError)
-                            throw updateError
-                          }
-
-                          console.log('ItemDetail: Location removed successfully:', updateData?.[0])
-                          
-                          // Clear all state immediately after successful save
-                          selectedPlaceRef.current = null
-                          setSelectedPlace(null)
-                          setLocationSearchValue('')
-                          setLocationCity('')
-                          setLocationCountry('')
-                          
-                          // Reload item to reflect changes
-                          loadItem()
-                        } catch (err: any) {
-                          console.error('ItemDetail: Error removing location:', err)
-                          setError(err.message || 'Failed to remove location')
-                        } finally {
-                          setSaving(false)
-                        }
-                      }}
-                      disabled={saving}
-                      className="text-sm text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
-                    >
-                      {saving ? 'Removing...' : 'Remove location'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
+            {/* Notes */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+              <textarea
+                value={notesValue}
+                onChange={(e) => setNotesValue(e.target.value)}
+                onBlur={handleNotesBlur}
+                rows={4}
+                placeholder="Add personal notes..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none text-gray-900 bg-white"
+              />
             </div>
 
-            {/* Open original link button - prominent */}
-            <div className="mt-8 pt-6 border-t border-gray-200">
+            {/* Original link + Delete (subtle) */}
+            <div className="mt-6 pt-6 border-t border-gray-100 flex flex-wrap items-center gap-3">
               <a
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
                 Open original link
               </a>
-              <p className="text-xs text-gray-500 mt-2 break-all">{item.url}</p>
-            </div>
-
-            <div className="flex gap-4 mt-6 pt-6 border-t border-gray-200">
+              <span className="text-gray-300">·</span>
               <button
                 onClick={handleDelete}
-                className="px-6 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors"
+                className="text-sm text-red-600 hover:text-red-800"
               >
                 Delete
               </button>
@@ -1560,371 +1288,6 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         </div>
       </main>
 
-      {/* Calendar Assignment Modal */}
-      {showCalendarModal && item && (
-        <CalendarAssignmentModal
-          item={item}
-          itineraries={itineraries}
-          itemsForContext={itemsForCalendarContext}
-          selectedItineraryId={selectedItineraryId}
-          onItineraryChange={setSelectedItineraryId}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-          viewMonth={viewMonth}
-          onViewMonthChange={setViewMonth}
-          onSave={handleSaveCalendar}
-          onClose={() => {
-            setShowCalendarModal(false)
-            // Reset to current item values
-            setSelectedDate(item.planned_date ? new Date(item.planned_date) : null)
-            setSelectedItineraryId(item.itinerary_id || null)
-            if (item.planned_date) {
-              setViewMonth(new Date(item.planned_date))
-            }
-          }}
-          saving={savingCalendar}
-        />
-      )}
     </div>
   )
 }
-
-// Calendar Assignment Modal Component (shared with HomeGrid)
-interface CalendarAssignmentModalProps {
-  item: SavedItem
-  itineraries: Itinerary[]
-  itemsForContext?: SavedItem[]
-  selectedItineraryId: string | null
-  onItineraryChange: (id: string | null) => void
-  selectedDate: Date | null
-  onDateChange: (date: Date | null) => void
-  viewMonth: Date
-  onViewMonthChange: (date: Date) => void
-  onSave: () => void
-  onClose: () => void
-  saving: boolean
-}
-
-function CalendarAssignmentModal({
-  item,
-  itineraries,
-  itemsForContext = [],
-  selectedItineraryId,
-  onItineraryChange,
-  selectedDate,
-  onDateChange,
-  viewMonth,
-  onViewMonthChange,
-  onSave,
-  onClose,
-  saving,
-}: CalendarAssignmentModalProps) {
-  const [showCreateItinerary, setShowCreateItinerary] = useState(false)
-  const [newItineraryName, setNewItineraryName] = useState('')
-  const [creatingItinerary, setCreatingItinerary] = useState(false)
-  const supabase = createClient()
-
-  // Close on backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
-
-  // Close on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [onClose])
-
-  // Generate calendar days for view month
-  const calendarDays = useMemo(() => {
-    const year = viewMonth.getFullYear()
-    const month = viewMonth.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const startDate = new Date(firstDay)
-    startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
-
-    const days: Date[] = []
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(startDate)
-      date.setDate(startDate.getDate() + i)
-      days.push(date)
-    }
-    return days
-  }, [viewMonth])
-
-  // Count existing items per day (excluding current item) for calendar context
-  const itemsByDateStr = useMemo(() => {
-    const relevant = itemsForContext.filter(
-      (i) => i.id !== item.id && i.planned_date && (!selectedItineraryId || i.itinerary_id === selectedItineraryId)
-    )
-    const map: Record<string, number> = {}
-    relevant.forEach((i) => {
-      const d = i.planned_date!
-      map[d] = (map[d] || 0) + 1
-    })
-    return map
-  }, [itemsForContext, item.id, selectedItineraryId])
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ]
-
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  const isSameDay = (date1: Date, date2: Date | null) => {
-    if (!date2) return false
-    return (
-      date1.getDate() === date2.getDate() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getFullYear() === date2.getFullYear()
-    )
-  }
-
-  const handleDateClick = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    const currentDateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-
-    // Toggle date if clicking the same date
-    if (dateStr === currentDateStr) {
-      onDateChange(null)
-    } else {
-      onDateChange(date)
-    }
-  }
-
-  const handleCreateItinerary = async () => {
-    if (!newItineraryName.trim()) return
-
-    setCreatingItinerary(true)
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from('itineraries')
-        .insert({
-          user_id: user.id,
-          name: newItineraryName.trim(),
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      if (data) {
-        onItineraryChange(data.id)
-        setShowCreateItinerary(false)
-        setNewItineraryName('')
-      }
-    } catch (error) {
-      console.error('Error creating trip:', error)
-      alert('Failed to create trip. Please try again.')
-    } finally {
-      setCreatingItinerary(false)
-    }
-  }
-
-  const displayTitle = item.title || getHostname(item.url)
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-end md:items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-t-2xl md:rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
-        {/* Header */}
-        <div className="p-5 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
-            <p className="text-sm text-gray-600 mt-1 line-clamp-1">{displayTitle}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors ml-2 flex-shrink-0"
-            aria-label="Close"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* Trip selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Trip (optional)
-            </label>
-            <div className="space-y-2">
-              <select
-                value={selectedItineraryId || ''}
-                onChange={(e) => onItineraryChange(e.target.value || null)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
-              >
-                <option value="">No trip</option>
-                {itineraries.map((itinerary) => (
-                  <option key={itinerary.id} value={itinerary.id}>
-                    {itinerary.name}
-                  </option>
-                ))}
-              </select>
-              {!showCreateItinerary ? (
-                <button
-                  onClick={() => setShowCreateItinerary(true)}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  + Create new trip
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={newItineraryName}
-                    onChange={(e) => setNewItineraryName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newItineraryName.trim()) {
-                        handleCreateItinerary()
-                      }
-                    }}
-                    placeholder="Trip name"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCreateItinerary}
-                      disabled={!newItineraryName.trim() || creatingItinerary}
-                      className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {creatingItinerary ? 'Creating...' : 'Create'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowCreateItinerary(false)
-                        setNewItineraryName('')
-                      }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Date Picker */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date (optional)
-            </label>
-            {/* Month Navigation */}
-            <div className="mb-4 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const newDate = new Date(viewMonth)
-                  newDate.setMonth(viewMonth.getMonth() - 1)
-                  onViewMonthChange(newDate)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-              </h3>
-              <button
-                onClick={() => {
-                  const newDate = new Date(viewMonth)
-                  newDate.setMonth(viewMonth.getMonth() + 1)
-                  onViewMonthChange(newDate)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Week day headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {weekDays.map((day) => (
-                <div key={day} className="p-2 text-center text-xs font-medium text-gray-700">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((day, index) => {
-                const isCurrentMonth = day.getMonth() === viewMonth.getMonth()
-                const isSelected = isSameDay(day, selectedDate)
-                const today = new Date()
-                const isToday = isSameDay(day, today)
-                const dateStr = day.toISOString().split('T')[0]
-                const existingCount = itemsByDateStr[dateStr] || 0
-
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
-                      !isCurrentMonth
-                        ? 'text-gray-300'
-                        : isSelected
-                        ? 'bg-gray-900 text-white font-medium'
-                        : isToday
-                        ? 'bg-blue-50 text-blue-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {day.getDate()}
-                    {isCurrentMonth && existingCount > 0 && (
-                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 p-5 bg-gray-50">
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onSave}
-              disabled={saving}
-              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-

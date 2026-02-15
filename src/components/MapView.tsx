@@ -35,8 +35,6 @@ export default function MapView() {
   const [creatingItinerary, setCreatingItinerary] = useState(false)
   const [showCalendarModal, setShowCalendarModal] = useState(false)
   const [calendarModalItineraryId, setCalendarModalItineraryId] = useState<string | null>(null)
-  const [calendarModalDate, setCalendarModalDate] = useState<Date | null>(null)
-  const [viewMonth, setViewMonth] = useState(new Date())
   const [savingCalendar, setSavingCalendar] = useState(false)
   const supabase = createClient()
   const router = useRouter()
@@ -206,8 +204,6 @@ export default function MapView() {
   const handleOpenCalendarModal = () => {
     if (!selectedItem) return
     setCalendarModalItineraryId(selectedItem.itinerary_id || null)
-    setCalendarModalDate(selectedItem.planned_date ? new Date(selectedItem.planned_date) : null)
-    setViewMonth(new Date()) // Default to today so user sees calendar context
     setShowCalendarModal(true)
   }
 
@@ -216,43 +212,15 @@ export default function MapView() {
 
     setSavingCalendar(true)
     try {
-      const dateStr = calendarModalDate ? calendarModalDate.toISOString().split('T')[0] : null
-
-      let currentStatuses: string[] = []
-      if (selectedItem.status) {
-        try {
-          const parsed = JSON.parse(selectedItem.status)
-          currentStatuses = Array.isArray(parsed) ? parsed : [parsed]
-        } catch {
-          currentStatuses = [selectedItem.status]
-        }
-      }
-
-      let newStatuses: string[] = []
-      if (dateStr) {
-        newStatuses = currentStatuses.filter((s) => s !== 'To plan')
-        if (!newStatuses.includes('Planned')) {
-          newStatuses.push('Planned')
-        }
-      } else {
-        newStatuses = currentStatuses.filter((s) => s !== 'Planned')
-        if (!newStatuses.includes('To plan')) {
-          newStatuses.push('To plan')
-        }
-      }
-
       const updateData: {
-        planned_date: string | null
-        itinerary_id?: string | null
-        trip_position?: number | null
-        status?: string | null
+        itinerary_id: string | null
+        trip_position: number | null
       } = {
-        planned_date: dateStr,
-        status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
+        itinerary_id: calendarModalItineraryId,
+        trip_position: null,
       }
 
       if (calendarModalItineraryId) {
-        updateData.itinerary_id = calendarModalItineraryId
         const { data: maxRow } = await supabase
           .from('saved_items')
           .select('trip_position')
@@ -261,9 +229,6 @@ export default function MapView() {
           .limit(1)
           .maybeSingle()
         updateData.trip_position = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
-      } else {
-        updateData.itinerary_id = null
-        updateData.trip_position = null
       }
 
       const { error } = await supabase
@@ -278,10 +243,8 @@ export default function MapView() {
           item.id === selectedItem.id
             ? {
                 ...item,
-                planned_date: dateStr,
                 itinerary_id: calendarModalItineraryId || null,
                 trip_position: updateData.trip_position ?? null,
-                status: updateData.status || null,
               }
             : item
         )
@@ -289,18 +252,15 @@ export default function MapView() {
 
       setSelectedItem({
         ...selectedItem,
-        planned_date: dateStr,
         itinerary_id: calendarModalItineraryId || null,
         trip_position: updateData.trip_position ?? null,
-        status: updateData.status || null,
       })
 
       setShowCalendarModal(false)
       setCalendarModalItineraryId(null)
-      setCalendarModalDate(null)
     } catch (error) {
-      console.error('Error saving calendar assignment:', error)
-      alert('Failed to save calendar assignment. Please try again.')
+      console.error('Error saving trip assignment:', error)
+      alert('Failed to save trip assignment. Please try again.')
     } finally {
       setSavingCalendar(false)
     }
@@ -831,12 +791,7 @@ export default function MapView() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    {selectedItem.planned_date
-                      ? new Date(selectedItem.planned_date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })
-                      : 'Add to calendar'}
+                    Add to trip
                   </button>
                 </div>
               </div>
@@ -958,21 +913,15 @@ export default function MapView() {
 
       {/* Add to trip modal */}
       {showCalendarModal && selectedItem && (
-        <MapCalendarAssignmentModal
+        <MapAddToTripModal
           item={selectedItem}
           itineraries={itineraries}
-          itemsForContext={items}
           selectedItineraryId={calendarModalItineraryId}
           onItineraryChange={setCalendarModalItineraryId}
-          selectedDate={calendarModalDate}
-          onDateChange={setCalendarModalDate}
-          viewMonth={viewMonth}
-          onViewMonthChange={setViewMonth}
           onSave={handleSaveCalendar}
           onClose={() => {
             setShowCalendarModal(false)
             setCalendarModalItineraryId(null)
-            setCalendarModalDate(null)
           }}
           saving={savingCalendar}
         />
@@ -981,36 +930,26 @@ export default function MapView() {
   )
 }
 
-// Calendar Assignment Modal for Map preview
-interface MapCalendarAssignmentModalProps {
+// Add to Trip Modal for Map preview
+interface MapAddToTripModalProps {
   item: SavedItem
   itineraries: Itinerary[]
-  itemsForContext?: SavedItem[]
   selectedItineraryId: string | null
   onItineraryChange: (id: string | null) => void
-  selectedDate: Date | null
-  onDateChange: (date: Date | null) => void
-  viewMonth: Date
-  onViewMonthChange: (date: Date) => void
   onSave: () => void
   onClose: () => void
   saving: boolean
 }
 
-function MapCalendarAssignmentModal({
+function MapAddToTripModal({
   item,
   itineraries,
-  itemsForContext = [],
   selectedItineraryId,
   onItineraryChange,
-  selectedDate,
-  onDateChange,
-  viewMonth,
-  onViewMonthChange,
   onSave,
   onClose,
   saving,
-}: MapCalendarAssignmentModalProps) {
+}: MapAddToTripModalProps) {
   const [showCreateItinerary, setShowCreateItinerary] = useState(false)
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
@@ -1031,59 +970,6 @@ function MapCalendarAssignmentModal({
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [onClose])
-
-  const calendarDays = useMemo(() => {
-    const year = viewMonth.getFullYear()
-    const month = viewMonth.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const startDate = new Date(firstDay)
-    startDate.setDate(startDate.getDate() - startDate.getDay())
-    const days: Date[] = []
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(startDate)
-      date.setDate(startDate.getDate() + i)
-      days.push(date)
-    }
-    return days
-  }, [viewMonth])
-
-  // Count existing items per day (excluding current item) for calendar context
-  const itemsByDateStr = useMemo(() => {
-    const relevant = itemsForContext.filter(
-      (i) => i.id !== item.id && i.planned_date && (!selectedItineraryId || i.itinerary_id === selectedItineraryId)
-    )
-    const map: Record<string, number> = {}
-    relevant.forEach((i) => {
-      const d = i.planned_date!
-      map[d] = (map[d] || 0) + 1
-    })
-    return map
-  }, [itemsForContext, item.id, selectedItineraryId])
-
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ]
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  const isSameDay = (date1: Date, date2: Date | null) => {
-    if (!date2) return false
-    return (
-      date1.getDate() === date2.getDate() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getFullYear() === date2.getFullYear()
-    )
-  }
-
-  const handleDateClick = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    const currentDateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : null
-    if (dateStr === currentDateStr) {
-      onDateChange(null)
-    } else {
-      onDateChange(date)
-    }
-  }
 
   const handleCreateItinerary = async () => {
     if (!newItineraryName.trim()) return
@@ -1124,7 +1010,7 @@ function MapCalendarAssignmentModal({
       <div className="bg-white rounded-t-2xl md:rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Add to Calendar</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Add to Trip</h2>
             <p className="text-sm text-gray-600 mt-1 line-clamp-1">{displayTitle}</p>
           </div>
           <button
@@ -1140,7 +1026,7 @@ function MapCalendarAssignmentModal({
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Trip (optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Trip</label>
             <div className="space-y-2">
               <select
                 value={selectedItineraryId || ''}
@@ -1194,79 +1080,6 @@ function MapCalendarAssignmentModal({
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date (optional)</label>
-            <div className="mb-4 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const newDate = new Date(viewMonth)
-                  newDate.setMonth(viewMonth.getMonth() - 1)
-                  onViewMonthChange(newDate)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h3 className="text-lg font-semibold text-gray-900">
-                {monthNames[viewMonth.getMonth()]} {viewMonth.getFullYear()}
-              </h3>
-              <button
-                onClick={() => {
-                  const newDate = new Date(viewMonth)
-                  newDate.setMonth(viewMonth.getMonth() + 1)
-                  onViewMonthChange(newDate)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-7 gap-1 mb-2">
-              {weekDays.map((day) => (
-                <div key={day} className="p-2 text-center text-xs font-medium text-gray-700">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((day, index) => {
-                const isCurrentMonth = day.getMonth() === viewMonth.getMonth()
-                const isSelected = isSameDay(day, selectedDate)
-                const today = new Date()
-                const isToday = isSameDay(day, today)
-                const dateStr = day.toISOString().split('T')[0]
-                const existingCount = itemsByDateStr[dateStr] || 0
-
-                return (
-                  <button
-                    key={index}
-                    onClick={() => handleDateClick(day)}
-                    className={`p-2 text-sm rounded-lg transition-colors flex flex-col items-center min-h-[2.5rem] ${
-                      !isCurrentMonth
-                        ? 'text-gray-300'
-                        : isSelected
-                        ? 'bg-gray-900 text-white font-medium'
-                        : isToday
-                        ? 'bg-blue-50 text-blue-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    {day.getDate()}
-                    {isCurrentMonth && existingCount > 0 && (
-                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white/80' : 'bg-gray-400'}`} title={`${existingCount} planned`} />
-                    )}
-                  </button>
-                )
-              })}
             </div>
           </div>
         </div>
