@@ -1364,9 +1364,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedItem(item)}
-                      className="text-left bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+                      className="text-left bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 h-full flex flex-col min-w-0"
                     >
-                      <div className="aspect-[4/5] bg-gray-100">
+                      <div className="aspect-[4/5] bg-gray-100 flex-shrink-0">
                         {item.screenshot_url || item.thumbnail_url ? (
                           <img
                             src={item.screenshot_url || item.thumbnail_url || ''}
@@ -1384,7 +1384,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           />
                         )}
                       </div>
-                      <div className="p-3">
+                      <div className="p-3 flex-1 flex flex-col justify-center min-h-[52px]">
                         <p className="text-sm font-medium text-gray-900 line-clamp-2">{item.title || item.place_name || getHostname(item.url)}</p>
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.location_city || item.location_country || item.formatted_address || '—'}</p>
                       </div>
@@ -2180,8 +2180,9 @@ function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: Moo
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[200px] rounded-2xl p-4 transition-colors ${isOver ? 'bg-gray-100' : ''}`}
-      style={{ columnCount: isMobile ? 2 : 4, columnGap: '1rem' }}
+      className={`min-h-[200px] rounded-2xl p-4 transition-colors grid gap-4 ${isOver ? 'bg-gray-100' : ''} ${
+        isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+      }`}
     >
       {items.map((item) => (
         <MoodboardCardWrapper key={item.id} item={item}>
@@ -2200,7 +2201,7 @@ function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: Moo
 function MoodboardCardWrapper({ item, children }: { item: SavedItem; children: React.ReactNode }) {
   const { setNodeRef } = useDroppable({ id: item.id })
   return (
-    <div ref={setNodeRef} className="break-inside-avoid mb-4">
+    <div ref={setNodeRef} className="min-h-0 flex">
       {children}
     </div>
   )
@@ -2226,9 +2227,9 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
       {...listeners}
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
-      className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
+      className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow cursor-pointer flex flex-col h-full min-w-0 ${isDragging ? 'opacity-50' : ''}`}
     >
-      <div className="aspect-[4/5] bg-gray-100">
+      <div className="aspect-[4/5] bg-gray-100 flex-shrink-0">
         {item.screenshot_url || item.thumbnail_url ? (
           <img
             src={item.screenshot_url || item.thumbnail_url || ''}
@@ -2246,7 +2247,7 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
           />
         )}
       </div>
-      <div className="p-3">
+      <div className="p-3 flex-1 flex flex-col justify-center min-h-[52px]">
         <p className="text-sm font-medium text-gray-900 line-clamp-2">{title}</p>
         {location && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{location}</p>}
       </div>

@@ -482,23 +482,20 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
 
         {/* Stage filter removed - liked/visited shown as icons on cards */}
 
-        {/* Moodboard View (default): masonry-style grid, 16px radius, title + location only */}
+        {/* Moodboard View (default): grid with equal-height cards, 16px radius, title + location only */}
         {viewMode === 'moodboard' && (
-          <div
-            className="min-h-[200px] rounded-2xl p-4"
-            style={{ columnCount: 2, columnGap: '1rem' }}
-          >
+          <div className="min-h-[200px] rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {filteredItems.length === 0 ? (
-              <p className="text-gray-500 text-center py-12">No places in this trip yet.</p>
+              <p className="text-gray-500 text-center py-12 col-span-full">No places in this trip yet.</p>
             ) : (
               filteredItems.map((item) => (
-                <div key={item.id} className="break-inside-avoid mb-4">
+                <div key={item.id} className="min-h-0 flex">
                   <button
                     type="button"
                     onClick={() => setSelectedItem(item)}
-                    className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+                    className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col h-full min-w-0"
                   >
-                    <div className="aspect-[4/5] bg-gray-100 relative">
+                    <div className="aspect-[4/5] bg-gray-100 relative flex-shrink-0">
                       {item.screenshot_url || item.thumbnail_url ? (
                         <img
                           src={item.screenshot_url || item.thumbnail_url || ''}
@@ -535,7 +532,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                         </div>
                       )}
                     </div>
-                    <div className="p-3">
+                    <div className="p-3 flex-1 flex flex-col justify-center min-h-[52px]">
                       <p className="text-sm font-medium text-gray-900 line-clamp-2">
                         {item.title || item.place_name || getHostname(item.url)}
                       </p>
