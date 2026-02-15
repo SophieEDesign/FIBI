@@ -1248,6 +1248,8 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               </div>
                   )}
             </div>
+                </div>
+              </div>
 
             <div className="space-y-6">
 
