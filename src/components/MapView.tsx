@@ -244,16 +244,26 @@ export default function MapView() {
       const updateData: {
         planned_date: string | null
         itinerary_id?: string | null
+        trip_position?: number | null
         status?: string | null
       } = {
         planned_date: dateStr,
         status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
       }
 
-      if (calendarModalItineraryId && dateStr) {
+      if (calendarModalItineraryId) {
         updateData.itinerary_id = calendarModalItineraryId
-      } else if (!dateStr) {
+        const { data: maxRow } = await supabase
+          .from('saved_items')
+          .select('trip_position')
+          .eq('itinerary_id', calendarModalItineraryId)
+          .order('trip_position', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        updateData.trip_position = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
+      } else {
         updateData.itinerary_id = null
+        updateData.trip_position = null
       }
 
       const { error } = await supabase
@@ -270,6 +280,7 @@ export default function MapView() {
                 ...item,
                 planned_date: dateStr,
                 itinerary_id: calendarModalItineraryId || null,
+                trip_position: updateData.trip_position ?? null,
                 status: updateData.status || null,
               }
             : item
@@ -280,6 +291,7 @@ export default function MapView() {
         ...selectedItem,
         planned_date: dateStr,
         itinerary_id: calendarModalItineraryId || null,
+        trip_position: updateData.trip_position ?? null,
         status: updateData.status || null,
       })
 
@@ -684,7 +696,7 @@ export default function MapView() {
     <div className="fixed top-0 left-0 right-0 bottom-0 flex flex-col md:top-16">
       {/* Simple header */}
       <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-40 md:sticky md:top-16">
-        {/* Itinerary Filter - Top */}
+        {/* Trip filter - Top */}
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <button
@@ -814,7 +826,7 @@ export default function MapView() {
                       handleOpenCalendarModal()
                     }}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
-                    aria-label="Add to itinerary or calendar"
+                    aria-label="Add to trip"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -881,14 +893,14 @@ export default function MapView() {
         <div className="absolute bottom-4 left-4 bg-black/70 text-white text-xs p-2 rounded pointer-events-none z-30">
           <div>Items: {items.length}</div>
           <div>Filtered: {filteredItems.length}</div>
-          <div>Itinerary: {selectedItineraryId || 'All'}</div>
+          <div>Trip: {selectedItineraryId || 'All'}</div>
           <div>Loading: {loading ? 'yes' : 'no'}</div>
           <div>Google Loaded: {isGoogleLoaded ? 'yes' : 'no'}</div>
           <div>Map Instance: {mapInstanceRef.current ? 'yes' : 'no'}</div>
         </div>
       )}
 
-      {/* Create Itinerary Modal */}
+      {/* Create trip modal */}
       {showCreateItineraryModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -900,14 +912,14 @@ export default function MapView() {
           }}
         >
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Itinerary</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create trip</h2>
             <div className="space-y-4">
               <div>
-                <label htmlFor="itinerary-name" className="block text-sm font-medium text-gray-700 mb-2">
-                  Name
+                <label htmlFor="trip-name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Trip name
                 </label>
                 <input
-                  id="itinerary-name"
+                  id="trip-name"
                   type="text"
                   value={newItineraryName}
                   onChange={(e) => setNewItineraryName(e.target.value)}
@@ -944,7 +956,7 @@ export default function MapView() {
         </div>
       )}
 
-      {/* Calendar Assignment Modal - Add to Itinerary / Calendar Date */}
+      {/* Add to trip modal */}
       {showCalendarModal && selectedItem && (
         <MapCalendarAssignmentModal
           item={selectedItem}
@@ -1096,7 +1108,7 @@ function MapCalendarAssignmentModal({
       }
     } catch (error) {
       console.error('Error creating itinerary:', error)
-      alert('Failed to create itinerary. Please try again.')
+      alert('Failed to create trip. Please try again.')
     } finally {
       setCreatingItinerary(false)
     }
@@ -1128,14 +1140,14 @@ function MapCalendarAssignmentModal({
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Itinerary (optional)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Trip (optional)</label>
             <div className="space-y-2">
               <select
                 value={selectedItineraryId || ''}
                 onChange={(e) => onItineraryChange(e.target.value || null)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
               >
-                <option value="">No itinerary</option>
+                <option value="">No trip</option>
                 {itineraries.map((itinerary) => (
                   <option key={itinerary.id} value={itinerary.id}>
                     {itinerary.name}
@@ -1147,7 +1159,7 @@ function MapCalendarAssignmentModal({
                   onClick={() => setShowCreateItinerary(true)}
                   className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  + Create new itinerary
+                  + Create new trip
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -1158,7 +1170,7 @@ function MapCalendarAssignmentModal({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && newItineraryName.trim()) handleCreateItinerary()
                     }}
-                    placeholder="Itinerary name"
+                    placeholder="Trip name"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     autoFocus
                   />

@@ -19,6 +19,7 @@ export interface SavedItem {
   notes: string | null
   planned_date: string | null
   itinerary_id: string | null
+  trip_position: number | null
   created_at: string
   updated_at: string
 }
@@ -47,6 +48,8 @@ export interface Itinerary {
   id: string
   user_id: string
   name: string
+  start_date: string | null
+  end_date: string | null
   created_at: string
 }
 

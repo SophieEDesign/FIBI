@@ -356,7 +356,27 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   // Handle itinerary change
   const handleItineraryChange = async (itineraryId: string | null) => {
     setSelectedItineraryId(itineraryId)
-    await saveField('itinerary_id', itineraryId)
+    if (!item) return
+    let tripPosition: number | null = null
+    if (itineraryId) {
+      const { data: maxRow } = await supabase
+        .from('saved_items')
+        .select('trip_position')
+        .eq('itinerary_id', itineraryId)
+        .order('trip_position', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      tripPosition = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
+    }
+    const { error } = await supabase
+      .from('saved_items')
+      .update({ itinerary_id: itineraryId, trip_position: tripPosition })
+      .eq('id', item.id)
+    if (error) {
+      console.error('Error updating trip:', error)
+      return
+    }
+    loadItem()
   }
 
   // Handle saving calendar assignment
@@ -397,18 +417,26 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       const updateData: {
         planned_date: string | null
         itinerary_id?: string | null
+        trip_position?: number | null
         status?: string | null
       } = {
         planned_date: dateStr,
         status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
       }
 
-      // If an itinerary is selected and we're assigning a date, also assign to itinerary
-      if (selectedItineraryId && dateStr) {
+      if (selectedItineraryId) {
         updateData.itinerary_id = selectedItineraryId
-      } else if (!dateStr) {
-        // If removing date, also remove itinerary assignment
+        const { data: maxRow } = await supabase
+          .from('saved_items')
+          .select('trip_position')
+          .eq('itinerary_id', selectedItineraryId)
+          .order('trip_position', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        updateData.trip_position = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
+      } else {
         updateData.itinerary_id = null
+        updateData.trip_position = null
       }
 
       const { error } = await supabase
@@ -1348,17 +1376,17 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                   )}
                 </div>
 
-                {/* Itinerary selector */}
+                {/* Trip selector */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Itinerary
+                    Trip
                   </label>
                   <select
                     value={selectedItineraryId || ''}
                     onChange={(e) => handleItineraryChange(e.target.value || null)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
                   >
-                    <option value="">No itinerary</option>
+                    <option value="">No trip</option>
                     {itineraries.map((itinerary) => (
                       <option key={itinerary.id} value={itinerary.id}>
                         {itinerary.name}
@@ -1366,7 +1394,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-gray-600">
-                    Assign this place to an itinerary to filter it in the calendar view
+                    Assign this place to a trip to see it in your Trips
                   </p>
                 </div>
 
@@ -1700,8 +1728,8 @@ function CalendarAssignmentModal({
         setNewItineraryName('')
       }
     } catch (error) {
-      console.error('Error creating itinerary:', error)
-      alert('Failed to create itinerary. Please try again.')
+      console.error('Error creating trip:', error)
+      alert('Failed to create trip. Please try again.')
     } finally {
       setCreatingItinerary(false)
     }
@@ -1734,10 +1762,10 @@ function CalendarAssignmentModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* Itinerary Selector */}
+          {/* Trip selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Itinerary (optional)
+              Trip (optional)
             </label>
             <div className="space-y-2">
               <select
@@ -1745,7 +1773,7 @@ function CalendarAssignmentModal({
                 onChange={(e) => onItineraryChange(e.target.value || null)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
               >
-                <option value="">No itinerary</option>
+                <option value="">No trip</option>
                 {itineraries.map((itinerary) => (
                   <option key={itinerary.id} value={itinerary.id}>
                     {itinerary.name}
@@ -1757,7 +1785,7 @@ function CalendarAssignmentModal({
                   onClick={() => setShowCreateItinerary(true)}
                   className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  + Create new itinerary
+                  + Create new trip
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -1770,7 +1798,7 @@ function CalendarAssignmentModal({
                         handleCreateItinerary()
                       }
                     }}
-                    placeholder="Itinerary name"
+                    placeholder="Trip name"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     autoFocus
                   />

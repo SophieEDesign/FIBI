@@ -16,6 +16,8 @@ interface SharedItineraryData {
   itinerary: {
     id: string
     name: string
+    start_date?: string | null
+    end_date?: string | null
     created_at: string
   }
   items: SavedItem[]
@@ -34,7 +36,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [viewMode, setViewMode] = useState<'calendar' | 'map' | 'list'>('calendar')
+  const [viewMode, setViewMode] = useState<'moodboard' | 'map' | 'list'>('moodboard')
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
   const [user, setUser] = useState<{ id: string } | null>(null)
@@ -72,9 +74,9 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       
       if (!response.ok) {
         if (response.status === 404) {
-          setError('This itinerary is no longer available or the link has been revoked.')
+          setError('This trip is no longer available or the link has been revoked.')
         } else {
-          setError('Failed to load itinerary. Please try again later.')
+          setError('Failed to load trip. Please try again later.')
         }
         return
       }
@@ -82,8 +84,8 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       const result = await response.json()
       setData(result)
     } catch (err) {
-      console.error('Error loading shared itinerary:', err)
-      setError('Failed to load itinerary. Please try again later.')
+      console.error('Error loading shared trip:', err)
+      setError('Failed to load trip. Please try again later.')
     } finally {
       setLoading(false)
     }
@@ -294,7 +296,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading itinerary...</p>
+          <p className="text-gray-600">Loading trip...</p>
         </div>
       </div>
     )
@@ -319,7 +321,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to load itinerary</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to load trip</h2>
           <p className="text-sm text-gray-600 mb-6">{error}</p>
           <Link
             href="/"
@@ -344,7 +346,14 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-gray-900">{data.itinerary.name}</h1>
-              <p className="text-xs text-gray-500 mt-1">Shared itinerary</p>
+              <p className="text-xs text-gray-500 mt-1">Shared trip</p>
+              {(data.itinerary.start_date || data.itinerary.end_date) && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {data.itinerary.start_date && new Date(data.itinerary.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {data.itinerary.start_date && data.itinerary.end_date && ' – '}
+                  {data.itinerary.end_date && new Date(data.itinerary.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               {addToAccountSuccess ? (
@@ -446,14 +455,14 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         <div className="mb-6">
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setViewMode('calendar')}
+              onClick={() => setViewMode('moodboard')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'calendar'
+                viewMode === 'moodboard'
                   ? 'bg-gray-900 text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
-              Calendar
+              Board
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -533,127 +542,53 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
           </div>
         )}
 
-        {/* Calendar View */}
-        {viewMode === 'calendar' && (
-          <>
-            {/* Month Navigation */}
-            <div className="mb-6 flex items-center justify-between">
-              <button
-                onClick={() => navigateMonth('prev')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Previous month"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-
-              <div className="flex items-center gap-4">
-                <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
-                  {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-                </h2>
-                <button
-                  onClick={goToToday}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Today
-                </button>
-              </div>
-
-              <button
-                onClick={() => navigateMonth('next')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Next month"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Unplanned Items Section */}
-            {unplannedItems.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Unplanned ({unplannedItems.length})
-                </h3>
-                <div className="min-h-[100px] p-4 bg-white rounded-xl border-2 border-dashed border-gray-300 flex flex-wrap gap-3">
-                  {unplannedItems.map((item) => (
-                    <PlaceCard
-                      key={item.id}
-                      item={item}
-                      onSelect={() => setSelectedItem(item)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Calendar Grid */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              {/* Week day headers */}
-              <div className="grid grid-cols-7 border-b border-gray-200">
-                {weekDays.map((day) => (
-                  <div
-                    key={day}
-                    className="p-2 md:p-3 text-center text-xs md:text-sm font-medium text-gray-700 bg-gray-50"
+        {/* Moodboard View (default): masonry-style grid, 16px radius, title + location only */}
+        {viewMode === 'moodboard' && (
+          <div
+            className="min-h-[200px] rounded-2xl p-4"
+            style={{ columnCount: 2, columnGap: '1rem' }}
+          >
+            {filteredItems.length === 0 ? (
+              <p className="text-gray-500 text-center py-12">No places in this trip yet.</p>
+            ) : (
+              filteredItems.map((item) => (
+                <div key={item.id} className="break-inside-avoid mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedItem(item)}
+                    className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
                   >
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendar days */}
-              <div className="grid grid-cols-7">
-                {calendarDays.map((day, index) => (
-                  <div
-                    key={index}
-                    className={`min-h-[80px] md:min-h-[120px] p-1 md:p-2 border-r border-b border-gray-200 ${
-                      day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                    } ${day.isToday ? 'bg-blue-50' : ''}`}
-                  >
-                    <div
-                      className={`text-xs md:text-sm font-medium mb-1 ${
-                        day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'
-                      } ${day.isToday ? 'text-blue-600 font-bold' : ''}`}
-                    >
-                      {day.date.getDate()}
-                    </div>
-                    <div className="space-y-1">
-                      {day.items.map((item) => (
-                        <PlaceCard
-                          key={item.id}
-                          item={item}
-                          compact
-                          onSelect={() => setSelectedItem(item)}
+                    <div className="aspect-[4/3] bg-gray-100">
+                      {item.screenshot_url || item.thumbnail_url ? (
+                        <img
+                          src={item.screenshot_url || item.thumbnail_url || ''}
+                          alt={item.title || item.place_name || getHostname(item.url)}
+                          className="w-full h-full object-cover"
                         />
-                      ))}
+                      ) : (
+                        <LinkPreview
+                          url={item.url}
+                          ogImage={item.thumbnail_url}
+                          screenshotUrl={item.screenshot_url}
+                          description={item.description}
+                          platform={item.platform}
+                          hideLabel
+                        />
+                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+                    <div className="p-3">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                        {item.title || item.place_name || getHostname(item.url)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                        {item.location_city || item.location_country || item.formatted_address || '—'}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         )}
 
         {/* List View */}

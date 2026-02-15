@@ -80,6 +80,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [showRemoveItineraryModal, setShowRemoveItineraryModal] = useState(false)
   const [removingItinerary, setRemovingItinerary] = useState(false)
+  const [editingTripDates, setEditingTripDates] = useState(false)
+  const [editTripStart, setEditTripStart] = useState('')
+  const [editTripEnd, setEditTripEnd] = useState('')
+  const [savingTripDates, setSavingTripDates] = useState(false)
   const [itineraryComments, setItineraryComments] = useState<{ id: string; user_id: string; body: string; created_at: string; author_name: string }[]>([])
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [newCommentBody, setNewCommentBody] = useState('')
@@ -433,6 +437,34 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
+  const saveTripDates = async () => {
+    if (!user || !selectedItineraryId) return
+    setSavingTripDates(true)
+    try {
+      const { error } = await supabase
+        .from('itineraries')
+        .update({
+          start_date: editTripStart || null,
+          end_date: editTripEnd || null,
+        })
+        .eq('id', selectedItineraryId)
+        .eq('user_id', user.id)
+      if (error) throw error
+      setItineraries((prev) =>
+        prev.map((t) =>
+          t.id === selectedItineraryId
+            ? { ...t, start_date: editTripStart || null, end_date: editTripEnd || null }
+            : t
+        )
+      )
+      setEditingTripDates(false)
+    } catch (err) {
+      console.error('Error saving trip dates:', err)
+    } finally {
+      setSavingTripDates(false)
+    }
+  }
+
   const handleRemoveItinerary = async () => {
     if (!user || !selectedItineraryId) return
     setRemovingItinerary(true)
@@ -450,7 +482,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
       await loadItems()
     } catch (error) {
       console.error('Error removing itinerary:', error)
-      alert('Failed to remove itinerary. Please try again.')
+      alert('Failed to remove trip. Please try again.')
     } finally {
       setRemovingItinerary(false)
     }
@@ -526,7 +558,18 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }, [items, selectedItineraryId])
 
-  // Generate calendar days for current month
+  // Trip places in display order (trip_position ASC NULLS LAST, then created_at)
+  const tripPlacesOrdered = useMemo(() => {
+    if (!selectedItineraryId) return []
+    return [...filteredItems].sort((a, b) => {
+      const posA = a.trip_position ?? 999999
+      const posB = b.trip_position ?? 999999
+      if (posA !== posB) return posA - posB
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    })
+  }, [selectedItineraryId, filteredItems])
+
+  // Generate calendar days for current month (kept for reference but not rendered in new UI)
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
@@ -753,18 +796,22 @@ export default function CalendarView({ user }: CalendarViewProps) {
       const updateData: { 
         planned_date: string | null
         itinerary_id?: string | null
+        trip_position?: number | null
         status?: string | null
       } = {
         planned_date: dateStr,
         status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
       }
-      
-      // If an itinerary is selected and we're assigning a date, also assign to itinerary
+
       if (selectedItineraryId && dateStr) {
         updateData.itinerary_id = selectedItineraryId
+        const inTrip = filteredItems.filter((i) => i.itinerary_id === selectedItineraryId && i.id !== itemId)
+        updateData.trip_position = inTrip.length
+      } else if (!dateStr) {
+        updateData.itinerary_id = null
+        updateData.trip_position = null
       }
-      // If setting date to null (unplanned), don't change itinerary_id
-      
+
       const { error } = await supabase
         .from('saved_items')
         .update(updateData)
@@ -774,20 +821,54 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
       // Optimistic update
       setItems((prev) =>
-        prev.map((item) =>
-          item.id === itemId 
-            ? { 
-                ...item, 
-                planned_date: dateStr, 
+        prev.map((it) =>
+          it.id === itemId
+            ? {
+                ...it,
+                planned_date: dateStr,
                 status: updateData.status || null,
-                ...(selectedItineraryId && dateStr ? { itinerary_id: selectedItineraryId } : {}) 
+                itinerary_id: updateData.itinerary_id ?? it.itinerary_id,
+                trip_position: updateData.trip_position ?? it.trip_position,
               }
-            : item
+            : it
         )
       )
     } catch (error) {
       console.error('Error updating planned date:', error)
       loadItems() // Reload on error
+    }
+  }
+
+  // Reorder trip places: update trip_position for affected items
+  const reorderTripPlaces = async (itemId: string, newIndex: number) => {
+    if (!selectedItineraryId || newIndex < 0) return
+    const ordered = tripPlacesOrdered
+    const oldIndex = ordered.findIndex((i) => i.id === itemId)
+    if (oldIndex === -1 || oldIndex === newIndex) return
+
+    const reordered = [...ordered]
+    const [removed] = reordered.splice(oldIndex, 1)
+    reordered.splice(newIndex, 0, removed)
+
+    // Optimistic update
+    setItems((prev) =>
+      prev.map((it) => {
+        const pos = reordered.findIndex((r) => r.id === it.id)
+        if (pos === -1) return it
+        return { ...it, trip_position: pos }
+      })
+    )
+
+    try {
+      for (let i = 0; i < reordered.length; i++) {
+        await supabase
+          .from('saved_items')
+          .update({ trip_position: i })
+          .eq('id', reordered[i].id)
+      }
+    } catch (err) {
+      console.error('Error reordering trip places:', err)
+      loadItems()
     }
   }
 
@@ -799,17 +880,29 @@ export default function CalendarView({ user }: CalendarViewProps) {
     if (!over) return
 
     const itemId = active.id as string
-    const targetDate = over.id as string
+    const overId = over.id as string
 
-    // If dropped on "unplanned" area, set planned_date to null
-    if (targetDate === 'unplanned') {
-      await assignDateToItem(itemId, null)
+    // Trip moodboard: reorder by dropping on another place or on the moodboard drop zone
+    if (selectedItineraryId) {
+      if (overId === 'moodboard') {
+        // Dropped on the board (end of list)
+        await reorderTripPlaces(itemId, tripPlacesOrdered.length - 1)
+        return
+      }
+      const newIndex = tripPlacesOrdered.findIndex((i) => i.id === overId)
+      if (newIndex !== -1) {
+        await reorderTripPlaces(itemId, newIndex)
+      }
       return
     }
 
-    // Parse date from target (format: "date-YYYY-MM-DD")
-    if (typeof targetDate === 'string' && targetDate.startsWith('date-')) {
-      const dateStr = targetDate.replace('date-', '')
+    // Legacy: date assignment (kept for any remaining flows; can be removed if unused)
+    if (overId === 'unplanned') {
+      await assignDateToItem(itemId, null)
+      return
+    }
+    if (typeof overId === 'string' && overId.startsWith('date-')) {
+      const dateStr = overId.replace('date-', '')
       await assignDateToItem(itemId, dateStr)
     }
   }
@@ -992,10 +1085,10 @@ export default function CalendarView({ user }: CalendarViewProps) {
         {hasPlacesNoTrips && (
           <div className="max-w-xl mx-auto text-center py-14 md:py-20">
             <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
-              Turn your saved places into a trip.
+              Start shaping your next trip.
             </h2>
             <p className="text-base text-[#6b7280] mb-8 leading-relaxed">
-              Create a trip and add your places to plan dates and share with others.
+              Group your saved places into a trip. You can add dates later.
             </p>
             <button
               type="button"
@@ -1007,7 +1100,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           </div>
         )}
 
-        {/* Itinerary Tabs - only when we have trips or no places */}
+        {/* Trip tabs - only when we have trips or no places */}
         {!hasPlacesNoTrips && (
         <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
@@ -1044,7 +1137,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       }}
                       disabled={loadingShare}
                       className="p-2 rounded-xl text-[#6b7280] hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Share itinerary"
+                      title="Share trip"
                     >
                       {loadingShare ? (
                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1057,7 +1150,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         </svg>
                       )}
                       <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        Share itinerary
+                        Share trip
                       </span>
                     </button>
                     {itinerary.user_id === user?.id && (
@@ -1069,13 +1162,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           setShowRemoveItineraryModal(true)
                         }}
                         className="p-2 rounded-xl text-[#6b7280] hover:bg-red-50 hover:text-red-600 transition-colors relative group"
-                        title="Remove itinerary"
+                        title="Remove trip"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                         <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                          Remove itinerary
+                          Remove trip
                         </span>
                       </button>
                     )}
@@ -1105,41 +1198,155 @@ export default function CalendarView({ user }: CalendarViewProps) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-            {/* Month Navigation */}
-            <div className="mb-6 flex items-center justify-between">
-            <button
-              onClick={() => navigateMonth('prev')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Previous month"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
+            {/* Trip view: moodboard when a trip is selected, or all places when "All" */}
+          {selectedItineraryId ? (
+            <>
+              {/* Trip header: name + optional dates (subtle) + edit */}
+              {(() => {
+                const trip = itineraries.find((t) => t.id === selectedItineraryId)
+                if (!trip) return null
+                return (
+                  <div className="mb-6">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div>
+                        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">{trip.name}</h2>
+                        {!editingTripDates && (trip.start_date || trip.end_date) && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            {trip.start_date && new Date(trip.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {trip.start_date && trip.end_date && ' – '}
+                            {trip.end_date && new Date(trip.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        )}
+                        {editingTripDates && (
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <input
+                              type="date"
+                              value={editTripStart}
+                              onChange={(e) => setEditTripStart(e.target.value)}
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                            />
+                            <span className="text-gray-400">–</span>
+                            <input
+                              type="date"
+                              value={editTripEnd}
+                              onChange={(e) => setEditTripEnd(e.target.value)}
+                              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                            />
+                            <button
+                              type="button"
+                              onClick={saveTripDates}
+                              disabled={savingTripDates}
+                              className="text-sm font-medium text-gray-900 hover:underline disabled:opacity-50"
+                            >
+                              {savingTripDates ? 'Saving…' : 'Save'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTripDates(false)
+                                setEditTripStart(trip.start_date || '')
+                                setEditTripEnd(trip.end_date || '')
+                              }}
+                              className="text-sm text-gray-500 hover:text-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {!editingTripDates && trip.user_id === user?.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTripDates(true)
+                            setEditTripStart(trip.start_date || '')
+                            setEditTripEnd(trip.end_date || '')
+                          }}
+                          className="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          Edit dates
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Moodboard empty state */}
+              {tripPlacesOrdered.length === 0 && (
+                <div className="max-w-xl mx-auto text-center py-14 md:py-20">
+                  <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
+                    Start shaping this trip.
+                  </h2>
+                  <p className="text-base text-[#6b7280] mb-8 leading-relaxed">
+                    Add places to build your board.
+                  </p>
+                  <Link
+                    href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
+                    className="inline-block bg-[#1f2937] text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-opacity"
+                  >
+                    Add a place
+                  </Link>
+                </div>
+              )}
+
+              {/* Moodboard grid: masonry-style, 16px radius, image-first, title + location only */}
+              {tripPlacesOrdered.length > 0 && (
+                <MoodboardGrid
+                  items={tripPlacesOrdered}
+                  activeId={activeId}
+                  draggedItem={draggedItem}
+                  onSelect={(item) => setSelectedItem(item)}
+                  isMobile={isMobile}
                 />
-              </svg>
-            </button>
-
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
-                {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-              </h2>
-              <button
-                onClick={goToToday}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Today
-              </button>
+              )}
+            </>
+          ) : (
+            /* All: simple grid of all places */
+            <div className="mb-6">
+              {filteredItems.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No places yet. Add places or select a trip.</p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  {filteredItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedItem(item)}
+                      className="text-left bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+                    >
+                      <div className="aspect-[4/3] bg-gray-100">
+                        {item.screenshot_url || item.thumbnail_url ? (
+                          <img
+                            src={item.screenshot_url || item.thumbnail_url || ''}
+                            alt={item.title || item.place_name || 'Place'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <LinkPreview
+                            url={item.url}
+                            ogImage={item.thumbnail_url}
+                            screenshotUrl={item.screenshot_url}
+                            description={item.description}
+                            platform={item.platform}
+                            hideLabel
+                          />
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-2">{item.title || item.place_name || getHostname(item.url)}</p>
+                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.location_city || item.location_country || item.formatted_address || '—'}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
 
-            <div className="flex items-center gap-2">
+          {/* Download (when a trip is selected) */}
+          {selectedItineraryId && tripPlacesOrdered.length > 0 && (
+            <div className="mb-4">
               <button
                 type="button"
                 onClick={(e) => {
@@ -1148,115 +1355,18 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   handleDownloadCalendar(e)
                 }}
                 className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                title="Download calendar"
+                title="Download trip"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 <span className="hidden sm:inline">Download</span>
               </button>
-              <button
-                onClick={() => navigateMonth('next')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Next month"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
             </div>
-          </div>
+          )}
 
-          {/* Unplanned Items Section - Always Visible */}
-          <div className="mb-6 bg-white rounded-xl border border-gray-200 p-4 md:p-6">
-            <button
-              onClick={() => isMobile && setIsUnplannedExpanded(!isUnplannedExpanded)}
-              className={`w-full flex items-center justify-between mb-4 ${isMobile ? 'cursor-pointer' : 'cursor-default'}`}
-            >
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Unplanned Places
-                </h3>
-                <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
-                  {unplannedItems.length}
-                </span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                {/* Mobile dropdown arrow */}
-                {isMobile && (
-                  <svg 
-                    className={`w-5 h-5 text-gray-600 transition-transform ${isUnplannedExpanded ? 'rotate-180' : ''}`}
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
-                
-                {/* View Mode Toggle - Hidden on mobile when collapsed */}
-                {(!isMobile || isUnplannedExpanded) && (
-                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setUnplannedViewMode('list')
-                      }}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                        unplannedViewMode === 'list'
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                      title="List view"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setUnplannedViewMode('grid')
-                      }}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-300 ${
-                        unplannedViewMode === 'grid'
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                      }`}
-                      title="Grid view"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </button>
-
-            {/* Filter Controls - Dropdown multiselects in a row - Hidden on mobile when collapsed */}
-            {(!isMobile || isUnplannedExpanded) && (
+          {/* REMOVED: Unplanned section and calendar grid - replaced by trip moodboard / all grid above */}
+          {false && (
             <div className="mb-4 flex items-center gap-3 flex-wrap">
               {/* Location Filter Dropdown */}
               {filterOptions.locations.length > 0 && (
@@ -1701,8 +1811,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
               })}
             </div>
           </div>
+          )}
 
-          {/* Comments (when an itinerary is selected) */}
+          {/* Comments (when a trip is selected) */}
           {selectedItineraryId && (
             <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
               <button
@@ -1908,7 +2019,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           />
         )}
 
-        {/* Create Itinerary Modal */}
+        {/* Create trip modal */}
         {showCreateItineraryModal && (
           <div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -1920,14 +2031,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
             }}
           >
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create Itinerary</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Create trip</h2>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="itinerary-name" className="block text-sm font-medium text-gray-700 mb-2">
-                    Name
+                  <label htmlFor="trip-name" className="block text-sm font-medium text-gray-700 mb-2">
+                    Trip name
                   </label>
                   <input
-                    id="itinerary-name"
+                    id="trip-name"
                     type="text"
                     value={newItineraryName}
                     onChange={(e) => setNewItineraryName(e.target.value)}
@@ -1964,7 +2075,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           </div>
         )}
 
-        {/* Share Itinerary Modal */}
+        {/* Share trip modal */}
         {showShareModal && (
           <div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -1981,7 +2092,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
           >
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Share Itinerary</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Share trip</h2>
                 <button
                   onClick={() => {
                     setShowShareModal(false)
@@ -2024,7 +2135,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         />
                         <div>
                           <span className="font-medium text-gray-900">Collaborate</span>
-                          <p className="text-xs text-gray-600 mt-0.5">Work on the same itinerary together. They&apos;ll see it in their calendar and you&apos;ll see who it&apos;s shared with.</p>
+                          <p className="text-xs text-gray-600 mt-0.5">Work on the same trip together. They&apos;ll see it in their Trips and you&apos;ll see who it&apos;s shared with.</p>
                         </div>
                       </label>
                       <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
@@ -2095,8 +2206,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   </div>
                   <p className="text-xs text-gray-600 mt-2">
                     {shareType === 'collaborate'
-                      ? 'Share this link so others can join as collaborators. They\'ll see the itinerary in their calendar and can edit it.'
-                      : 'Anyone with this link can view your itinerary. They can add a copy to their account.'}
+                      ? 'Share this link so others can join as collaborators. They\'ll see the trip in their Trips and can edit it.'
+                      : 'Anyone with this link can view your trip. They can add a copy to their account.'}
                   </p>
                   {shareType === 'collaborate' && shareCollaborators.length > 0 && (
                     <p className="text-xs text-gray-600 mt-2">
@@ -2226,8 +2337,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     onClick={async () => {
                       try {
                         await navigator.share({
-                          title: 'Shared Itinerary',
-                          text: 'Check out this travel itinerary',
+title: 'Shared trip',
+          text: 'Check out this trip',
                           url: shareUrl,
                         })
                       } catch (error: any) {
@@ -2274,13 +2385,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
           </div>
         )}
 
-        {/* Remove Itinerary Modal */}
+        {/* Remove trip modal */}
         {showRemoveItineraryModal && selectedItineraryId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
             <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove itinerary?</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Remove trip?</h3>
               <p className="text-sm text-gray-600 mb-6">
-                Remove &quot;{itineraries.find((i) => i.id === selectedItineraryId)?.name ?? 'this itinerary'}&quot;? Places in it will become unplanned.
+                Remove &quot;{itineraries.find((i) => i.id === selectedItineraryId)?.name ?? 'this trip'}&quot;? Places in it will be removed from this trip.
               </p>
               <div className="flex gap-3">
                 <button
@@ -2335,34 +2446,96 @@ export default function CalendarView({ user }: CalendarViewProps) {
           </div>
         )}
 
-        {!loading && items.length > 0 && unplannedItems.length === items.length && (
-          <div className="text-center py-8 md:py-12 mt-6">
-            <div className="mb-4">
-              <svg
-                className="mx-auto h-10 w-10 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {isMobile ? 'Tap or drag places to plan them' : 'Drag places onto the calendar'}
-            </h3>
-            <p className="text-sm text-gray-600 max-w-md mx-auto">
-              {isMobile
-                ? 'Tap any place in the Unplanned Places section above to assign it to a date, or hold and drag to move it directly onto a calendar date. You can move places between dates or remove them by dragging back to unplanned.'
-                : 'Drag any place from the Unplanned Places section above onto a date to plan it. You can move places between dates or remove them by dragging back to unplanned.'}
-            </p>
-          </div>
-        )}
       </main>
+    </div>
+  )
+}
+
+// Moodboard: masonry grid with draggable cards (title + location only, 16px radius)
+interface MoodboardGridProps {
+  items: SavedItem[]
+  activeId: string | null
+  draggedItem: SavedItem | null
+  onSelect: (item: SavedItem) => void
+  isMobile: boolean
+}
+
+function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: MoodboardGridProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: 'moodboard' })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[200px] rounded-2xl p-4 transition-colors ${isOver ? 'bg-gray-100' : ''}`}
+      style={{ columnCount: isMobile ? 2 : 4, columnGap: '1rem' }}
+    >
+      {items.map((item) => (
+        <MoodboardCardWrapper key={item.id} item={item}>
+          <MoodboardCard
+            item={item}
+            isDragging={activeId === item.id}
+            onSelect={() => onSelect(item)}
+            isMobile={isMobile}
+          />
+        </MoodboardCardWrapper>
+      ))}
+    </div>
+  )
+}
+
+function MoodboardCardWrapper({ item, children }: { item: SavedItem; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id: item.id })
+  return (
+    <div ref={setNodeRef} className="break-inside-avoid mb-4">
+      {children}
+    </div>
+  )
+}
+
+interface MoodboardCardProps {
+  item: SavedItem
+  isDragging: boolean
+  onSelect: () => void
+  isMobile: boolean
+}
+
+function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardProps) {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: item.id })
+  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
+  const title = item.title || item.place_name || getHostname(item.url)
+  const location = item.location_city || item.location_country || item.formatted_address || null
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => { e.stopPropagation(); onSelect() }}
+      className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
+    >
+      <div className="aspect-[4/3] bg-gray-100">
+        {item.screenshot_url || item.thumbnail_url ? (
+          <img
+            src={item.screenshot_url || item.thumbnail_url || ''}
+            alt={title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <LinkPreview
+            url={item.url}
+            ogImage={item.thumbnail_url}
+            screenshotUrl={item.screenshot_url}
+            description={item.description}
+            platform={item.platform}
+            hideLabel
+          />
+        )}
+      </div>
+      <div className="p-3">
+        <p className="text-sm font-medium text-gray-900 line-clamp-2">{title}</p>
+        {location && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{location}</p>}
+      </div>
     </div>
   )
 }
@@ -3071,7 +3244,7 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
       }
     } catch (error) {
       console.error('Error creating itinerary:', error)
-      alert('Failed to create itinerary. Please try again.')
+      alert('Failed to create trip. Please try again.')
     } finally {
       setCreatingItinerary(false)
     }
@@ -3112,18 +3285,20 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
       const updateData: {
         planned_date: string | null
         itinerary_id?: string | null
+        trip_position?: number | null
         status?: string | null
       } = {
         planned_date: dateStr,
         status: newStatuses.length > 0 ? JSON.stringify(newStatuses) : null,
       }
 
-      // If an itinerary is selected and we're assigning a date, also assign to itinerary
-      if (selectedItinerary && dateStr) {
+      if (selectedItinerary) {
         updateData.itinerary_id = selectedItinerary
-      } else if (!dateStr) {
-        // If removing date, also remove itinerary assignment
+        const inTrip = itemsForContext.filter((i) => i.itinerary_id === selectedItinerary && i.id !== item.id)
+        updateData.trip_position = inTrip.length
+      } else {
         updateData.itinerary_id = null
+        updateData.trip_position = null
       }
 
       const { error } = await supabase
@@ -3168,10 +3343,10 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* Itinerary Selector */}
+          {/* Trip selector */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Itinerary (optional)
+              Trip (optional)
             </label>
             <div className="space-y-2">
               <select
@@ -3179,7 +3354,7 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
                 onChange={(e) => setSelectedItinerary(e.target.value || null)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
               >
-                <option value="">No itinerary</option>
+                <option value="">No trip</option>
                 {itineraries.map((itinerary) => (
                   <option key={itinerary.id} value={itinerary.id}>
                     {itinerary.name}
@@ -3191,7 +3366,7 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
                   onClick={() => setShowCreateItinerary(true)}
                   className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  + Create new itinerary
+                  + Create new trip
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -3204,7 +3379,7 @@ function DatePickerModal({ item, currentDate, currentItineraryId, itineraries, s
                         handleCreateItinerary()
                       }
                     }}
-                    placeholder="Itinerary name"
+                    placeholder="Trip name"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
                     autoFocus
                   />

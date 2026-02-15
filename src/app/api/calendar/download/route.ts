@@ -90,7 +90,10 @@ export async function GET(request: NextRequest) {
       console.log('No itinerary filter - including all items with planned_date')
     }
 
-    // Order by planned date
+    // Order: when filtering by trip, use trip_position then planned_date; otherwise planned_date only
+    if (itineraryId) {
+      query = query.order('trip_position', { ascending: true })
+    }
     query = query.order('planned_date', { ascending: true })
     
     console.log('Calendar download query:', {

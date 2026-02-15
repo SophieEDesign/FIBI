@@ -12,17 +12,18 @@ interface OEmbedResponse {
   error?: string
 }
 
-function detectPlatformFromUrl(url: string): 'tiktok' | 'instagram' | 'youtube' | 'generic' {
+function detectPlatformFromUrl(url: string): 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'generic' {
   const hostname = new URL(url).hostname.toLowerCase()
   
   if (hostname.includes('tiktok.com')) return 'tiktok'
   if (hostname.includes('instagram.com')) return 'instagram'
   if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube'
+  if (hostname.includes('facebook.com') || hostname.includes('fb.com')) return 'facebook'
   return 'generic'
 }
 
-/** Resolve short URLs to canonical URL by following redirects. Same pull-through for TikTok, Instagram, YouTube, etc. */
-async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram' | 'youtube' | 'generic'): Promise<string> {
+/** Resolve short/share URLs to canonical URL by following redirects. Same pull-through for TikTok, Instagram, YouTube, Facebook, etc. */
+async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'generic'): Promise<string> {
   if (platform === 'generic') return url
   try {
     const controller = new AbortController()
@@ -291,7 +292,7 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
     fetchUrl = await resolveCanonicalUrl(url, platform)
   }
 
-  // Try platform-specific oEmbed first
+  // Try platform-specific oEmbed first (Facebook has no public oEmbed; we use generic metadata)
   switch (platform) {
     case 'tiktok':
       oembedData = await fetchTikTokOEmbed(fetchUrl)
@@ -301,6 +302,9 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
       break
     case 'youtube':
       oembedData = await fetchYouTubeOEmbed(fetchUrl)
+      break
+    case 'facebook':
+      oembedData = null
       break
     default:
       oembedData = null
@@ -378,8 +382,8 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
             description = ogDescriptionMatch[1].trim()
           }
           
-          // For TikTok, Instagram, YouTube: try JSON-LD / structured data if og:description missing
-          if ((platform === 'tiktok' || platform === 'instagram' || platform === 'youtube') && !description) {
+          // For TikTok, Instagram, YouTube, Facebook: try JSON-LD / structured data if og:description missing
+          if ((platform === 'tiktok' || platform === 'instagram' || platform === 'youtube' || platform === 'facebook') && !description) {
             try {
               const jsonLdMatches = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
               if (jsonLdMatches) {
@@ -435,6 +439,7 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
             platform === 'tiktok' ? 'TikTok'
             : platform === 'instagram' ? 'Instagram'
             : platform === 'youtube' ? 'YouTube'
+            : platform === 'facebook' ? 'Facebook'
             : 'Generic'
           return {
             html: undefined,

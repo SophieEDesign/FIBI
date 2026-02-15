@@ -673,7 +673,7 @@ export default function AddItemForm() {
         // For TikTok, Instagram, YouTube: get title/caption from oEmbed (or fallback metadata)
         let oembedCaption: string | null = null
         const platform = detectPlatform(urlParam)
-        if (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube') {
+        if (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube' || platform === 'Facebook') {
           try {
             const oembedResponse = await fetch('/api/oembed', {
               method: 'POST',
@@ -955,7 +955,7 @@ export default function AddItemForm() {
       // For TikTok, Instagram, YouTube: get title/caption from oEmbed (or fallback metadata)
       let oembedCaption: string | null = null
       const platform = detectPlatform(newUrl)
-      if (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube') {
+      if (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube' || platform === 'Facebook') {
         try {
           const oembedResponse = await fetch('/api/oembed', {
             method: 'POST',
@@ -1297,7 +1297,19 @@ export default function AddItemForm() {
         manualCountry: locationCountry,
       })
 
-      // Insert into saved_items
+      // Next trip_position when adding to a trip
+      let tripPosition: number | null = null
+      if (itineraryId) {
+        const { data: maxRow } = await supabase
+          .from('saved_items')
+          .select('trip_position')
+          .eq('itinerary_id', itineraryId)
+          .order('trip_position', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        tripPosition = maxRow?.trip_position != null ? maxRow.trip_position + 1 : 0
+      }
+
       const insertPayload = {
         user_id: user.id,
         url: url.trim(),
@@ -1310,6 +1322,7 @@ export default function AddItemForm() {
         category: finalCategory,
         status: finalStatus,
         itinerary_id: itineraryId || null,
+        trip_position: tripPosition,
       }
 
       console.log('AddItemForm: Insert payload:', insertPayload)

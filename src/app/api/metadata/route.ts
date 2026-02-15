@@ -16,7 +16,9 @@ async function resolveCanonicalUrlIfNeeded(url: string): Promise<string> {
       host.includes('tiktok.com') ||
       host.includes('instagram.com') ||
       host === 'youtu.be' ||
-      host.includes('youtube.com')
+      host.includes('youtube.com') ||
+      host.includes('facebook.com') ||
+      host.includes('fb.com')
     if (!isShortOrRedirect) return url
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
