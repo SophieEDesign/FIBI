@@ -80,10 +80,11 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [inviteError, setInviteError] = useState<string | null>(null)
   const [showRemoveItineraryModal, setShowRemoveItineraryModal] = useState(false)
   const [removingItinerary, setRemovingItinerary] = useState(false)
-  const [editingTripDates, setEditingTripDates] = useState(false)
-  const [editTripStart, setEditTripStart] = useState('')
-  const [editTripEnd, setEditTripEnd] = useState('')
-  const [savingTripDates, setSavingTripDates] = useState(false)
+  const [tripNotesOpen, setTripNotesOpen] = useState(false)
+  const [tripNotesValue, setTripNotesValue] = useState('')
+  const [savingTripNotes, setSavingTripNotes] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const coverInputRef = useRef<HTMLInputElement>(null)
   const [itineraryComments, setItineraryComments] = useState<{ id: string; user_id: string; body: string; created_at: string; author_name: string }[]>([])
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [newCommentBody, setNewCommentBody] = useState('')
@@ -96,7 +97,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [showStageDropdown, setShowStageDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
-  const [isDateListExpanded, setIsDateListExpanded] = useState(false) // Expandable date list state
   const [locationSearch, setLocationSearch] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
   const [stageSearch, setStageSearch] = useState('')
@@ -437,31 +437,58 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
-  const saveTripDates = async () => {
+  const saveTripNotes = async (notes: string) => {
     if (!user || !selectedItineraryId) return
-    setSavingTripDates(true)
+    setSavingTripNotes(true)
     try {
       const { error } = await supabase
         .from('itineraries')
-        .update({
-          start_date: editTripStart || null,
-          end_date: editTripEnd || null,
-        })
+        .update({ notes: notes || null })
         .eq('id', selectedItineraryId)
         .eq('user_id', user.id)
       if (error) throw error
       setItineraries((prev) =>
         prev.map((t) =>
-          t.id === selectedItineraryId
-            ? { ...t, start_date: editTripStart || null, end_date: editTripEnd || null }
-            : t
+          t.id === selectedItineraryId ? { ...t, notes: notes || null } : t
         )
       )
-      setEditingTripDates(false)
     } catch (err) {
-      console.error('Error saving trip dates:', err)
+      console.error('Error saving trip notes:', err)
     } finally {
-      setSavingTripDates(false)
+      setSavingTripNotes(false)
+    }
+  }
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user || !selectedItineraryId) return
+    setUploadingCover(true)
+    try {
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `${user.id}/trip-covers/${selectedItineraryId}.${ext}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('screenshots')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage.from('screenshots').getPublicUrl(uploadData.path)
+      const coverUrl = urlData.publicUrl
+      const { error: updateError } = await supabase
+        .from('itineraries')
+        .update({ cover_image_url: coverUrl })
+        .eq('id', selectedItineraryId)
+        .eq('user_id', user.id)
+      if (updateError) throw updateError
+      setItineraries((prev) =>
+        prev.map((t) =>
+          t.id === selectedItineraryId ? { ...t, cover_image_url: coverUrl } : t
+        )
+      )
+    } catch (err) {
+      console.error('Error uploading cover:', err)
+      alert('Failed to upload cover image.')
+    } finally {
+      setUploadingCover(false)
+      e.target.value = ''
     }
   }
 
@@ -507,6 +534,16 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedItineraryId, user])
+
+  // Sync trip notes value when itinerary changes
+  useEffect(() => {
+    if (selectedItineraryId) {
+      const trip = itineraries.find((t) => t.id === selectedItineraryId)
+      setTripNotesValue(trip?.notes ?? '')
+    } else {
+      setTripNotesValue('')
+    }
+  }, [selectedItineraryId, itineraries])
 
   // Load existing share when itinerary is selected (only when share modal is closed so we don't overwrite the choose step)
   useEffect(() => {
@@ -718,37 +755,6 @@ export default function CalendarView({ user }: CalendarViewProps) {
       statuses: Array.from(statuses).sort(),
     }
   }, [items])
-
-  // Get items with dates, sorted and grouped by date
-  const itemsByDate = useMemo(() => {
-    // Filter items that have a planned_date and match the selected itinerary
-    const itemsWithDates = filteredItems.filter((item) => item.planned_date)
-    
-    // Sort by date
-    const sorted = [...itemsWithDates].sort((a, b) => {
-      const dateA = new Date(a.planned_date!).getTime()
-      const dateB = new Date(b.planned_date!).getTime()
-      return dateA - dateB
-    })
-    
-    // Group by date
-    const grouped: { [key: string]: SavedItem[] } = {}
-    sorted.forEach((item) => {
-      const dateKey = item.planned_date!
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = []
-      }
-      grouped[dateKey].push(item)
-    })
-    
-    // Convert to array of { date, items } and sort by date
-    return Object.entries(grouped)
-      .map(([date, items]) => ({
-        date,
-        items,
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-  }, [filteredItems])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -1201,72 +1207,65 @@ export default function CalendarView({ user }: CalendarViewProps) {
             {/* Trip view: moodboard when a trip is selected, or all places when "All" */}
           {selectedItineraryId ? (
             <>
-              {/* Trip header: name + optional dates (subtle) + edit */}
+              {/* Trip cover hero: wide hero with soft gradient overlay and trip name */}
               {(() => {
                 const trip = itineraries.find((t) => t.id === selectedItineraryId)
                 if (!trip) return null
+                const coverUrl =
+                  trip.cover_image_url ||
+                  (tripPlacesOrdered[0]?.screenshot_url || tripPlacesOrdered[0]?.thumbnail_url) ||
+                  null
                 return (
-                  <div className="mb-6">
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div>
-                        <h2 className="text-xl md:text-2xl font-semibold text-gray-900">{trip.name}</h2>
-                        {!editingTripDates && (trip.start_date || trip.end_date) && (
-                          <p className="text-sm text-gray-500 mt-1">
-                            {trip.start_date && new Date(trip.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            {trip.start_date && trip.end_date && ' – '}
-                            {trip.end_date && new Date(trip.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </p>
-                        )}
-                        {editingTripDates && (
-                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 mb-6 overflow-hidden rounded-2xl">
+                    <div className="relative aspect-[21/9] min-h-[180px] md:min-h-[200px] bg-gray-100">
+                      {coverUrl ? (
+                        <img
+                          src={coverUrl}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
+                      )}
+                      <div
+                        className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"
+                        aria-hidden
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 flex items-end justify-between gap-4">
+                        <h2 className="text-xl md:text-2xl font-semibold text-white drop-shadow-sm">
+                          {trip.name}
+                        </h2>
+                        {trip.user_id === user?.id && (
+                          <>
                             <input
-                              type="date"
-                              value={editTripStart}
-                              onChange={(e) => setEditTripStart(e.target.value)}
-                              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-                            />
-                            <span className="text-gray-400">–</span>
-                            <input
-                              type="date"
-                              value={editTripEnd}
-                              onChange={(e) => setEditTripEnd(e.target.value)}
-                              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                              ref={coverInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleCoverUpload}
                             />
                             <button
                               type="button"
-                              onClick={saveTripDates}
-                              disabled={savingTripDates}
-                              className="text-sm font-medium text-gray-900 hover:underline disabled:opacity-50"
+                              onClick={() => coverInputRef.current?.click()}
+                              disabled={uploadingCover}
+                              className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors disabled:opacity-50"
+                              title="Change cover"
+                              aria-label="Change cover"
                             >
-                              {savingTripDates ? 'Saving…' : 'Save'}
+                              {uploadingCover ? (
+                                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                              )}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingTripDates(false)
-                                setEditTripStart(trip.start_date || '')
-                                setEditTripEnd(trip.end_date || '')
-                              }}
-                              className="text-sm text-gray-500 hover:text-gray-700"
-                            >
-                              Cancel
-                            </button>
-                          </div>
+                          </>
                         )}
                       </div>
-                      {!editingTripDates && trip.user_id === user?.id && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingTripDates(true)
-                            setEditTripStart(trip.start_date || '')
-                            setEditTripEnd(trip.end_date || '')
-                          }}
-                          className="text-sm text-gray-500 hover:text-gray-700"
-                        >
-                          Edit dates
-                        </button>
-                      )}
                     </div>
                   </div>
                 )
@@ -1367,6 +1366,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
           {/* REMOVED: Unplanned section and calendar grid - replaced by trip moodboard / all grid above */}
           {false && (
+            <>
             <div className="mb-4 flex items-center gap-3 flex-wrap">
               {/* Location Filter Dropdown */}
               {filterOptions.locations.length > 0 && (
@@ -1763,7 +1763,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 )}
               </>
             )}
-          </div>
+          </>
         )}
 
           {/* Calendar Grid */}
@@ -1812,6 +1812,46 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           </div>
           )}
+
+          {/* Trip notes (collapsed by default, when trip selected and user can edit) */}
+          {selectedItineraryId && (() => {
+            const trip = itineraries.find((t) => t.id === selectedItineraryId)
+            const canEdit = trip?.user_id === user?.id
+            if (!canEdit) return null
+            return (
+              <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setTripNotesOpen(!tripNotesOpen)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                >
+                  <h3 className="text-sm font-semibold text-gray-900">Trip notes</h3>
+                  <svg
+                    className={`w-5 h-5 text-gray-500 transition-transform ${tripNotesOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {tripNotesOpen && (
+                  <div className="border-t border-gray-200 p-4">
+                    <textarea
+                      value={tripNotesValue}
+                      onChange={(e) => setTripNotesValue(e.target.value)}
+                      onBlur={() => saveTripNotes(tripNotesValue)}
+                      placeholder="Add notes about this trip..."
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                    />
+                    {savingTripNotes && (
+                      <p className="text-xs text-gray-500 mt-2">Saving…</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Comments (when a trip is selected) */}
           {selectedItineraryId && (
@@ -1870,135 +1910,54 @@ export default function CalendarView({ user }: CalendarViewProps) {
             </div>
           )}
 
-          {/* Expandable Date List */}
-          {itemsByDate.length > 0 && (
-            <div className="mt-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <button
-                onClick={() => setIsDateListExpanded(!isDateListExpanded)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    Items by Date
-                  </h3>
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                    {itemsByDate.length} {itemsByDate.length === 1 ? 'date' : 'dates'}
-                  </span>
-                </div>
-                <svg
-                  className={`w-5 h-5 text-gray-500 transition-transform ${
-                    isDateListExpanded ? 'transform rotate-180' : ''
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-              
-              {isDateListExpanded && (
-                <div className="border-t border-gray-200 divide-y divide-gray-200">
-                  {itemsByDate.map(({ date, items }) => (
-                    <div key={date} className="p-4">
-                      <div className="mb-3 flex items-center gap-2">
-                        <h4 className="text-sm font-medium text-gray-900">
-                          {new Date(date).toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </h4>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                          {items.length} {items.length === 1 ? 'item' : 'items'}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {items.map((item) => (
-                          <div
-                            key={item.id}
-                            onClick={() => setSelectedItem(item)}
-                            className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
-                          >
-                            <div className="flex items-start gap-3">
-                              {item.screenshot_url && (
-                                <img
-                                  src={item.screenshot_url}
-                                  alt={item.title || 'Place'}
-                                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                                />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <h5 className="text-sm font-medium text-gray-900 truncate">
-                                  {item.title || item.place_name || 'Untitled Place'}
-                                </h5>
-                                {item.place_name && item.title !== item.place_name && (
-                                  <p className="text-xs text-gray-500 truncate mt-0.5">
-                                    {item.place_name}
-                                  </p>
-                                )}
-                                {item.formatted_address && (
-                                  <p className="text-xs text-gray-500 truncate mt-1">
-                                    {item.formatted_address}
-                                  </p>
-                                )}
-                                {item.category && (
-                                  <div className="mt-2 flex flex-wrap gap-1">
-                                    {(() => {
-                                      try {
-                                        const cats = JSON.parse(item.category)
-                                        const catArray = Array.isArray(cats) ? cats : [cats]
-                                        return catArray.map((cat: string, idx: number) => (
-                                          <span
-                                            key={idx}
-                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-                                          >
-                                            {cat}
-                                          </span>
-                                        ))
-                                      } catch {
-                                        return (
-                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                            {item.category}
-                                          </span>
-                                        )
-                                      }
-                                    })()}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Drag Overlay */}
+          {/* Drag Overlay - matches MoodboardCard styling */}
           <DragOverlay>
             {draggedItem ? (
-              <PlaceCard item={draggedItem} isDragging={true} overlay />
+              <div className="bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] w-48 opacity-95 cursor-grabbing">
+                <div className="aspect-[4/3] bg-gray-100">
+                  {draggedItem.screenshot_url || draggedItem.thumbnail_url ? (
+                    <img
+                      src={draggedItem.screenshot_url || draggedItem.thumbnail_url || ''}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <LinkPreview
+                      url={draggedItem.url}
+                      ogImage={draggedItem.thumbnail_url}
+                      screenshotUrl={draggedItem.screenshot_url}
+                      description={draggedItem.description}
+                      platform={draggedItem.platform}
+                      hideLabel
+                    />
+                  )}
+                </div>
+                <div className="p-3">
+                  <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                    {draggedItem.title || draggedItem.place_name || getHostname(draggedItem.url)}
+                  </p>
+                  {(draggedItem.location_city || draggedItem.location_country || draggedItem.formatted_address) && (
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                      {draggedItem.location_city || draggedItem.location_country || draggedItem.formatted_address}
+                    </p>
+                  )}
+                </div>
+              </div>
             ) : null}
           </DragOverlay>
         </DndContext>
         </>
         )}
 
-        {/* Place Preview Modal */}
+        {/* Place Detail Drawer */}
         {selectedItem && (
-          <PlacePreviewModal
+          <PlaceDetailDrawer
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
+            onItemUpdate={(updated) => {
+              setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
+            }}
+            isMobile={isMobile}
           />
         )}
 
@@ -2512,7 +2471,7 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
       {...listeners}
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
-      className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
+      className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow cursor-pointer ${isDragging ? 'opacity-50' : ''}`}
     >
       <div className="aspect-[4/3] bg-gray-100">
         {item.screenshot_url || item.thumbnail_url ? (
@@ -2888,123 +2847,125 @@ function PlaceListItem({ item, isDragging, onSelect, onAssignDate, isMobile = fa
   )
 }
 
-// Place Preview Modal Component
-interface PlacePreviewModalProps {
+// Place Detail Drawer Component - slide-in from right (desktop) or bottom (mobile)
+interface PlaceDetailDrawerProps {
   item: SavedItem
   onClose: () => void
+  onItemUpdate: (item: SavedItem) => void
+  isMobile: boolean
 }
 
-function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
-  const displayTitle = item.title || getHostname(item.url)
-  const imageUrl = item.screenshot_url || item.thumbnail_url
+function PlaceDetailDrawer({ item, onClose, onItemUpdate, isMobile }: PlaceDetailDrawerProps) {
+  const [notesValue, setNotesValue] = useState(item.notes ?? '')
+  const [savingNotes, setSavingNotes] = useState(false)
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const supabase = createClient()
+  const displayTitle = item.title || item.place_name || getHostname(item.url)
+  const locationStr =
+    item.place_name ||
+    item.formatted_address ||
+    (item.location_city && item.location_country
+      ? `${item.location_city}, ${item.location_country}`
+      : item.location_city || item.location_country) ||
+    null
 
-  // Parse categories and statuses (support both single values and arrays)
-  const parseCategories = (cat: string | null): string[] => {
-    if (!cat) return []
+  useEffect(() => {
+    setNotesValue(item.notes ?? '')
+  }, [item.id, item.notes])
+
+  const saveNotes = async (value: string) => {
+    setSavingNotes(true)
     try {
-      const parsed = JSON.parse(cat)
-      if (Array.isArray(parsed)) return parsed
-      return [parsed]
-    } catch {
-      return [cat]
-    }
-  }
-  
-  const parseStatuses = (stat: string | null): string[] => {
-    if (!stat) return []
-    try {
-      const parsed = JSON.parse(stat)
-      if (Array.isArray(parsed)) return parsed
-      return [parsed]
-    } catch {
-      return [stat]
+      const { error } = await supabase
+        .from('saved_items')
+        .update({ notes: value || null })
+        .eq('id', item.id)
+      if (error) throw error
+      onItemUpdate({ ...item, notes: value || null })
+    } catch (err) {
+      console.error('Error saving notes:', err)
+    } finally {
+      setSavingNotes(false)
     }
   }
 
-  const categories = parseCategories(item.category)
-  const statuses = parseStatuses(item.status)
-
-  // Close on backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
+  const handleNotesChange = (value: string) => {
+    setNotesValue(value)
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    saveTimeoutRef.current = setTimeout(() => saveNotes(value), 500)
   }
 
-  // Close on Escape key
+  const handleNotesBlur = () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = null
+    }
+    saveNotes(notesValue)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    }
+  }, [])
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
+      if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [onClose])
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
-        {/* Image Header */}
-        <div className="relative">
-          {item.screenshot_url ? (
-            <div className="aspect-video w-full overflow-hidden bg-gray-100">
-              <img
-                src={item.screenshot_url}
-                alt={displayTitle}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="aspect-video w-full bg-gray-100 relative overflow-hidden">
-          <LinkPreview
-            url={item.url}
-            ogImage={item.thumbnail_url}
-            screenshotUrl={item.screenshot_url}
-            description={item.description}
-            platform={item.platform}
-            hideLabel={true}
-          />
-            </div>
-          )}
-          {/* Close button overlay */}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black/90 text-white rounded-full transition-colors backdrop-blur-sm"
-            aria-label="Close"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+    <>
+      <div
+        className="fixed inset-0 bg-black/40 z-40 transition-opacity"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div
+        className={`fixed z-50 bg-white shadow-xl flex flex-col transition-transform duration-300 ease-out ${
+          isMobile
+            ? 'inset-x-0 bottom-0 top-[40%] rounded-t-2xl'
+            : 'top-0 right-0 bottom-0 w-full max-w-md'
+        }`}
+      >
+        <div className="flex-1 overflow-y-auto relative">
           <div className="p-5 space-y-4">
-            {/* Title */}
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">{displayTitle}</h2>
-              {item.description && (
-                <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
-              )}
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="text-xl font-semibold text-gray-900 pr-10">{displayTitle}</h2>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-
-            {/* Location */}
-            {(item.place_name || item.formatted_address || item.location_city) && (
+            {item.screenshot_url || item.thumbnail_url ? (
+              <div className="aspect-video rounded-2xl overflow-hidden bg-gray-100 -mx-1">
+                <img
+                  src={item.screenshot_url || item.thumbnail_url || ''}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="aspect-video rounded-2xl overflow-hidden bg-gray-100 -mx-1">
+                <LinkPreview
+                  url={item.url}
+                  ogImage={item.thumbnail_url}
+                  screenshotUrl={item.screenshot_url}
+                  description={item.description}
+                  platform={item.platform}
+                  hideLabel
+                />
+              </div>
+            )}
+            {locationStr && (
               <div className="flex items-start gap-2">
                 <svg
                   className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0"
@@ -3012,109 +2973,50 @@ function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Location</p>
-                  <p className="text-sm text-gray-900">
-                    {item.place_name || item.formatted_address || 
-                     (item.location_city && item.location_country 
-                       ? `${item.location_city}, ${item.location_country}` 
-                       : item.location_city || item.location_country || '')}
-                  </p>
-                </div>
+                <p className="text-sm text-gray-700">{locationStr}</p>
               </div>
             )}
-
-            {/* Category and Status */}
-            {(categories.length > 0 || statuses.length > 0) && (
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-                  >
-                    {category}
-                  </span>
-                ))}
-                {statuses.map((status, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                  >
-                    {status}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Planned Date */}
-            {item.planned_date && (
-              <div className="flex items-start gap-2">
-                <svg
-                  className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Planned Date</p>
-                  <p className="text-sm text-gray-900">
-                    {new Date(item.planned_date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </div>
-            )}
+            <div>
+              <label htmlFor="place-notes" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Notes
+              </label>
+              <textarea
+                id="place-notes"
+                value={notesValue}
+                onChange={(e) => handleNotesChange(e.target.value)}
+                onBlur={handleNotesBlur}
+                placeholder="Add personal notes..."
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+              />
+              {savingNotes && <p className="text-xs text-gray-500 mt-1">Saving…</p>}
+            </div>
           </div>
         </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 p-5 bg-gray-50">
-          <div className="flex gap-3">
-            <Link
-              href={`/item/${item.id}`}
-              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors text-center"
-              onClick={onClose}
+        <div className="border-t border-gray-200 p-5 bg-gray-50 flex gap-3">
+          <Link
+            href={`/item/${item.id}`}
+            className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-xl font-medium hover:bg-gray-800 transition-colors text-center"
+            onClick={onClose}
+          >
+            View Full Details
+          </Link>
+          {item.url && (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-white transition-colors whitespace-nowrap"
             >
-              View Full Details
-            </Link>
-            {item.url && (
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-white transition-colors whitespace-nowrap"
-              >
-                Open Link
-              </a>
-            )}
-          </div>
+              Open Link
+            </a>
+          )}
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
