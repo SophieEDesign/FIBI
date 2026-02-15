@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth'
 import { isUrlSafeForFetch } from '@/lib/ssrf'
 
 export const dynamic = 'force-dynamic'
@@ -481,9 +480,6 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireUser(request)
-    if (auth instanceof NextResponse) return auth
-
     const searchParams = request.nextUrl.searchParams
     const url = searchParams.get('url')
     const format = searchParams.get('format') || 'json'
@@ -546,9 +542,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireUser(request)
-    if (auth instanceof NextResponse) return auth
-
     const { url } = await request.json()
 
     if (!url || typeof url !== 'string') {

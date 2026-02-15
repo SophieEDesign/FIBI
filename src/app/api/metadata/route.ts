@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth'
 import { isUrlSafeForFetch } from '@/lib/ssrf'
 
 interface MetadataResponse {
@@ -253,9 +252,6 @@ function extractMetadata(html: string): MetadataResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireUser(request)
-    if (auth instanceof NextResponse) return auth
-
     const { url } = await request.json()
 
     if (!url || typeof url !== 'string') {
