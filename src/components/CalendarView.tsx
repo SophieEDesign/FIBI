@@ -1358,35 +1358,36 @@ export default function CalendarView({ user }: CalendarViewProps) {
               {filteredItems.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No places yet. Add places or select a trip.</p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                   {filteredItems.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedItem(item)}
-                      className="text-left bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 h-full flex flex-col min-w-0"
+                      className="text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col min-w-0"
                     >
-                      <div className="aspect-[4/5] bg-gray-100 flex-shrink-0">
+                      <div className="flex-1 min-h-0 relative bg-gray-100">
                         {item.screenshot_url || item.thumbnail_url ? (
                           <img
                             src={item.screenshot_url || item.thumbnail_url || ''}
                             alt={item.title || item.place_name || 'Place'}
-                            className="w-full h-full object-cover"
+                            className="absolute inset-0 w-full h-full object-cover"
                           />
                         ) : (
-                          <LinkPreview
-                            url={item.url}
-                            ogImage={item.thumbnail_url}
-                            screenshotUrl={item.screenshot_url}
-                            description={item.description}
-                            platform={item.platform}
-                            hideLabel
-                          />
+                          <div className="absolute inset-0">
+                            <LinkPreview
+                              url={item.url}
+                              ogImage={item.thumbnail_url}
+                              screenshotUrl={item.screenshot_url}
+                              description={item.description}
+                              platform={item.platform}
+                              hideLabel
+                            />
+                          </div>
                         )}
                       </div>
-                      <div className="p-3 flex-1 flex flex-col justify-center min-h-[52px]">
-                        <p className="text-sm font-medium text-gray-900 line-clamp-2">{item.title || item.place_name || getHostname(item.url)}</p>
-                        <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{item.location_city || item.location_country || item.formatted_address || '—'}</p>
+                      <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.title || item.place_name || getHostname(item.url)}</p>
                       </div>
                     </button>
                   ))}
@@ -1685,34 +1686,31 @@ export default function CalendarView({ user }: CalendarViewProps) {
           {/* Drag Overlay - matches MoodboardCard styling */}
           <DragOverlay>
             {draggedItem ? (
-              <div className="bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)] w-48 opacity-95 cursor-grabbing">
-                <div className="aspect-[4/5] bg-gray-100">
+              <div className="w-44 bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xl opacity-95 cursor-grabbing flex flex-col">
+                <div className="aspect-[4/5] relative bg-gray-100">
                   {draggedItem.screenshot_url || draggedItem.thumbnail_url ? (
                     <img
                       src={draggedItem.screenshot_url || draggedItem.thumbnail_url || ''}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                     />
                   ) : (
-                    <LinkPreview
-                      url={draggedItem.url}
-                      ogImage={draggedItem.thumbnail_url}
-                      screenshotUrl={draggedItem.screenshot_url}
-                      description={draggedItem.description}
-                      platform={draggedItem.platform}
-                      hideLabel
-                    />
+                    <div className="absolute inset-0">
+                      <LinkPreview
+                        url={draggedItem.url}
+                        ogImage={draggedItem.thumbnail_url}
+                        screenshotUrl={draggedItem.screenshot_url}
+                        description={draggedItem.description}
+                        platform={draggedItem.platform}
+                        hideLabel
+                      />
+                    </div>
                   )}
                 </div>
-                <div className="p-3">
-                  <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                <div className="px-3 py-2 border-t border-gray-100 flex-shrink-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
                     {draggedItem.title || draggedItem.place_name || getHostname(draggedItem.url)}
                   </p>
-                  {(draggedItem.location_city || draggedItem.location_country || draggedItem.formatted_address) && (
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-                      {draggedItem.location_city || draggedItem.location_country || draggedItem.formatted_address}
-                    </p>
-                  )}
                 </div>
               </div>
             ) : null}
@@ -2180,8 +2178,8 @@ function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: Moo
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[200px] rounded-2xl p-4 transition-colors grid gap-4 ${isOver ? 'bg-gray-100' : ''} ${
-        isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'
+      className={`min-h-[200px] rounded-2xl p-4 transition-colors grid gap-3 sm:gap-4 ${isOver ? 'bg-gray-100' : ''} ${
+        isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
       }`}
     >
       {items.map((item) => (
@@ -2201,7 +2199,7 @@ function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: Moo
 function MoodboardCardWrapper({ item, children }: { item: SavedItem; children: React.ReactNode }) {
   const { setNodeRef } = useDroppable({ id: item.id })
   return (
-    <div ref={setNodeRef} className="min-h-0 flex">
+    <div ref={setNodeRef} className="min-w-0">
       {children}
     </div>
   )
@@ -2218,7 +2216,6 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   const title = item.title || item.place_name || getHostname(item.url)
-  const location = item.location_city || item.location_country || item.formatted_address || null
 
   return (
     <div
@@ -2227,29 +2224,30 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
       {...listeners}
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
-      className={`bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow cursor-pointer flex flex-col h-full min-w-0 ${isDragging ? 'opacity-50' : ''}`}
+      className={`aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all cursor-pointer flex flex-col min-w-0 ${isDragging ? 'opacity-50' : ''}`}
     >
-      <div className="aspect-[4/5] bg-gray-100 flex-shrink-0">
+      <div className="flex-1 min-h-0 relative bg-gray-100">
         {item.screenshot_url || item.thumbnail_url ? (
           <img
             src={item.screenshot_url || item.thumbnail_url || ''}
             alt={title}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
-          <LinkPreview
-            url={item.url}
-            ogImage={item.thumbnail_url}
-            screenshotUrl={item.screenshot_url}
-            description={item.description}
-            platform={item.platform}
-            hideLabel
-          />
+          <div className="absolute inset-0">
+            <LinkPreview
+              url={item.url}
+              ogImage={item.thumbnail_url}
+              screenshotUrl={item.screenshot_url}
+              description={item.description}
+              platform={item.platform}
+              hideLabel
+            />
+          </div>
         )}
       </div>
-      <div className="p-3 flex-1 flex flex-col justify-center min-h-[52px]">
-        <p className="text-sm font-medium text-gray-900 line-clamp-2">{title}</p>
-        {location && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{location}</p>}
+      <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
+        <p className="text-sm font-medium text-gray-900 truncate">{title}</p>
       </div>
     </div>
   )

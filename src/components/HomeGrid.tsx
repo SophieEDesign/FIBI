@@ -38,17 +38,22 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const confirmExpired = searchParams?.get('confirm') === 'expired'
 
   const handleResendConfirmation = async () => {
-    const email = user?.email
-    if (!email) return
+    if (!user?.email) return
     setResendLoading(true)
     setResendMessage(null)
     try {
-      const { error } = await supabase.auth.resend({ type: 'signup', email })
-      if (error) throw error
+      const res = await fetch('/api/auth/resend-confirm-email', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body?.error ?? 'Failed to send')
+      }
       setResendMessage('Check your inbox for the link.')
-    } catch (err) {
-      console.error('Resend confirmation error:', err)
-      setResendMessage('Something went wrong. Try again or check your email.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Try again or check your email.'
+      setResendMessage(msg)
     } finally {
       setResendLoading(false)
     }
@@ -524,13 +529,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Loading state */}
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl overflow-hidden shadow-soft animate-pulse">
-                <div className="aspect-[4/3] bg-gray-200" />
-                <div className="p-4">
-                  <div className="h-4 bg-gray-200 rounded mb-2" />
-                  <div className="h-3 bg-gray-200 rounded w-2/3" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="aspect-[4/5] bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse border border-gray-100 flex flex-col">
+                <div className="flex-1 min-h-0 bg-gray-200" />
+                <div className="px-3 py-2 border-t border-gray-100">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
                 </div>
               </div>
             ))}
@@ -539,7 +543,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Grid */}
         {!loading && filteredItems.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {filteredItems.map((item) => {
               const displayTitle = item.title || getHostname(item.url)
               const itemCategories = parseItemField(item.category)
@@ -550,25 +554,27 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               return (
                 <div
                   key={item.id}
-                  className="bg-white rounded-2xl overflow-hidden shadow-soft hover:shadow-soft-md transition-shadow flex flex-col relative group"
+                  className="aspect-[4/5] bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 border border-gray-100 transition-all flex flex-col relative group"
                 >
                   <Link href={`/item/${item.id}`} className="flex flex-col flex-1 min-h-0">
-                    <div className="aspect-[4/3] bg-gray-50 relative overflow-hidden">
+                    <div className="flex-1 min-h-0 bg-gray-50 relative overflow-hidden">
                       {item.screenshot_url && !failedScreenshotIds.has(item.id) ? (
                         <img
                           src={item.screenshot_url}
                           alt={displayTitle}
-                          className="w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover"
                           loading="lazy"
                           onError={() => setFailedScreenshotIds((prev) => new Set(prev).add(item.id))}
                         />
                       ) : (
-                        <EmbedPreview
-                          url={item.url}
-                          thumbnailUrl={item.thumbnail_url}
-                          platform={item.platform}
-                          displayTitle={displayTitle}
-                        />
+                        <div className="absolute inset-0">
+                          <EmbedPreview
+                            url={item.url}
+                            thumbnailUrl={item.thumbnail_url}
+                            platform={item.platform}
+                            displayTitle={displayTitle}
+                          />
+                        </div>
                       )}
                       {/* Top-right overlay: liked, visited, add-to-trip */}
                       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
@@ -624,21 +630,12 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       </div>
                     </div>
 
-                    <div className="p-4 flex-1 flex flex-col min-h-0">
-                      <h3 className="font-medium text-charcoal mb-0.5 line-clamp-2 text-base leading-snug">
+                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
+                      <h3 className="font-medium text-charcoal truncate text-sm">
                         {displayTitle}
                       </h3>
-                      {(item.location_city || item.location_country) && (
-                        <p className="text-sm text-secondary mb-2">
-                          {[item.location_city, item.location_country].filter(Boolean).join(', ')}
-                        </p>
-                      )}
                       {oneCategory && (
-                        <div className="flex flex-wrap gap-1.5 mt-auto">
-                          <span className="px-2 py-0.5 rounded-lg text-xs font-normal bg-gray-100 text-secondary">
-                            {oneCategory}
-                          </span>
-                        </div>
+                        <p className="text-xs text-secondary truncate mt-0.5">{oneCategory}</p>
                       )}
                     </div>
                   </Link>

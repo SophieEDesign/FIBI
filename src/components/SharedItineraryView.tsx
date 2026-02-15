@@ -482,35 +482,37 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
 
         {/* Stage filter removed - liked/visited shown as icons on cards */}
 
-        {/* Moodboard View (default): grid with equal-height cards, 16px radius, title + location only */}
+        {/* Moodboard View: uniform square cards, image-first */}
         {viewMode === 'moodboard' && (
-          <div className="min-h-[200px] rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          <div className="min-h-[200px] rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {filteredItems.length === 0 ? (
               <p className="text-gray-500 text-center py-12 col-span-full">No places in this trip yet.</p>
             ) : (
               filteredItems.map((item) => (
-                <div key={item.id} className="min-h-0 flex">
+                <div key={item.id} className="min-w-0">
                   <button
                     type="button"
                     onClick={() => setSelectedItem(item)}
-                    className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col h-full min-w-0"
+                    className="w-full text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col min-w-0"
                   >
-                    <div className="aspect-[4/5] bg-gray-100 relative flex-shrink-0">
+                    <div className="flex-1 min-h-0 relative bg-gray-100">
                       {item.screenshot_url || item.thumbnail_url ? (
                         <img
                           src={item.screenshot_url || item.thumbnail_url || ''}
                           alt={item.title || item.place_name || getHostname(item.url)}
-                          className="w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
-                        <LinkPreview
-                          url={item.url}
-                          ogImage={item.thumbnail_url}
-                          screenshotUrl={item.screenshot_url}
-                          description={item.description}
-                          platform={item.platform}
-                          hideLabel
-                        />
+                        <div className="absolute inset-0">
+                          <LinkPreview
+                            url={item.url}
+                            ogImage={item.thumbnail_url}
+                            screenshotUrl={item.screenshot_url}
+                            description={item.description}
+                            platform={item.platform}
+                            hideLabel
+                          />
+                        </div>
                       )}
                       {/* Liked / Visited overlay icons - top-right */}
                       {(item.liked || item.visited) && (
@@ -532,12 +534,9 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                         </div>
                       )}
                     </div>
-                    <div className="p-3 flex-1 flex flex-col justify-center min-h-[52px]">
-                      <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
+                      <p className="text-sm font-medium text-gray-900 truncate">
                         {item.title || item.place_name || getHostname(item.url)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
-                        {item.location_city || item.location_country || item.formatted_address || '—'}
                       </p>
                     </div>
                   </button>
