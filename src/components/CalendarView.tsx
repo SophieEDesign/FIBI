@@ -2608,7 +2608,7 @@ function PlaceListItem({ item, isDragging, onSelect, onAssignDate, isMobile = fa
   }
 
   const categories = parseCategories(item.category)
-  const statuses = parseStatuses(item.status)
+  const statuses = parseStatuses(item.status ?? null)
 
   const handleClick = (e: React.MouseEvent) => {
     if (isDragging) {

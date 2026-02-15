@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
+import { getEmailFooterAddress } from '@/lib/site-settings'
 
 /**
  * Initialize Resend client
@@ -34,7 +35,8 @@ export async function sendEmail({
 }) {
   try {
     const resend = getResendClient()
-    const wrappedHtml = wrapEmailWithLayout(html)
+    const footerAddress = await getEmailFooterAddress()
+    const wrappedHtml = wrapEmailWithLayout(html, { footerAddress })
 
     const { data, error } = await resend.emails.send({
       from,

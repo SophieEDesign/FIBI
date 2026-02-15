@@ -25,11 +25,9 @@ const HEADER = `
 </tr>
 `.trim()
 
-/** Optional: set in env or replace with your business address for CAN-SPAM compliance */
-const FOOTER_ADDRESS = process.env.EMAIL_FOOTER_ADDRESS || ''
-
-function getFooterTable(unsubscribeUrl?: string): string {
-  const unsubLink = unsubscribeUrl || 'https://fibi.world/unsubscribe'
+function getFooterTable(opts?: { unsubscribeUrl?: string; footerAddress?: string }): string {
+  const unsubLink = opts?.unsubscribeUrl || 'https://fibi.world/unsubscribe'
+  const address = opts?.footerAddress ?? process.env.EMAIL_FOOTER_ADDRESS ?? ''
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; margin-top: 20px;">
   <tr>
@@ -41,7 +39,7 @@ function getFooterTable(unsubscribeUrl?: string): string {
       <p style="margin: 0 0 8px 0; font-size: 12px;">
         <a href="${unsubLink}" style="color: #6b7280; text-decoration: underline;">Unsubscribe</a> from these emails
       </p>
-      ${FOOTER_ADDRESS ? `<p style="margin: 0; font-size: 11px; color: #9ca3af;">${FOOTER_ADDRESS}</p>` : ''}
+      ${address ? `<p style="margin: 0; font-size: 11px; color: #9ca3af;">${address}</p>` : ''}
     </td>
   </tr>
 </table>
@@ -52,11 +50,11 @@ function getFooterTable(unsubscribeUrl?: string): string {
  * Wrap body content with shared header (gradient + logo) and footer (Made with ❤️, fibi.world, unsubscribe, optional address).
  * If content already has the layout, return as-is.
  * @param htmlContent - Body or full HTML to wrap
- * @param options - Optional unsubscribe URL (e.g. one-click token link); defaults to https://fibi.world/unsubscribe
+ * @param options - Optional unsubscribe URL; optional footerAddress (from site_settings or EMAIL_FOOTER_ADDRESS)
  */
 export function wrapEmailWithLayout(
   htmlContent: string,
-  options?: { unsubscribeUrl?: string }
+  options?: { unsubscribeUrl?: string; footerAddress?: string }
 ): string {
   if (!htmlContent || !htmlContent.trim()) return htmlContent
   if (hasLayout(htmlContent)) return htmlContent
@@ -69,7 +67,7 @@ export function wrapEmailWithLayout(
   </td>
 </tr>
 `.trim()
-  const footer = getFooterTable(options?.unsubscribeUrl)
+  const footer = getFooterTable({ unsubscribeUrl: options?.unsubscribeUrl, footerAddress: options?.footerAddress })
 
   return `
 <!DOCTYPE html>
