@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { SavedItem, STATUSES } from '@/types/database'
-import { getHostname } from '@/lib/utils'
+import { getHostname, isMobileDevice } from '@/lib/utils'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
+import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
 import CollapsibleOptions from '@/components/CollapsibleOptions'
 import { createClient } from '@/lib/supabase/client'
 
@@ -18,6 +19,7 @@ interface SharedItineraryData {
     name: string
     start_date?: string | null
     end_date?: string | null
+    cover_image_url?: string | null
     created_at: string
   }
   items: SavedItem[]
@@ -44,6 +46,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [addToAccountError, setAddToAccountError] = useState<string | null>(null)
   const [addToAccountSuccess, setAddToAccountSuccess] = useState<{ itinerary_id: string; name: string } | null>(null)
   const [joiningCollaborator, setJoiningCollaborator] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [joinCollaboratorError, setJoinCollaboratorError] = useState<string | null>(null)
   const supabase = createClient()
 
@@ -52,6 +55,13 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   useEffect(() => {
     loadSharedItinerary()
   }, [shareToken])
+
+  useEffect(() => {
+    setIsMobile(isMobileDevice())
+    const handleResize = () => setIsMobile(isMobileDevice())
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     const loadUser = async () => {
@@ -450,6 +460,32 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         </div>
       </header>
 
+      {/* Trip cover hero */}
+      {(data.itinerary.cover_image_url || (data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url)) && (
+        <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 overflow-hidden">
+          <div className="relative aspect-[21/9] min-h-[180px] md:min-h-[200px] bg-gray-100">
+            {(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) ? (
+              <img
+                src={data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url || ''}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
+            )}
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"
+              aria-hidden
+            />
+            <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+              <h2 className="text-xl md:text-2xl font-semibold text-white drop-shadow-sm">
+                {data.itinerary.name}
+              </h2>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* View Mode Tabs */}
         <div className="mb-6">
@@ -556,7 +592,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                   <button
                     type="button"
                     onClick={() => setSelectedItem(item)}
-                    className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+                    className="w-full text-left bg-white rounded-[16px] border border-gray-200 overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06),0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.06)] transition-shadow focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
                   >
                     <div className="aspect-[4/3] bg-gray-100">
                       {item.screenshot_url || item.thumbnail_url ? (
@@ -697,11 +733,13 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         </div>
       </main>
 
-      {/* Place Preview Modal */}
+      {/* Place Detail Drawer (read-only for shared view) */}
       {selectedItem && (
-        <PlacePreviewModal
+        <PlaceDetailDrawer
           item={selectedItem}
           onClose={() => setSelectedItem(null)}
+          isMobile={isMobile}
+          readOnly
         />
       )}
     </div>
@@ -773,171 +811,4 @@ function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
   )
 }
 
-// Place Preview Modal Component
-interface PlacePreviewModalProps {
-  item: SavedItem
-  onClose: () => void
-}
-
-function PlacePreviewModal({ item, onClose }: PlacePreviewModalProps) {
-  const displayTitle = item.title || getHostname(item.url)
-  const imageUrl = item.screenshot_url || item.thumbnail_url
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose()
-        }
-      }}
-    >
-      <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
-        {/* Image Header */}
-        <div className="relative">
-          {imageUrl ? (
-            <div className="aspect-video w-full overflow-hidden bg-gray-100">
-              <img
-                src={imageUrl}
-                alt={displayTitle}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          ) : (
-            <div className="aspect-video w-full bg-gray-100 relative overflow-hidden">
-              <LinkPreview
-                url={item.url}
-                ogImage={item.thumbnail_url}
-                screenshotUrl={item.screenshot_url}
-                description={item.description}
-              />
-            </div>
-          )}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 p-2 bg-black/70 hover:bg-black/90 text-white rounded-full transition-colors backdrop-blur-sm"
-            aria-label="Close"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-5 space-y-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">{displayTitle}</h2>
-              {item.description && (
-                <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
-              )}
-            </div>
-
-            {(item.place_name || item.formatted_address || item.location_city) && (
-              <div className="flex items-start gap-2">
-                <svg
-                  className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">
-                    Location
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    {item.place_name ||
-                      item.formatted_address ||
-                      (item.location_city && item.location_country
-                        ? `${item.location_city}, ${item.location_country}`
-                        : item.location_city || item.location_country || '')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {item.planned_date && (
-              <div className="flex items-start gap-2">
-                <svg
-                  className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">
-                    Planned Date
-                  </p>
-                  <p className="text-sm text-gray-900">
-                    {new Date(item.planned_date).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-gray-200 p-5 bg-gray-50">
-          {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full block bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors text-center"
-            >
-              Open Link
-            </a>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 

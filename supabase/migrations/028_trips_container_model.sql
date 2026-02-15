@@ -13,7 +13,9 @@ CREATE INDEX IF NOT EXISTS idx_saved_items_itinerary_trip_position
 ON saved_items(itinerary_id, trip_position)
 WHERE itinerary_id IS NOT NULL;
 
--- Update get_shared_itinerary_items to order by trip_position then created_at
+-- Update get_shared_itinerary_items to order by trip_position then created_at (return type changes, so drop first)
+DROP FUNCTION IF EXISTS public.get_shared_itinerary_items(TEXT);
+
 CREATE OR REPLACE FUNCTION public.get_shared_itinerary_items(share_token_param TEXT)
 RETURNS TABLE (
   id UUID,

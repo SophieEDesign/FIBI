@@ -170,22 +170,27 @@ export async function fetchUsersWithStats(
 
   const { data: profiles } = await adminClient
     .from('profiles')
-    .select('id, founding_followup_sent')
+    .select('id, founding_followup_sent, email_verified_at')
   const foundingMap = new Map<string, boolean>()
-  profiles?.forEach((p: { id: string; founding_followup_sent: boolean | null }) => {
+  const emailVerifiedMap = new Map<string, string | null>()
+  profiles?.forEach((p: { id: string; founding_followup_sent: boolean | null; email_verified_at: string | null }) => {
     foundingMap.set(p.id, p.founding_followup_sent ?? false)
+    emailVerifiedMap.set(p.id, p.email_verified_at ?? null)
   })
 
-  return allUsers.map((u) => ({
+  return allUsers.map((u) => {
+    const profileVerified = emailVerifiedMap.get(u.id)
+    const verifiedAt = u.email_confirmed_at ?? profileVerified ?? null
+    return {
     id: u.id,
     email: u.email ?? null,
     created_at: u.created_at ?? new Date().toISOString(),
     last_sign_in_at: u.last_sign_in_at ?? null,
-    email_confirmed_at: u.email_confirmed_at ?? null,
+    email_confirmed_at: verifiedAt,
     places_count: placeCounts.get(u.id) ?? 0,
     itineraries_count: itineraryCounts.get(u.id) ?? 0,
     founding_followup_sent: foundingMap.get(u.id) ?? false,
-  }))
+  }})
 }
 
 /**

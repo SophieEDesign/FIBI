@@ -19,6 +19,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ categories: [] as string[], statuses: [] as string[] })
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null)
   const [showFirstPlaceFeedback, setShowFirstPlaceFeedback] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
   const searchParams = useSearchParams()
@@ -33,15 +34,40 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [savingCalendar, setSavingCalendar] = useState(false)
   const supabase = createClient()
   const router = useRouter()
+  const confirmError = searchParams?.get('confirm') === 'error'
+  const confirmExpired = searchParams?.get('confirm') === 'expired'
 
   useEffect(() => {
     if (user) {
       loadItems()
       loadUserCustomOptions()
       loadItineraries()
+      loadEmailVerified()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
+
+  const loadEmailVerified = async () => {
+    if (!user?.id) return
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('email_verified_at')
+        .eq('id', user.id)
+        .single()
+      setEmailVerified(data?.email_verified_at != null)
+    } catch {
+      setEmailVerified(null)
+    }
+  }
+
+  // When user just confirmed email, refresh verified state
+  useEffect(() => {
+    if (confirmed && user) {
+      setEmailVerified(true)
+      loadEmailVerified()
+    }
+  }, [confirmed, user?.id])
 
   // Show "Nice start." when returning after adding first place
   useEffect(() => {
@@ -389,6 +415,28 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             >
               ✕
             </button>
+          </div>
+        )}
+        {emailVerified === false && !showConfirmedMessage && (
+          <div className="mb-6 bg-amber-50 text-amber-800 px-4 py-3 rounded-2xl shadow-soft flex items-center justify-between flex-wrap gap-2">
+            <span>Please confirm your email to get travel tips and updates. Check your inbox for the link.</span>
+            <button
+              onClick={() => setEmailVerified(true)}
+              className="text-amber-700 hover:text-amber-900 text-sm underline"
+              aria-label="Dismiss"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {confirmError && (
+          <div className="mb-6 bg-red-50 text-red-700 px-4 py-3 rounded-2xl shadow-soft">
+            Something went wrong confirming your email. You can ignore this or try signing up again.
+          </div>
+        )}
+        {confirmExpired && (
+          <div className="mb-6 bg-amber-50 text-amber-800 px-4 py-3 rounded-2xl shadow-soft">
+            Confirmation link expired. Check your inbox for a new one or sign up again.
           </div>
         )}
 

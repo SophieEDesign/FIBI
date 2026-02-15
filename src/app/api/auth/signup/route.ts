@@ -7,6 +7,8 @@ import {
   logBlockedAttempt,
   recordSignupAttempt,
 } from '@/lib/signupProtection'
+import { createConfirmEmailToken } from '@/lib/confirm-email-token'
+import { sendConfirmEmail } from '@/lib/email-templates'
 
 export const dynamic = 'force-dynamic'
 
@@ -140,7 +142,18 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Send confirmation email (soft verify – user can use app immediately)
+  try {
+    const origin = request.nextUrl.origin
+    const token = createConfirmEmailToken(data.user.id)
+    const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
+    await sendConfirmEmail({ to: email, confirmUrl })
+  } catch (err) {
+    console.warn('Signup: failed to send confirmation email', err)
+    // Don't fail signup – user can still use app
+  }
+
   return NextResponse.json({
-    message: 'Account created. Please check your email to confirm your account, then you can sign in.',
+    message: "Account created! You can sign in now. We've sent an email to confirm your address for updates and tips.",
   })
 }

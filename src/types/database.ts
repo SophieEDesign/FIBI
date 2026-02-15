@@ -50,6 +50,8 @@ export interface Itinerary {
   name: string
   start_date: string | null
   end_date: string | null
+  cover_image_url?: string | null
+  notes?: string | null
   created_at: string
 }
 

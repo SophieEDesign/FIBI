@@ -347,6 +347,52 @@ export async function sendWelcomeEmail({
 }
 
 /**
+ * Confirmation email: "Confirm your email for updates and tips"
+ */
+export function getConfirmEmailTemplate({ confirmUrl }: { confirmUrl: string }): string {
+  return BaseEmailTemplate({
+    title: 'Confirm your email – FiBi',
+    preheader: 'One tap to confirm your email and get travel tips from FiBi',
+    children: `
+      ${EmailHeader()}
+      <tr>
+        <td style="padding: 40px 30px;">
+          <h1 style="margin: 0 0 20px 0; font-size: 28px; font-weight: 700; color: #111827; line-height: 1.2;">
+            Confirm your email
+          </h1>
+          <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
+            Thanks for signing up to FiBi! Confirm your email to get travel tips, updates and the most out of your saved places.
+          </p>
+          ${CTAButton({ text: 'Confirm email', url: confirmUrl })}
+          <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
+            Or copy and paste this link into your browser:<br />
+            <a href="${confirmUrl}" style="color: #2563eb; text-decoration: underline; word-break: break-all;">${confirmUrl}</a>
+          </p>
+        </td>
+      </tr>
+    `,
+  })
+}
+
+/**
+ * Send confirm-email (soft verification for notifications)
+ */
+export async function sendConfirmEmail({
+  to,
+  confirmUrl,
+}: {
+  to: string | string[]
+  confirmUrl: string
+}) {
+  const html = getConfirmEmailTemplate({ confirmUrl })
+  return sendEmail({
+    to,
+    subject: 'Confirm your email – FiBi',
+    html,
+  })
+}
+
+/**
  * Helper function to send a password reset email
  */
 export async function sendPasswordResetEmail({

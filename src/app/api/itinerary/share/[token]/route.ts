@@ -34,7 +34,7 @@ export async function GET(
     // Get the itinerary (no auth check needed - RLS will allow public read via share)
     const { data: itinerary, error: itineraryError } = await supabase
       .from('itineraries')
-      .select('id, name, start_date, end_date, created_at')
+      .select('id, name, start_date, end_date, cover_image_url, created_at')
       .eq('id', share.itinerary_id)
       .single()
 
@@ -61,6 +61,7 @@ export async function GET(
         name: itinerary.name,
         start_date: itinerary.start_date ?? null,
         end_date: itinerary.end_date ?? null,
+        cover_image_url: itinerary.cover_image_url ?? null,
         created_at: itinerary.created_at,
       },
       items: itemsData,
