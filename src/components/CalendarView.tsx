@@ -1779,7 +1779,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           item={item}
                           isDragging={activeId === item.id}
                           onSelect={() => setSelectedItem(item)}
-                          onAssignDate={isMobile ? () => handleItemTapForDate(item) : undefined}
+                          onAssignDate={undefined}
                           isMobile={isMobile}
                         />
                       ))
