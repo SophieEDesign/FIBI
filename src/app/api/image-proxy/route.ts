@@ -71,8 +71,9 @@ export async function GET(request: NextRequest) {
 
       if (!response.ok) {
         console.warn(`Image proxy failed: ${response.status} for ${imageUrl}`)
-        // If proxy fails, redirect to original URL anyway
-        return NextResponse.redirect(imageUrl, { status: 302 })
+        // For FB/IG CDNs, do not redirect to raw URL (browser would get 403 again).
+        // Return 404 so the client's img onError runs and placeholder is shown.
+        return new NextResponse(null, { status: 404 })
       }
 
       // Get the image data
@@ -90,8 +91,8 @@ export async function GET(request: NextRequest) {
       })
     } catch (error) {
       console.error('Image proxy error:', error)
-      // If proxy fails, redirect to original URL
-      return NextResponse.redirect(imageUrl, { status: 302 })
+      // For FB/IG CDNs, do not redirect (avoids browser 403). Return 404 so placeholder shows.
+      return new NextResponse(null, { status: 404 })
     }
   } catch (error: any) {
     console.error('Image proxy API error:', error)

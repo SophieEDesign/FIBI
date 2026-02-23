@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
@@ -19,7 +18,6 @@ interface UserPreferences {
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
   const supabase = createClient()
   const [stats, setStats] = useState<UserStats>({
     totalPlaces: 0,
@@ -32,6 +30,7 @@ export default function ProfilePage() {
     units: 'km',
   })
   const [displayName, setDisplayName] = useState('')
+  const [savingName, setSavingName] = useState(false)
   const [email, setEmail] = useState('')
   const [isEditingEmail, setIsEditingEmail] = useState(false)
   const [updatingEmail, setUpdatingEmail] = useState(false)
@@ -86,12 +85,13 @@ export default function ProfilePage() {
         })
       }
 
-      // Load preferences (from user_custom_options or defaults)
-      // For now, we'll use defaults. In the future, we can store these in user_custom_options
-      // or create a separate user_preferences table
-
-      // Load display name (if stored in user metadata or custom options)
-      // For now, we'll use email as display name
+      // Load profile (display name from profiles.full_name)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle()
+      setDisplayName(profile?.full_name ?? '')
 
       setLoading(false)
     } catch (error) {
@@ -160,10 +160,8 @@ export default function ProfilePage() {
     }
   }, [showClearConfirm])
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+  const handleSignOut = () => {
+    window.location.href = '/api/auth/signout'
   }
 
   const handleUpdateEmail = async () => {
@@ -208,13 +206,37 @@ export default function ProfilePage() {
     setErrorMessage(null)
   }
 
-  const getInitials = (email: string) => {
-    if (!email) return '?'
-    const parts = email.split('@')[0]
-    if (parts.length >= 2) {
-      return parts.substring(0, 2).toUpperCase()
+  const handleSaveDisplayName = async () => {
+    if (!user) return
+    setSavingName(true)
+    setErrorMessage(null)
+    setSuccessMessage(null)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: displayName.trim() || null })
+        .eq('id', user.id)
+      if (error) {
+        console.error('Error saving display name:', error)
+        setErrorMessage(error.message || 'Failed to save name. Please try again.')
+        return
+      }
+      setSuccessMessage('Name saved.')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err) {
+      console.error('Error saving display name:', err)
+      setErrorMessage('Failed to save name. Please try again.')
+    } finally {
+      setSavingName(false)
     }
-    return parts.charAt(0).toUpperCase()
+  }
+
+  const getInitials = (emailOrName: string) => {
+    if (!emailOrName) return '?'
+    const name = emailOrName.includes('@') ? emailOrName.split('@')[0] : emailOrName.trim()
+    if (!name) return '?'
+    if (name.length >= 2) return name.substring(0, 2).toUpperCase()
+    return name.charAt(0).toUpperCase()
   }
 
   if (authLoading || loading) {
@@ -273,7 +295,7 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3 md:gap-4 mb-4">
             {/* Avatar */}
             <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-base md:text-xl font-semibold flex-shrink-0">
-              {getInitials(email || user.email || '')}
+              {getInitials(displayName || email || user.email || '')}
             </div>
             
             <div className="flex-1">
@@ -323,20 +345,31 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Display Name (optional, for future) */}
+          {/* Display Name (optional) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Display Name (optional)
             </label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              aria-label="Display name"
-            />
-            <p className="text-xs text-gray-500 mt-1">This is just for you</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Your name"
+                disabled={savingName}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Display name"
+              />
+              <button
+                onClick={handleSaveDisplayName}
+                disabled={savingName}
+                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                aria-label="Save display name"
+              >
+                {savingName ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Used when you share trips or comment</p>
           </div>
         </section>
 

@@ -22,7 +22,7 @@ function isValidEmail(s: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim())
 }
 
-/** Find user by email via admin listUsers (paginated). */
+/** Find user by email via admin listUsers (paginated). Throws on listUsers API error so route can return 500 instead of 200. */
 async function findUserByEmail(email: string): Promise<{ id: string; email: string } | null> {
   const admin = getAdminSupabase()
   const normalized = email.trim().toLowerCase()
@@ -30,7 +30,7 @@ async function findUserByEmail(email: string): Promise<{ id: string; email: stri
   const perPage = 50
   while (true) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage })
-    if (error) return null
+    if (error) throw new Error(`listUsers failed: ${error.message}`)
     const user = data.users.find(
       (u) => u.email?.trim().toLowerCase() === normalized
     )
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
   // Authenticated path: use session user (trim email for Resend's to field)
   const sessionEmail = typeof sessionUser?.email === 'string' ? sessionUser.email.trim() : ''
   if (sessionEmail && isValidEmail(sessionEmail) && sessionUser?.id) {
+    console.log('resend-confirm: auth path')
     const last = cooldownsByUserId.get(sessionUser.id)
     if (last != null && now - last < COOLDOWN_MS) {
       const waitSec = Math.ceil((COOLDOWN_MS - (now - last)) / 1000)
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
+  console.log('resend-confirm: unauth path')
   const emailKey = email.toLowerCase()
   const last = cooldownsByEmail.get(emailKey)
   if (last != null && now - last < COOLDOWN_MS) {
@@ -109,9 +111,9 @@ export async function POST(request: NextRequest) {
   try {
     user = await findUserByEmail(email)
   } catch (adminErr) {
-    console.error('Resend confirm: findUserByEmail failed (is SUPABASE_SERVICE_ROLE_KEY set?):', adminErr)
+    console.error('Resend confirm: findUserByEmail failed:', adminErr)
     return NextResponse.json(
-      { error: 'Server config error. Add SUPABASE_SERVICE_ROLE_KEY in Vercel env vars, or try the live site (fibi.world).' },
+      { error: 'Could not send right now. Try again in a minute.' },
       { status: 500 }
     )
   }

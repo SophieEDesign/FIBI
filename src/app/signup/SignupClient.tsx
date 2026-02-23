@@ -61,8 +61,7 @@ export default function SignupClient() {
     }
     const script = document.createElement('script')
     script.src = TURNSTILE_SCRIPT_URL
-    script.async = true
-    script.defer = true
+    // Do not use async/defer: Cloudflare requires sync load when using turnstile.ready()
     script.onload = () => setTurnstileReady(true)
     document.head.appendChild(script)
   }, [siteKey])

@@ -9,6 +9,8 @@ import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
 import VideoFeed from '@/components/VideoFeed'
 import TripSwipeViewer from '@/components/TripSwipeViewer'
+import VideoEmbedBlock from '@/components/VideoEmbedBlock'
+import { isVideoTypeItem } from '@/components/TripVideoViewer'
 import CollapsibleOptions from '@/components/CollapsibleOptions'
 import { createClient } from '@/lib/supabase/client'
 
@@ -642,7 +644,11 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
             {filteredItems.length === 0 ? (
               <p className="text-gray-500 text-center py-12 col-span-full">No places in this trip yet.</p>
             ) : (
-              filteredItems.map((item, index) => (
+              filteredItems.map((item, index) => {
+                const title = item.title || item.place_name || getHostname(item.url)
+                const locationStr = item.formatted_address ||
+                  (item.location_city && item.location_country ? `${item.location_city}, ${item.location_country}` : item.location_city || item.location_country) || null
+                return (
                 <div key={item.id} className="min-w-0">
                   <button
                     type="button"
@@ -652,11 +658,19 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                     }}
                     className="w-full text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col min-w-0"
                   >
-                    <div className="flex-1 min-h-0 relative bg-gray-100">
-                      {item.screenshot_url || item.thumbnail_url ? (
+                    <div className="flex-1 min-h-0 relative bg-gray-100 overflow-hidden">
+                      {isVideoTypeItem(item) ? (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <VideoEmbedBlock
+                            url={item.url}
+                            platform={item.platform}
+                            minHeight={200}
+                          />
+                        </div>
+                      ) : item.screenshot_url || item.thumbnail_url ? (
                         <img
                           src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
-                          alt={item.title || item.place_name || getHostname(item.url)}
+                          alt={title}
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       ) : (
@@ -691,14 +705,17 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                         </div>
                       )}
                     </div>
-                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {item.title || item.place_name || getHostname(item.url)}
-                      </p>
+                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100 space-y-0.5">
+                      <p className="text-sm font-medium text-gray-900 truncate">{title}</p>
+                      {isVideoTypeItem(item) ? (
+                        <span className="text-xs text-gray-500">{item.platform}</span>
+                      ) : locationStr ? (
+                        <p className="text-xs text-gray-500 truncate">{locationStr}</p>
+                      ) : null}
                     </div>
                   </button>
                 </div>
-              ))
+              )})
             )}
           </div>
         )}

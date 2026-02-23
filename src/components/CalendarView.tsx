@@ -23,6 +23,8 @@ import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
 import CreateItineraryModal from '@/components/CalendarView/CreateItineraryModal'
 import VideoFeed from '@/components/VideoFeed'
+import VideoEmbedBlock from '@/components/VideoEmbedBlock'
+import { isVideoTypeItem } from '@/components/TripVideoViewer'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface CalendarViewProps {
@@ -179,6 +181,23 @@ export default function CalendarView({ user }: CalendarViewProps) {
       setItems([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleToggleIcon = async (item: SavedItem, field: 'liked' | 'planned') => {
+    const newVal = !(item[field] ?? false)
+    try {
+      const { error } = await supabase
+        .from('saved_items')
+        .update({ [field]: newVal })
+        .eq('id', item.id)
+
+      if (error) throw error
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, [field]: newVal } : i))
+      )
+    } catch (err) {
+      console.error('Error toggling', field, err)
     }
   }
 
@@ -1567,6 +1586,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         activeId={activeId}
                         draggedItem={draggedItem}
                         onSelect={(item) => setSelectedItem(item)}
+                        onToggleIcon={handleToggleIcon}
                         isMobile={isMobile}
                       />
                     </div>
@@ -2374,10 +2394,11 @@ interface MoodboardGridProps {
   activeId: string | null
   draggedItem: SavedItem | null
   onSelect: (item: SavedItem) => void
+  onToggleIcon: (item: SavedItem, field: 'liked' | 'planned') => void
   isMobile: boolean
 }
 
-function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: MoodboardGridProps) {
+function MoodboardGrid({ items, activeId, draggedItem, onSelect, onToggleIcon, isMobile }: MoodboardGridProps) {
   const { setNodeRef, isOver } = useDroppable({ id: 'moodboard' })
 
   return (
@@ -2393,6 +2414,7 @@ function MoodboardGrid({ items, activeId, draggedItem, onSelect, isMobile }: Moo
             item={item}
             isDragging={activeId === item.id}
             onSelect={() => onSelect(item)}
+            onToggleIcon={onToggleIcon}
             isMobile={isMobile}
           />
         </MoodboardCardWrapper>
@@ -2414,13 +2436,19 @@ interface MoodboardCardProps {
   item: SavedItem
   isDragging: boolean
   onSelect: () => void
+  onToggleIcon: (item: SavedItem, field: 'liked' | 'planned') => void
   isMobile: boolean
 }
 
-function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardProps) {
+function MoodboardCard({ item, isDragging, onSelect, onToggleIcon, isMobile }: MoodboardCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: item.id })
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
   const title = item.title || item.place_name || getHostname(item.url)
+  const isLiked = item.liked ?? false
+  const isPlanned = item.planned ?? false
+  const both = isLiked && isPlanned
+  const locationStr = item.formatted_address ||
+    (item.location_city && item.location_country ? `${item.location_city}, ${item.location_country}` : item.location_city || item.location_country) || null
 
   return (
     <div
@@ -2431,8 +2459,16 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       className={`aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all cursor-pointer flex flex-col min-w-0 ${isDragging ? 'opacity-50' : ''}`}
     >
-      <div className="flex-1 min-h-0 relative bg-gray-100">
-        {item.screenshot_url || item.thumbnail_url ? (
+      <div className="flex-1 min-h-0 relative bg-gray-100 overflow-hidden">
+        {isVideoTypeItem(item) ? (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <VideoEmbedBlock
+              url={item.url}
+              platform={item.platform}
+              minHeight={200}
+            />
+          </div>
+        ) : item.screenshot_url || item.thumbnail_url ? (
           <img
             src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
             alt={title}
@@ -2450,9 +2486,51 @@ function MoodboardCard({ item, isDragging, onSelect, isMobile }: MoodboardCardPr
             />
           </div>
         )}
+        {/* Card state icons: planned (tick) primary, liked (heart) - only when active */}
+        <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+          {isPlanned && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleIcon(item, 'planned')
+              }}
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
+              aria-label="Remove planned"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          )}
+          {isLiked && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleIcon(item, 'liked')
+              }}
+              className={`flex items-center justify-center rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out] ${
+                both ? 'w-5 h-5' : 'w-6 h-6'
+              }`}
+              aria-label="Remove liked"
+            >
+              <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
-      <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
+      <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100 space-y-0.5">
         <p className="text-sm font-medium text-gray-900 truncate">{title}</p>
+        {isVideoTypeItem(item) ? (
+          <span className="text-xs text-gray-500">{item.platform}</span>
+        ) : locationStr ? (
+          <p className="text-xs text-gray-500 truncate">{locationStr}</p>
+        ) : null}
       </div>
     </div>
   )

@@ -1479,10 +1479,8 @@ export default function AddItemForm() {
               {/* Mobile menu */}
               <MobileMenu
                 isAuthenticated={isAuthenticated}
-                onSignOut={async () => {
-                  await supabase.auth.signOut()
-                  router.push('/login')
-                  router.refresh()
+                onSignOut={() => {
+                  window.location.href = '/api/auth/signout'
                 }}
               />
             </div>

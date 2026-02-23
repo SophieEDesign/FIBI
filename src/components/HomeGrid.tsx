@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -35,7 +35,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
   const [groupBy, setGroupBy] = useState<'none' | 'liked' | 'planned'>('none')
   const supabase = createClient()
-  const router = useRouter()
   const confirmError = searchParams?.get('confirm') === 'error'
   const confirmExpired = searchParams?.get('confirm') === 'expired'
 
@@ -201,10 +200,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     }
   }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+  const handleSignOut = () => {
+    window.location.href = '/api/auth/signout'
   }
 
   // Parse categories/statuses from item (supports both single string and array)
