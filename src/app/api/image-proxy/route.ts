@@ -56,15 +56,24 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // Fetch with browser-like headers; some CDNs (e.g. Facebook/Instagram) block non-browser requests
+      // Use site-origin Referer for FB/IG CDNs (they often block wrong or missing Referer)
+      let referer = `${parsedUrl.origin}/`
+      if (hostname.includes('cdninstagram.com') || hostname.includes('instagram.com')) {
+        referer = 'https://www.instagram.com/'
+      } else if (hostname.includes('fbcdn.net') || hostname.includes('facebook.com')) {
+        referer = 'https://www.facebook.com/'
+      }
+
+      // Fetch with browser-like headers; some CDNs block non-browser or data-center requests
       const response = await fetch(imageUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
           'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Referer': `${parsedUrl.origin}/`,
+          'Referer': referer,
+          'Origin': referer.replace(/\/$/, ''),
           'Sec-Fetch-Dest': 'image',
-          'Sec-Fetch-Mode': 'no-cors',
+          'Sec-Fetch-Mode': 'cors',
         },
         next: { revalidate: 3600 }, // Cache for 1 hour
       })
