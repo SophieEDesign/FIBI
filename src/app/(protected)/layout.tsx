@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
-export default function ProtectedLayout({
+function ProtectedLayoutInner({
   children,
 }: {
   children: React.ReactNode
@@ -70,6 +70,24 @@ export default function ProtectedLayout({
       {children}
       <BottomNavigation isAdmin={isAdmin} />
     </>
+  )
+}
+
+const LoadingFallback = () => (
+  <div className="min-h-screen flex items-center justify-center text-gray-500">
+    Loading…
+  </div>
+)
+
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ProtectedLayoutInner>{children}</ProtectedLayoutInner>
+    </Suspense>
   )
 }
 

@@ -46,7 +46,20 @@ export interface ItineraryShare {
   id: string
   itinerary_id: string
   share_token: string
+  share_type?: 'link_view' | 'copy' | 'collaborate'
   created_at: string
   revoked_at: string | null
+}
+
+/** Collaborator on an itinerary (owner is in itineraries.user_id). */
+export interface ItineraryCollaborator {
+  id: string
+  itinerary_id: string
+  user_id: string | null
+  invited_email: string | null
+  invited_at: string
+  joined_at: string | null
+  invited_by: string
+  role: 'owner' | 'collaborator'
 }
 

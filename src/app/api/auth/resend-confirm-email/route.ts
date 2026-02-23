@@ -65,19 +65,19 @@ export async function POST(request: NextRequest) {
       const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
       await sendConfirmEmail({ to: sessionEmail, confirmUrl })
     } catch (err) {
-      console.error('Resend confirm email error:', err)
+      console.error('Resend confirm email error (auth path):', err)
       cooldownsByUserId.delete(sessionUser.id)
-      const message = err instanceof Error ? err.message : ''
+      const message = err instanceof Error ? err.message : String(err)
       const isConfig = message.includes('RESEND_API_KEY') || message.includes('not set')
-      return NextResponse.json(
-        { error: isConfig ? 'RESEND_API_KEY is not set on this server.' : 'Failed to send email. Please try again.' },
-        { status: 500 }
-      )
+      const userMessage = isConfig
+        ? 'RESEND_API_KEY is not set. Add it in Vercel → Project → Settings → Environment Variables for Production (and Preview if testing there).'
+        : (message.includes('Failed to send email') ? message : `Failed to send email: ${message}`)
+      return NextResponse.json({ error: userMessage }, { status: 500 })
     }
     return NextResponse.json({ ok: true })
   }
 
-  // Unauthenticated path: require body { email }
+  // Unauthenticated path: require body { email } (used when session/cookies aren't available)
   let body: { email?: string }
   try {
     body = await request.json()
@@ -105,9 +105,18 @@ export async function POST(request: NextRequest) {
   }
   cooldownsByEmail.set(emailKey, now)
 
-  const user = await findUserByEmail(email)
+  let user: { id: string; email: string } | null = null
+  try {
+    user = await findUserByEmail(email)
+  } catch (adminErr) {
+    console.error('Resend confirm: findUserByEmail failed (is SUPABASE_SERVICE_ROLE_KEY set?):', adminErr)
+    return NextResponse.json(
+      { error: 'Server config error. Add SUPABASE_SERVICE_ROLE_KEY in Vercel env vars, or try the live site (fibi.world).' },
+      { status: 500 }
+    )
+  }
   if (!user) {
-    // Don't reveal whether the email exists; same message as success
+    // Don't reveal whether the email exists; same response as success
     return NextResponse.json({ ok: true })
   }
   const admin = getAdminSupabase()
@@ -129,12 +138,12 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Resend confirm email error (by email):', err)
     cooldownsByEmail.delete(emailKey)
-    const message = err instanceof Error ? err.message : ''
+    const message = err instanceof Error ? err.message : String(err)
     const isConfig = message.includes('RESEND_API_KEY') || message.includes('not set')
-    return NextResponse.json(
-      { error: isConfig ? 'RESEND_API_KEY is not set on this server.' : 'Failed to send email. Please try again.' },
-      { status: 500 }
-    )
+    const userMessage = isConfig
+      ? 'RESEND_API_KEY is not set. Add it in Vercel → Project → Settings → Environment Variables for Production (and Preview if testing there).'
+      : (message.includes('Failed to send email') ? message : `Failed to send email: ${message}`)
+    return NextResponse.json({ error: userMessage }, { status: 500 })
   }
   return NextResponse.json({ ok: true })
 }
