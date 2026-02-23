@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
   const sessionEmail = typeof sessionUser?.email === 'string' ? sessionUser.email.trim() : ''
   if (sessionEmail && isValidEmail(sessionEmail) && sessionUser?.id) {
     // #region agent log
+    console.log('[resend-confirm] path=auth')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:path',message:'path',data:{path:'auth'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     // Already confirmed = Supabase email_confirmed_at OR app profiles.email_verified_at
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
     ])
     if (authResult.data?.user?.email_confirmed_at ?? profileResult.data?.email_verified_at) {
       // #region agent log
+      console.log('[resend-confirm] return 200 without sending reason=alreadyConfirmed path=auth')
       fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:authAlreadyConfirmed',message:'return 200 without sending',data:{path:'auth',reason:'alreadyConfirmed'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
       // #endregion
       return NextResponse.json({ ok: true })
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
       const token = createConfirmEmailToken(sessionUser.id)
       const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
       // #region agent log
+      console.log('[resend-confirm] aboutToSend path=auth')
       fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:authSend',message:'aboutToSend',data:{path:'auth'},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
       // #endregion
       await sendConfirmEmail({ to: sessionEmail, confirmUrl })
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
     )
   }
   // #region agent log
+  console.log('[resend-confirm] path=unauth')
   fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:path',message:'path',data:{path:'unauth'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
   // #endregion
   const emailKey = email.toLowerCase()
@@ -131,6 +135,7 @@ export async function POST(request: NextRequest) {
     user = await findUserByEmail(email)
   } catch (adminErr) {
     // #region agent log
+    console.log('[resend-confirm] findUserByEmail threw path=unauth -> 500')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:findUserThrow',message:'findUserByEmail threw',data:{path:'unauth'},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
     // #endregion
     console.error('Resend confirm: findUserByEmail failed:', adminErr)
@@ -141,6 +146,7 @@ export async function POST(request: NextRequest) {
   }
   if (!user) {
     // #region agent log
+    console.log('[resend-confirm] return 200 without sending reason=userNull path=unauth')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:userNull',message:'return 200 without sending',data:{path:'unauth',reason:'userNull'},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
     // #endregion
     // Don't reveal whether the email exists; same response as success
@@ -154,6 +160,7 @@ export async function POST(request: NextRequest) {
   ])
   if (authResult.data?.user?.email_confirmed_at ?? profileResult.data?.email_verified_at) {
     // #region agent log
+    console.log('[resend-confirm] return 200 without sending reason=alreadyConfirmed path=unauth')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:unauthAlreadyConfirmed',message:'return 200 without sending',data:{path:'unauth',reason:'alreadyConfirmed'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
     // #endregion
     return NextResponse.json({ ok: true })
@@ -169,6 +176,7 @@ export async function POST(request: NextRequest) {
     const token = createConfirmEmailToken(user.id)
     const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
     // #region agent log
+    console.log('[resend-confirm] aboutToSend path=unauth')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:unauthSend',message:'aboutToSend',data:{path:'unauth'},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
     // #endregion
     await sendConfirmEmail({ to: toEmail, confirmUrl })

@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 interface MobileMenuProps {
   isAuthenticated: boolean
-  onSignOut: () => void
+  onSignOut?: () => void
 }
 
 /**
@@ -15,7 +15,7 @@ interface MobileMenuProps {
  * Overflow menu for mobile devices with PWA install option.
  * Only visible on mobile screens.
  */
-export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuProps) {
+export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showInstallHelp, setShowInstallHelp] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -152,15 +152,12 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
                   Install app
                 </button>
               )}
-              <button
-                onClick={() => {
-                  onSignOut()
-                  setIsOpen(false)
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200"
+              <a
+                href="/api/auth/signout"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200"
               >
                 Sign out
-              </button>
+              </a>
             </>
           ) : (
             <>

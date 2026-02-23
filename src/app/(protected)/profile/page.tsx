@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/useAuth'
-import { signOut } from '@/lib/signout'
 import { createClient } from '@/lib/supabase/client'
 
 interface UserStats {
@@ -160,10 +159,6 @@ export default function ProfilePage() {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [showClearConfirm])
-
-  const handleSignOut = () => {
-    signOut()
-  }
 
   const handleUpdateEmail = async () => {
     if (!user || !email.trim()) {
@@ -503,14 +498,14 @@ export default function ProfilePage() {
             </button>
 
             {/* Log Out */}
-            <button
-              onClick={handleSignOut}
-              className="w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            <a
+              href="/api/auth/signout"
+              className="block w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
               aria-label="Log out of your account"
             >
               <div className="font-medium text-gray-900">Log Out</div>
               <div className="text-xs text-gray-500 mt-0.5">Sign out of your account</div>
-            </button>
+            </a>
           </div>
         </section>
       </div>
