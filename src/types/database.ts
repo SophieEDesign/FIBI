@@ -18,6 +18,7 @@ export interface SavedItem {
   status?: string | null // deprecated - kept for DB compatibility
   liked?: boolean
   visited?: boolean
+  planned?: boolean
   notes: string | null
   planned_date: string | null
   itinerary_id: string | null

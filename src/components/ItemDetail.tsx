@@ -28,6 +28,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [showCustomCategoryInput, setShowCustomCategoryInput] = useState(false)
   const [liked, setLiked] = useState(false)
   const [visited, setVisited] = useState(false)
+  const [planned, setPlanned] = useState(false)
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
@@ -276,6 +277,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         setCategories(parseCategories(data.category))
         setLiked(!!data.liked)
         setVisited(!!data.visited)
+        setPlanned(!!data.planned)
         setSelectedItineraryId(data.itinerary_id || null)
         setNotesValue(data.notes ?? '')
         setCustomCategory('')
@@ -376,6 +378,12 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     setVisited(newVal)
     await saveField('visited', newVal)
     if (item) setItem({ ...item, visited: newVal })
+  }
+  const handleTogglePlanned = async () => {
+    const newVal = !planned
+    setPlanned(newVal)
+    await saveField('planned', newVal)
+    if (item) setItem({ ...item, planned: newVal })
   }
 
   // Handle itinerary change
@@ -1297,6 +1305,21 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
                       Liked
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleTogglePlanned}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        planned
+                          ? 'bg-black/60 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      aria-label={planned ? 'Remove planned' : 'Mark as planned'}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Planned
                     </button>
                     <button
                       type="button"

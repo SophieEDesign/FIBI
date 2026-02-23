@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle, extractGoogleMapsPlace } from '@/lib/utils'
-import { CATEGORIES } from '@/types/database'
+import { CATEGORIES, type Itinerary } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import MobileMenu from '@/components/MobileMenu'
@@ -53,6 +53,10 @@ export default function AddItemForm() {
   const [clipboardChecked, setClipboardChecked] = useState(false)
   const [clipboardTextUsed, setClipboardTextUsed] = useState(false)
   const [itineraryId, setItineraryId] = useState<string | null>(null)
+  const [itineraries, setItineraries] = useState<Itinerary[]>([])
+  const [showCreateItinerary, setShowCreateItinerary] = useState(false)
+  const [newItineraryName, setNewItineraryName] = useState('')
+  const [creatingItinerary, setCreatingItinerary] = useState(false)
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
   
   // AI suggestions state
@@ -122,6 +126,22 @@ export default function AddItemForm() {
     }
     checkAuth()
   }, [supabase, router, searchParams])
+
+  // Load user's itineraries when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const loadItineraries = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase
+        .from('itineraries')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) console.error('Error loading itineraries:', error)
+      if (data) setItineraries(data)
+    }
+    loadItineraries()
+  }, [isAuthenticated, supabase])
 
   // Load user's custom categories
   const loadUserCustomOptions = async (userId: string) => {
@@ -1168,6 +1188,32 @@ export default function AddItemForm() {
     }
   }
 
+  const handleCreateItinerary = async () => {
+    if (!newItineraryName.trim()) return
+    setCreatingItinerary(true)
+    setError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data, error } = await supabase
+        .from('itineraries')
+        .insert({ user_id: user.id, name: newItineraryName.trim() })
+        .select()
+        .single()
+      if (error) throw error
+      if (data) {
+        setItineraries(prev => [data, ...prev])
+        setItineraryId(data.id)
+        setShowCreateItinerary(false)
+        setNewItineraryName('')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to create trip')
+    } finally {
+      setCreatingItinerary(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -1288,6 +1334,7 @@ export default function AddItemForm() {
         category: finalCategory,
         liked: false,
         visited: false,
+        planned: false,
         itinerary_id: itineraryId || null,
         trip_position: tripPosition,
       }
@@ -1613,6 +1660,61 @@ export default function AddItemForm() {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Add to Trip */}
+            <div>
+              <label htmlFor="add-to-trip" className="block text-sm font-medium text-gray-700 mb-2">
+                Add to Trip
+              </label>
+              <div className="space-y-2">
+                <select
+                  id="add-to-trip"
+                  value={itineraryId || ''}
+                  onChange={(e) => setItineraryId(e.target.value || null)}
+                  className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                >
+                  <option value="">No trip</option>
+                  {itineraries.map((it) => (
+                    <option key={it.id} value={it.id}>{it.name}</option>
+                  ))}
+                </select>
+                {!showCreateItinerary ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateItinerary(true)}
+                    className="text-sm text-secondary hover:text-charcoal"
+                  >
+                    + Create new trip
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newItineraryName}
+                      onChange={(e) => setNewItineraryName(e.target.value)}
+                      placeholder="Trip name"
+                      className="flex-1 px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleCreateItinerary())}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCreateItinerary}
+                      disabled={creatingItinerary || !newItineraryName.trim()}
+                      className="px-4 py-2 bg-charcoal text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                    >
+                      {creatingItinerary ? 'Creating...' : 'Create'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCreateItinerary(false); setNewItineraryName('') }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Advanced options - collapsed by default */}

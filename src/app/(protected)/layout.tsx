@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
 import { useAuth } from '@/lib/useAuth'
@@ -13,6 +13,8 @@ export default function ProtectedLayout({
   children: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
   const redirectingRef = useRef(false)
@@ -22,9 +24,10 @@ export default function ProtectedLayout({
     if (loading) return
     if (!user && !redirectingRef.current) {
       redirectingRef.current = true
-      router.replace('/login')
+      const intended = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : '')
+      router.replace(intended ? `/login?redirect=${encodeURIComponent(intended)}` : '/login')
     }
-  }, [loading, user, router])
+  }, [loading, user, router, pathname, searchParams])
 
   useEffect(() => {
     if (!user?.id) {

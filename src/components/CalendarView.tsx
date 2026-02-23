@@ -22,6 +22,7 @@ import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
 import CreateItineraryModal from '@/components/CalendarView/CreateItineraryModal'
+import VideoFeed from '@/components/VideoFeed'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface CalendarViewProps {
@@ -98,6 +99,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [unplannedLocationFilters, setUnplannedLocationFilters] = useState<string[]>([])
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
+  const [tripContentView, setTripContentView] = useState<'board' | 'videos'>('board')
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
@@ -1512,34 +1514,64 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 )
               })()}
 
-              {/* Moodboard - primary visual focus with clean spacing */}
-              {tripPlacesOrdered.length === 0 && (
-                <div className="max-w-xl mx-auto text-center py-14 md:py-20">
-                  <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
-                    Start shaping this trip.
-                  </h2>
-                  <p className="text-base text-[#6b7280] mb-8 leading-relaxed">
-                    Add places to build your board.
-                  </p>
-                  <Link
-                    href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
-                    className="inline-block bg-[#1f2937] text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-opacity"
-                  >
-                    Add a place
-                  </Link>
-                </div>
-              )}
+              {/* Board / Videos tabs - when a trip is selected */}
+              <div className="mb-4 flex items-center gap-2">
+                <button
+                  onClick={() => setTripContentView('board')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    tripContentView === 'board'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Board
+                </button>
+                <button
+                  onClick={() => setTripContentView('videos')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    tripContentView === 'videos'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Videos
+                </button>
+              </div>
 
-              {tripPlacesOrdered.length > 0 && (
-                <div className="mt-8">
-                <MoodboardGrid
-                  items={tripPlacesOrdered}
-                  activeId={activeId}
-                  draggedItem={draggedItem}
-                  onSelect={(item) => setSelectedItem(item)}
-                  isMobile={isMobile}
-                />
-                </div>
+              {tripContentView === 'videos' ? (
+                <VideoFeed items={tripPlacesOrdered} onSelectItem={setSelectedItem} />
+              ) : (
+                <>
+                  {/* Moodboard - primary visual focus with clean spacing */}
+                  {tripPlacesOrdered.length === 0 && (
+                    <div className="max-w-xl mx-auto text-center py-14 md:py-20">
+                      <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
+                        Start shaping this trip.
+                      </h2>
+                      <p className="text-base text-[#6b7280] mb-8 leading-relaxed">
+                        Add places to build your board.
+                      </p>
+                      <Link
+                        href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
+                        className="inline-block bg-[#1f2937] text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-opacity"
+                      >
+                        Add a place
+                      </Link>
+                    </div>
+                  )}
+
+                  {tripPlacesOrdered.length > 0 && (
+                    <div className="mt-8">
+                      <MoodboardGrid
+                        items={tripPlacesOrdered}
+                        activeId={activeId}
+                        draggedItem={draggedItem}
+                        onSelect={(item) => setSelectedItem(item)}
+                        isMobile={isMobile}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </>
           ) : (

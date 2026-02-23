@@ -1,14 +1,19 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { SavedItem } from '@/types/database'
 import { getHostname, isMobileDevice } from '@/lib/utils'
 import { getProxiedImageUrl } from '@/lib/image-proxy'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
+import VideoFeed from '@/components/VideoFeed'
+import TripSwipeViewer from '@/components/TripSwipeViewer'
 import CollapsibleOptions from '@/components/CollapsibleOptions'
 import { createClient } from '@/lib/supabase/client'
+
+type GoogleMapsMarker = any
+type GoogleMapsMap = any
 
 interface SharedItineraryViewProps {
   shareToken: string
@@ -39,7 +44,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [viewMode, setViewMode] = useState<'moodboard' | 'map' | 'list'>('moodboard')
+  const [viewMode, setViewMode] = useState<'moodboard' | 'map' | 'list' | 'videos'>('moodboard')
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [addingToAccount, setAddingToAccount] = useState(false)
@@ -48,9 +53,25 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
   const [joiningCollaborator, setJoiningCollaborator] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [joinCollaboratorError, setJoinCollaboratorError] = useState<string | null>(null)
+  const [swipeViewerOpen, setSwipeViewerOpen] = useState(false)
+  const [swipeViewerInitialIndex, setSwipeViewerInitialIndex] = useState(0)
+  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<GoogleMapsMap | null>(null)
+  const markersRef = useRef<{ item: SavedItem; marker: GoogleMapsMarker }[]>([])
   const supabase = createClient()
 
   const isCollaborateShare = data?.share_type === 'collaborate'
+
+  // Items with valid lat/lng for the map
+  const itemsWithLocations = useMemo(() => {
+    if (!data) return []
+    return data.items.filter((item) => {
+      const lat = item.latitude
+      const lng = item.longitude
+      return lat != null && !isNaN(Number(lat)) && lng != null && !isNaN(Number(lng))
+    })
+  }, [data])
 
   useEffect(() => {
     loadSharedItinerary()
@@ -74,6 +95,123 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Load Google Maps script when user switches to map view
+  useEffect(() => {
+    if (viewMode !== 'map') return
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) return
+    const checkLoaded = () =>
+      !!(
+        typeof window !== 'undefined' &&
+        window.google?.maps?.Map &&
+        window.google?.maps?.Marker &&
+        window.google?.maps?.LatLng &&
+        window.google?.maps?.LatLngBounds
+      )
+    if (checkLoaded()) {
+      setIsGoogleMapsLoaded(true)
+      return
+    }
+    const existing = document.querySelector('script[src*="maps.googleapis.com"]')
+    if (existing) {
+      const id = setInterval(() => {
+        if (checkLoaded()) {
+          clearInterval(id)
+          setIsGoogleMapsLoaded(true)
+        }
+      }, 50)
+      return () => clearInterval(id)
+    }
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      const id = setInterval(() => {
+        if (checkLoaded()) {
+          clearInterval(id)
+          setIsGoogleMapsLoaded(true)
+        }
+      }, 50)
+    }
+    document.head.appendChild(script)
+  }, [viewMode])
+
+  // Clear map when leaving map tab
+  useEffect(() => {
+    if (viewMode !== 'map') {
+      markersRef.current.forEach(({ marker }) => marker.setMap(null))
+      markersRef.current = []
+      mapInstanceRef.current = null
+    }
+  }, [viewMode])
+
+  // Init map when map tab is active and Google Maps is loaded
+  useEffect(() => {
+    if (viewMode !== 'map' || !isGoogleMapsLoaded || !mapRef.current || mapInstanceRef.current) return
+    if (!window.google?.maps?.Map || !window.google?.maps?.MapTypeId) return
+    const mapStyle: Array<{ featureType?: string; elementType?: string; stylers?: Array<Record<string, unknown>> }> = [
+      { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+      { featureType: 'road', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
+      { featureType: 'water', stylers: [{ saturation: -50 }, { lightness: 20 }] },
+      { featureType: 'landscape', stylers: [{ saturation: -50 }, { lightness: 10 }] },
+    ]
+    const map = new window.google.maps.Map(mapRef.current, {
+      zoom: 2,
+      center: { lat: 20, lng: 0 },
+      mapTypeId: window.google.maps.MapTypeId?.ROADMAP || 'roadmap',
+      styles: mapStyle,
+      disableDefaultUI: false,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: true,
+    })
+    mapInstanceRef.current = map
+    return () => {
+      mapInstanceRef.current = null
+    }
+  }, [viewMode, isGoogleMapsLoaded])
+
+  // Update markers when map is ready and items change
+  useEffect(() => {
+    if (viewMode !== 'map' || !mapInstanceRef.current || !isGoogleMapsLoaded) return
+    const map = mapInstanceRef.current
+    markersRef.current.forEach(({ marker }) => marker.setMap(null))
+    markersRef.current = []
+    if (itemsWithLocations.length === 0) return
+    const bounds = new window.google.maps.LatLngBounds()
+    itemsWithLocations.forEach((item) => {
+      const lat = typeof item.latitude === 'string' ? parseFloat(item.latitude) : Number(item.latitude)
+      const lng = typeof item.longitude === 'string' ? parseFloat(item.longitude) : Number(item.longitude)
+      if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return
+      const position = new window.google.maps.LatLng(lat, lng)
+      const marker = new window.google.maps.Marker({
+        position,
+        map,
+        icon: {
+          path: window.google.maps.SymbolPath?.CIRCLE || 0,
+          scale: 8,
+          fillColor: '#8B5CF6',
+          fillOpacity: 0.8,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+          anchor: new window.google.maps.Point(0, 0),
+        },
+        title: item.title || item.place_name || 'Saved place',
+        animation: window.google.maps.Animation?.DROP || undefined,
+      })
+      marker.addListener('click', () => setSelectedItem(item))
+      markersRef.current.push({ item, marker })
+      bounds.extend(position)
+    })
+    if (markersRef.current.length > 0) {
+      map.fitBounds(bounds)
+      map.padding = { top: 50, right: 50, bottom: 50, left: 50 }
+    }
+  }, [viewMode, isGoogleMapsLoaded, itemsWithLocations])
 
   const loadSharedItinerary = async () => {
     try {
@@ -478,10 +616,25 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
             >
               Map
             </button>
+            <button
+              onClick={() => setViewMode('videos')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                viewMode === 'videos'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Videos
+            </button>
           </div>
         </div>
 
         {/* Stage filter removed - liked/visited shown as icons on cards */}
+
+        {/* Videos View: scrollable feed with in-app preview */}
+        {viewMode === 'videos' && (
+          <VideoFeed items={filteredItems} onSelectItem={setSelectedItem} />
+        )}
 
         {/* Moodboard View: uniform square cards, image-first */}
         {viewMode === 'moodboard' && (
@@ -489,11 +642,14 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
             {filteredItems.length === 0 ? (
               <p className="text-gray-500 text-center py-12 col-span-full">No places in this trip yet.</p>
             ) : (
-              filteredItems.map((item) => (
+              filteredItems.map((item, index) => (
                 <div key={item.id} className="min-w-0">
                   <button
                     type="button"
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => {
+                      setSwipeViewerInitialIndex(index)
+                      setSwipeViewerOpen(true)
+                    }}
                     className="w-full text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col min-w-0"
                   >
                     <div className="flex-1 min-h-0 relative bg-gray-100">
@@ -515,20 +671,20 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                           />
                         </div>
                       )}
-                      {/* Liked / Visited overlay icons - top-right */}
-                      {(item.liked || item.visited) && (
-                        <div className="absolute top-2 right-2 flex gap-1.5 z-10">
-                          {item.liked && (
-                            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-black/50 text-white" aria-label="Liked">
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      {/* Liked / Planned overlay icons - top-right (24px, only when active) */}
+                      {(item.liked || item.planned) && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                          {item.planned && (
+                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white" aria-label="Planned">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             </span>
                           )}
-                          {item.visited && (
-                            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-black/50 text-white" aria-label="Visited">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                          {item.liked && (
+                            <span className={`flex items-center justify-center rounded-full bg-black/50 text-white ${item.planned ? 'w-5 h-5' : 'w-6 h-6'}`} aria-label="Liked">
+                              <svg className={item.planned ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                               </svg>
                             </span>
                           )}
@@ -556,10 +712,13 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               </h2>
             </div>
             <div className="divide-y divide-gray-200">
-              {filteredItems.map((item) => (
+              {filteredItems.map((item, index) => (
                 <div
                   key={item.id}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => {
+                    setSwipeViewerInitialIndex(index)
+                    setSwipeViewerOpen(true)
+                  }}
                   className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <div className="flex gap-4">
@@ -608,25 +767,44 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         {/* Map View */}
         {viewMode === 'map' && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="aspect-video w-full bg-gray-100 flex items-center justify-center">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400 mb-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                  />
-                </svg>
-                <p className="text-sm text-gray-600">
-                  Map view coming soon
-                </p>
-              </div>
+            <div className="aspect-video w-full min-h-[280px] relative bg-gray-100">
+              {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-sm text-gray-500">Map unavailable (no API key)</p>
+                </div>
+              ) : itemsWithLocations.length === 0 ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center px-4">
+                    <svg
+                      className="mx-auto h-10 w-10 text-gray-400 mb-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    <p className="text-sm text-gray-600">No places with locations to show on the map</p>
+                  </div>
+                </div>
+              ) : (
+                <div ref={mapRef} className="absolute inset-0 w-full h-full" />
+              )}
+              {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && itemsWithLocations.length > 0 && !isGoogleMapsLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                  <p className="text-sm text-gray-500">Loading map…</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -640,7 +818,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
             Create your own travel plans and keep track of places you want to visit.
           </p>
           <Link
-            href="/login"
+            href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
             className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
           >
             Get started
@@ -649,6 +827,14 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
       </main>
 
       {/* Place Detail Drawer (read-only for shared view) */}
+      {swipeViewerOpen && data && (
+        <TripSwipeViewer
+          items={filteredItems}
+          initialIndex={swipeViewerInitialIndex}
+          onClose={() => setSwipeViewerOpen(false)}
+          onOpenDetails={(item) => setSelectedItem(item)}
+        />
+      )}
       {selectedItem && (
         <PlaceDetailDrawer
           item={selectedItem}

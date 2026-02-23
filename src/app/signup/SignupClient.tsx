@@ -108,6 +108,14 @@ export default function SignupClient() {
     }
   }, [searchParams, checkingAuth])
 
+  // Persist redirect in cookie so auth callback (e.g. email confirmation) can send user back
+  useEffect(() => {
+    const redirectParam = searchParams.get('redirect')
+    if (redirectParam && typeof document !== 'undefined') {
+      document.cookie = `redirect_after_login=${encodeURIComponent(redirectParam)}; path=/; max-age=600; samesite=lax`
+    }
+  }, [searchParams])
+
   // Check if user is already authenticated
   useEffect(() => {
     let isMounted = true

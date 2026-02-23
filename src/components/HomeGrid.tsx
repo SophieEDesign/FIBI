@@ -32,6 +32,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [failedScreenshotIds, setFailedScreenshotIds] = useState<Set<string>>(new Set())
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState<string | null>(null)
+  const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
+  const [groupBy, setGroupBy] = useState<'none' | 'liked' | 'planned'>('none')
   const supabase = createClient()
   const router = useRouter()
   const confirmError = searchParams?.get('confirm') === 'error'
@@ -249,6 +251,30 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     })
   }, [items, filters])
 
+  // Order items: sort by liked/planned, optional group (group off by default)
+  const orderedItems = useMemo(() => {
+    let list = [...filteredItems]
+    if (groupBy === 'liked') {
+      const liked = list.filter((i) => i.liked)
+      const rest = list.filter((i) => !i.liked)
+      list = [...liked, ...rest]
+    } else if (groupBy === 'planned') {
+      const planned = list.filter((i) => i.planned)
+      const rest = list.filter((i) => !i.planned)
+      list = [...planned, ...rest]
+    }
+    if (sortOrder === 'liked') {
+      const liked = list.filter((i) => i.liked)
+      const rest = list.filter((i) => !i.liked)
+      list = [...liked, ...rest]
+    } else if (sortOrder === 'planned') {
+      const planned = list.filter((i) => i.planned)
+      const rest = list.filter((i) => !i.planned)
+      list = [...planned, ...rest]
+    }
+    return list
+  }, [filteredItems, sortOrder, groupBy])
+
   const activeFiltersCount = filters.categories.length
 
   const toggleFilter = (category: string) => {
@@ -264,8 +290,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     setFilters({ categories: [] })
   }
 
-  // Toggle liked or visited on an item
-  const handleToggleIcon = async (item: SavedItem, field: 'liked' | 'visited') => {
+  // Toggle liked or planned on an item
+  const handleToggleIcon = async (item: SavedItem, field: 'liked' | 'planned') => {
     const newVal = !(item[field] ?? false)
     try {
       const { error } = await supabase
@@ -470,6 +496,30 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   </button>
                 ))}
               </div>
+              <div className="flex items-center gap-2 flex-wrap border-l border-gray-200 pl-3 ml-1">
+                <span className="text-sm font-medium text-secondary">Sort:</span>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'default' | 'liked' | 'planned')}
+                  className="px-2.5 py-1.5 text-sm rounded-xl bg-gray-100 text-secondary hover:bg-gray-200 border-0 focus:ring-2 focus:ring-charcoal/20"
+                  aria-label="Sort order"
+                >
+                  <option value="default">Default</option>
+                  <option value="liked">Liked first</option>
+                  <option value="planned">Planned first</option>
+                </select>
+                <span className="text-sm font-medium text-secondary">Group:</span>
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'liked' | 'planned')}
+                  className="px-2.5 py-1.5 text-sm rounded-xl bg-gray-100 text-secondary hover:bg-gray-200 border-0 focus:ring-2 focus:ring-charcoal/20"
+                  aria-label="Group by"
+                >
+                  <option value="none">None</option>
+                  <option value="liked">Liked</option>
+                  <option value="planned">Planned</option>
+                </select>
+              </div>
               {activeFiltersCount > 0 && (
                 <button
                   onClick={clearFilters}
@@ -557,14 +607,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         )}
 
         {/* Grid */}
-        {!loading && filteredItems.length > 0 && (
+        {!loading && orderedItems.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {filteredItems.map((item) => {
+            {orderedItems.map((item) => {
               const displayTitle = item.title || getHostname(item.url)
               const itemCategories = parseItemField(item.category)
               const oneCategory = itemCategories[0]
               const isLiked = item.liked ?? false
-              const isVisited = item.visited ?? false
+              const isPlanned = item.planned ?? false
+              const both = isLiked && isPlanned
 
               return (
                 <div
@@ -591,8 +642,26 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           />
                         </div>
                       )}
-                      {/* Top-right overlay: liked, visited, add-to-trip */}
+                      {/* Top-right overlay: state icons (only when active) + add-to-trip */}
                       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                        {/* Planned (tick): primary when both, 24px circle */}
+                        {isPlanned && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              handleToggleIcon(item, 'planned')
+                            }}
+                            className="flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
+                            aria-label="Remove planned"
+                          >
+                            <svg className={both ? 'w-5 h-5' : 'w-5 h-5'} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                        )}
+                        {/* Liked (heart): smaller when both */}
                         {isLiked && (
                           <button
                             type="button"
@@ -601,27 +670,14 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                               e.stopPropagation()
                               handleToggleIcon(item, 'liked')
                             }}
-                            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
+                            className={`flex items-center justify-center rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out] ${
+                              both ? 'w-5 h-5' : 'w-6 h-6'
+                            }`}
+                            style={{ minWidth: both ? 20 : 24, minHeight: both ? 20 : 24 }}
                             aria-label="Remove liked"
                           >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill="currentColor" viewBox="0 0 24 24">
                               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                            </svg>
-                          </button>
-                        )}
-                        {isVisited && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleToggleIcon(item, 'visited')
-                            }}
-                            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
-                            aria-label="Remove visited"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                             </svg>
                           </button>
                         )}
@@ -645,10 +701,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       </div>
                     </div>
 
-                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100">
+                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100 min-h-0">
                       <h3 className="font-medium text-charcoal truncate text-sm">
                         {displayTitle}
                       </h3>
+                      {(item.place_name || item.formatted_address || item.location_city || item.location_country) && (
+                        <p className="text-xs text-secondary truncate mt-0.5">
+                          {item.place_name || item.formatted_address || [item.location_city, item.location_country].filter(Boolean).join(', ')}
+                        </p>
+                      )}
                       {oneCategory && (
                         <p className="text-xs text-secondary truncate mt-0.5">{oneCategory}</p>
                       )}
@@ -726,6 +787,32 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </div>
               </div>
 
+              <div>
+                <h3 className="text-xs font-medium text-secondary mb-2">Sort</h3>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as 'default' | 'liked' | 'planned')}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary border-0"
+                  aria-label="Sort order"
+                >
+                  <option value="default">Default</option>
+                  <option value="liked">Liked first</option>
+                  <option value="planned">Planned first</option>
+                </select>
+              </div>
+              <div>
+                <h3 className="text-xs font-medium text-secondary mb-2">Group by</h3>
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'liked' | 'planned')}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary border-0"
+                  aria-label="Group by"
+                >
+                  <option value="none">None</option>
+                  <option value="liked">Liked</option>
+                  <option value="planned">Planned</option>
+                </select>
+              </div>
 
               <div className="pt-4 space-y-2">
                 {activeFiltersCount > 0 && (
@@ -924,7 +1011,7 @@ function AddToTripModal({
                   {[item.location_city, item.location_country].filter(Boolean).join(', ')}
                 </p>
               )}
-              {(modalCategories.length > 0 || item.liked || item.visited) && (
+              {(modalCategories.length > 0 || item.liked || item.planned) && (
                 <div className="flex flex-wrap gap-1.5 items-center">
                   {modalCategories.map((cat, idx) => (
                     <span key={`c-${idx}`} className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs">
@@ -936,8 +1023,8 @@ function AddToTripModal({
                       <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
                     </span>
                   )}
-                  {item.visited && (
-                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/10 text-gray-700 text-xs" title="Visited">
+                  {item.planned && (
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-black/10 text-gray-700 text-xs" title="Planned">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                     </span>
                   )}

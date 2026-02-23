@@ -41,11 +41,20 @@ export async function GET(request: NextRequest) {
         const resetUrl = new URL('/reset-password', origin)
         return NextResponse.redirect(resetUrl)
       }
-      
-      // Successfully authenticated (signup confirmation), redirect to app home
-      const redirectUrl = new URL('/app', origin)
-      redirectUrl.searchParams.set('confirmed', 'true')
-      return NextResponse.redirect(redirectUrl)
+
+      // Respect post-login redirect (e.g. shared link user had before signing in)
+      const cookieHeader = request.headers.get('cookie') || ''
+      const match = cookieHeader.match(/redirect_after_login=([^;]+)/)
+      const redirectPath = match ? decodeURIComponent(match[1].trim()) : null
+      const safePath = redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//') ? redirectPath : null
+
+      const redirectUrl = new URL(safePath || '/app', origin)
+      if (!safePath) redirectUrl.searchParams.set('confirmed', 'true')
+
+      const res = NextResponse.redirect(redirectUrl)
+      // Clear the redirect cookie
+      res.cookies.set('redirect_after_login', '', { path: '/', maxAge: 0 })
+      return res
     } else if (error) {
       // If there's an error, redirect to login with error message
       const loginUrl = new URL('/login', origin)
