@@ -208,6 +208,10 @@ export default function SignupClient() {
       setConfirmPassword('')
       resetTurnstile()
       setLoading(false)
+      // Redirect to home after a short delay so the success message is visible
+      setTimeout(() => {
+        router.replace(searchParams.get('redirect') || '/')
+      }, 2000)
     } catch (err: any) {
       console.error('Signup error:', err)
       setError(err.message || err.error?.message || 'An error occurred. Please try again.')

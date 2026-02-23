@@ -54,22 +54,14 @@ export async function POST(request: NextRequest) {
     console.log('[resend-confirm] path=auth')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:path',message:'path',data:{path:'auth'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
     // #endregion
-    // Already confirmed = Supabase email_confirmed_at OR app profiles.email_verified_at
+    // Sync profile if Supabase says confirmed but profile doesn't (so UI banner can hide)
     const admin = getAdminSupabase()
     const [authResult, profileResult] = await Promise.all([
       admin.auth.admin.getUserById(sessionUser.id),
       admin.from('profiles').select('email_verified_at').eq('id', sessionUser.id).single(),
     ])
-    if (authResult.data?.user?.email_confirmed_at ?? profileResult.data?.email_verified_at) {
-      // #region agent log
-      console.log('[resend-confirm] return 200 without sending reason=alreadyConfirmed path=auth')
-      fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:authAlreadyConfirmed',message:'return 200 without sending',data:{path:'auth',reason:'alreadyConfirmed'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      // Sync profile so UI (which only reads profiles.email_verified_at) hides the banner
-      if (authResult.data?.user?.email_confirmed_at && !profileResult.data?.email_verified_at) {
-        await admin.from('profiles').update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', sessionUser.id)
-      }
-      return NextResponse.json({ ok: true })
+    if (authResult.data?.user?.email_confirmed_at && !profileResult.data?.email_verified_at) {
+      await admin.from('profiles').update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', sessionUser.id)
     }
     const last = cooldownsByUserId.get(sessionUser.id)
     if (last != null && now - last < COOLDOWN_MS) {
@@ -156,22 +148,14 @@ export async function POST(request: NextRequest) {
     // Don't reveal whether the email exists; same response as success
     return NextResponse.json({ ok: true })
   }
+  // Sync profile if Supabase says confirmed but profile doesn't (so UI banner can hide)
   const admin = getAdminSupabase()
-  // Already confirmed = Supabase email_confirmed_at OR app profiles.email_verified_at
   const [authResult, profileResult] = await Promise.all([
     admin.auth.admin.getUserById(user.id),
     admin.from('profiles').select('email_verified_at').eq('id', user.id).single(),
   ])
-  if (authResult.data?.user?.email_confirmed_at ?? profileResult.data?.email_verified_at) {
-    // #region agent log
-    console.log('[resend-confirm] return 200 without sending reason=alreadyConfirmed path=unauth')
-    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:unauthAlreadyConfirmed',message:'return 200 without sending',data:{path:'unauth',reason:'alreadyConfirmed'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    // Sync profile so UI (which only reads profiles.email_verified_at) hides the banner
-    if (authResult.data?.user?.email_confirmed_at && !profileResult.data?.email_verified_at) {
-      await admin.from('profiles').update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', user.id)
-    }
-    return NextResponse.json({ ok: true })
+  if (authResult.data?.user?.email_confirmed_at && !profileResult.data?.email_verified_at) {
+    await admin.from('profiles').update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', user.id)
   }
 
   const toEmail = (user.email || '').trim()

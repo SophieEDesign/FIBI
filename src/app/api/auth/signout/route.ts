@@ -25,11 +25,26 @@ async function signOut(request: NextRequest) {
   const loginUrl = new URL('/login', origin)
   const response = NextResponse.redirect(loginUrl)
 
-  const cookieNames: string[] = []
+  // Parse Cookie header once so we can clear Supabase auth cookies regardless of whether
+  // signOut() calls getAll() (cookieNames from getAll can stay empty otherwise).
+  const cookieHeader = request.headers.get('cookie') || ''
+  const authCookieNamesToClear: string[] = []
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach((cookie) => {
+      const trimmed = cookie.trim()
+      if (!trimmed) return
+      const eq = trimmed.indexOf('=')
+      if (eq === -1) return
+      const name = trimmed.substring(0, eq).trim()
+      if (name && name.startsWith('sb-') && name.includes('auth-token')) {
+        authCookieNamesToClear.push(name)
+      }
+    })
+  }
+
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
-        const cookieHeader = request.headers.get('cookie') || ''
         const out: Array<{ name: string; value: string }> = []
         if (cookieHeader) {
           cookieHeader.split(';').forEach((cookie) => {
@@ -47,10 +62,7 @@ async function signOut(request: NextRequest) {
             } catch {
               // keep value
             }
-            if (name) {
-              out.push({ name, value })
-              cookieNames.push(name)
-            }
+            if (name) out.push({ name, value })
           })
         }
         return out
@@ -65,13 +77,10 @@ async function signOut(request: NextRequest) {
 
   await supabase.auth.signOut()
 
-  // Force-clear any Supabase auth cookies so the next request (e.g. /login) sees no session.
-  // Prevents "flash" where login page redirects back to /app because getSession() still had cookies.
+  // Force-clear every Supabase auth cookie by name so the next request sees no session.
   const clearOptions = { path: '/', maxAge: 0 }
-  for (const name of cookieNames) {
-    if (name.startsWith('sb-') && name.includes('auth-token')) {
-      response.cookies.set(name, '', clearOptions)
-    }
+  for (const name of authCookieNamesToClear) {
+    response.cookies.set(name, '', clearOptions)
   }
 
   return response
