@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getHostname, uploadScreenshot } from '@/lib/utils'
+import { getHostname, uploadScreenshot, cleanOGTitle, generateHostnameTitle } from '@/lib/utils'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -54,6 +54,8 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [locationSearchValue, setLocationSearchValue] = useState('')
   const [locationCountry, setLocationCountry] = useState('')
   const [locationCity, setLocationCity] = useState('')
+  const [refetchingMetadata, setRefetchingMetadata] = useState(false)
+  const hasAutoRefetchedRef = useRef<string | null>(null)
 
   const supabase = createClient()
   const router = useRouter()
@@ -76,8 +78,20 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     loadItem()
     loadUserCustomOptions()
     loadItineraries()
+    hasAutoRefetchedRef.current = null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId])
+
+  // When opening a place that has no title/description/thumbnail, auto re-fetch metadata so user can update
+  useEffect(() => {
+    if (!item?.url || loading || refetchingMetadata) return
+    const missing = !(title || item.title)?.trim() || !(description || item.description)?.trim() || !item.thumbnail_url
+    if (!missing) return
+    if (hasAutoRefetchedRef.current === item.id) return
+    hasAutoRefetchedRef.current = item.id
+    refetchMetadataAndUpdate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.id, item?.url, item?.title, item?.description, item?.thumbnail_url, title, description, loading, refetchingMetadata])
 
   // Handle click outside dropdowns
   useEffect(() => {
@@ -273,6 +287,55 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       setLoading(false)
     }
   }
+
+  // Re-fetch metadata from the item URL and update empty title/description/thumbnail so user can update posts that didn't pull through
+  const refetchMetadataAndUpdate = useCallback(async () => {
+    if (!item?.url?.trim()) return
+    setRefetchingMetadata(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: item.url }),
+      })
+      if (!response.ok) throw new Error('Failed to fetch preview')
+      const metadata = await response.json()
+      const updates: { title?: string | null; description?: string | null; thumbnail_url?: string | null } = {}
+      const currentTitle = (title || item?.title || '').trim()
+      const currentDescription = (description || item?.description || '').trim()
+      const currentThumbnail = item?.thumbnail_url
+
+      if (!currentTitle && (metadata.title || metadata.scrapedContent)) {
+        const cleaned = cleanOGTitle(metadata.title)
+        const newTitle = cleaned || (metadata.scrapedContent?.substring(0, 80)?.trim() || null) || generateHostnameTitle(item.url)
+        updates.title = newTitle
+        setTitle(newTitle)
+        await saveField('title', newTitle)
+      }
+      if (!currentDescription && (metadata.description || metadata.scrapedContent)) {
+        const newDesc = (metadata.description || metadata.scrapedContent?.substring(0, 500)?.trim() || null) ?? null
+        if (newDesc) {
+          updates.description = newDesc
+          setDescription(newDesc)
+          await saveField('description', newDesc)
+        }
+      }
+      if (!currentThumbnail && metadata.image) {
+        updates.thumbnail_url = metadata.image
+        setItem(prev => prev ? { ...prev, thumbnail_url: metadata.image } : null)
+        await saveField('thumbnail_url', metadata.image)
+      }
+      if (Object.keys(updates).length > 0 && item) {
+        setItem(prev => prev ? { ...prev, ...updates } : null)
+      }
+    } catch (err: any) {
+      console.debug('ItemDetail: Metadata refetch failed (non-blocking):', err)
+      setError(err?.message || 'Could not fetch preview. Try again or add details manually.')
+    } finally {
+      setRefetchingMetadata(false)
+    }
+  }, [item, title, description])
 
   // Save a single field to Supabase
   const saveField = async (fieldName: string, value: string | null | boolean) => {
@@ -838,8 +901,16 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               {item.platform}
             </div>
 
-            {/* Screenshot management buttons */}
-            <div className="absolute bottom-4 right-4 flex gap-2">
+            {/* Screenshot management + Refetch preview */}
+            <div className="absolute bottom-4 right-4 flex flex-wrap gap-2 items-center justify-end">
+              <button
+                type="button"
+                onClick={() => refetchMetadataAndUpdate()}
+                disabled={refetchingMetadata}
+                className="px-3 py-1.5 bg-black/70 text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {refetchingMetadata ? 'Fetching…' : 'Refetch preview'}
+              </button>
               <input
                 ref={fileInputRef}
                 type="file"
