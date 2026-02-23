@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { sanitizeOembedHtml } from '@/lib/sanitize-oembed'
 
 interface VideoEmbedBlockProps {
@@ -18,10 +18,26 @@ interface OEmbedData {
   error?: string
 }
 
+/** Run script tags that were injected via innerHTML (e.g. TikTok embed.js) so the embed initializes. */
+function runEmbedScripts(container: HTMLElement) {
+  const scripts = container.querySelectorAll('script')
+  scripts.forEach((oldScript) => {
+    const newScript = document.createElement('script')
+    if (oldScript.src) {
+      newScript.src = oldScript.src
+    } else {
+      newScript.textContent = oldScript.textContent
+    }
+    if (oldScript.async) newScript.async = true
+    container.appendChild(newScript)
+  })
+}
+
 export default function VideoEmbedBlock({ url, platform = null, minHeight = 450 }: VideoEmbedBlockProps) {
   const [oembedData, setOembedData] = useState<OEmbedData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const embedContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!url?.trim()) {
@@ -102,10 +118,28 @@ export default function VideoEmbedBlock({ url, platform = null, minHeight = 450 
       style={{ minHeight: `${minHeight}px` }}
     >
       <div
-        className="relative w-full flex items-center justify-center"
+        ref={embedContainerRef}
+        className="relative w-full flex items-center justify-center [&_iframe]:max-w-full [&_iframe]:w-full [&_iframe]:min-h-[200px]"
         style={{ minHeight: `${minHeight}px` }}
         dangerouslySetInnerHTML={{ __html: sanitizeOembedHtml(oembedData.html) }}
       />
+      <EmbedScriptRunner containerRef={embedContainerRef} embedHtml={oembedData.html} />
     </div>
   )
+}
+
+/** After embed HTML is injected, run any script tags so TikTok/Instagram embeds initialize. */
+function EmbedScriptRunner({
+  containerRef,
+  embedHtml,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>
+  embedHtml: string | null | undefined
+}) {
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || !embedHtml) return
+    runEmbedScripts(el)
+  }, [containerRef, embedHtml])
+  return null
 }

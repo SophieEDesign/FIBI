@@ -664,7 +664,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                           <VideoEmbedBlock
                             url={item.url}
                             platform={item.platform}
-                            minHeight={200}
+                            minHeight={260}
                           />
                         </div>
                       ) : item.screenshot_url || item.thumbnail_url ? (

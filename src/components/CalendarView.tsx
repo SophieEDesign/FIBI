@@ -2465,7 +2465,7 @@ function MoodboardCard({ item, isDragging, onSelect, onToggleIcon, isMobile }: M
             <VideoEmbedBlock
               url={item.url}
               platform={item.platform}
-              minHeight={200}
+              minHeight={260}
             />
           </div>
         ) : item.screenshot_url || item.thumbnail_url ? (

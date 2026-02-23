@@ -51,6 +51,15 @@ export async function POST(request: NextRequest) {
   const sessionEmail = typeof sessionUser?.email === 'string' ? sessionUser.email.trim() : ''
   if (sessionEmail && isValidEmail(sessionEmail) && sessionUser?.id) {
     console.log('resend-confirm: auth path')
+    // Already confirmed = Supabase email_confirmed_at OR app profiles.email_verified_at
+    const admin = getAdminSupabase()
+    const [authResult, profileResult] = await Promise.all([
+      admin.auth.admin.getUserById(sessionUser.id),
+      admin.from('profiles').select('email_verified_at').eq('id', sessionUser.id).single(),
+    ])
+    if (authResult.data?.user?.email_confirmed_at ?? profileResult.data?.email_verified_at) {
+      return NextResponse.json({ ok: true })
+    }
     const last = cooldownsByUserId.get(sessionUser.id)
     if (last != null && now - last < COOLDOWN_MS) {
       const waitSec = Math.ceil((COOLDOWN_MS - (now - last)) / 1000)
@@ -122,8 +131,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   }
   const admin = getAdminSupabase()
-  const { data: authUser } = await admin.auth.admin.getUserById(user.id)
-  if (authUser?.user?.email_confirmed_at) {
+  // Already confirmed = Supabase email_confirmed_at OR app profiles.email_verified_at
+  const [authResult, profileResult] = await Promise.all([
+    admin.auth.admin.getUserById(user.id),
+    admin.from('profiles').select('email_verified_at').eq('id', user.id).single(),
+  ])
+  if (authResult.data?.user?.email_confirmed_at ?? profileResult.data?.email_verified_at) {
     return NextResponse.json({ ok: true })
   }
 

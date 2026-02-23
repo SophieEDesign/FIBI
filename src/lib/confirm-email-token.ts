@@ -1,5 +1,10 @@
 import { createHmac, timingSafeEqual } from 'crypto'
 
+/**
+ * Tokens from this module are used to set profiles.email_verified_at only (app-level
+ * "confirmed"). See docs/AUTH_EMAIL_CONFIRMED.md for the dual confirmed concepts
+ * (auth.users.email_confirmed_at vs profiles.email_verified_at).
+ */
 const ALGORITHM = 'sha256'
 const TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
