@@ -76,6 +76,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [copied, setCopied] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
+  const [inviteNote, setInviteNote] = useState('')
   const [sendingInvite, setSendingInvite] = useState(false)
   const [inviteSent, setInviteSent] = useState(false)
   const [inviteError, setInviteError] = useState<string | null>(null)
@@ -1265,7 +1266,43 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 if (editingTripDates && canEditDates) {
                   return (
                     <div className="mb-6">
-                      <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F] mb-2">{trip.name}</h2>
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F] flex-1 min-w-0">{trip.name}</h2>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleShareItinerary()}
+                            disabled={loadingShare}
+                            className="p-2 rounded-xl text-[#6b7280] hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Share trip"
+                            aria-label="Share trip"
+                          >
+                            {loadingShare ? (
+                              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                              </svg>
+                            )}
+                          </button>
+                          {trip.user_id === user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => setShowRemoveItineraryModal(true)}
+                              className="p-2 rounded-xl text-[#6b7280] hover:bg-red-50 hover:text-red-600 transition-colors"
+                              title="Remove trip"
+                              aria-label="Remove trip"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2 flex-wrap text-sm">
                         <input
                           type="date"
@@ -1306,7 +1343,43 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
                 return (
                   <div className="mb-6">
-                    <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F]">{trip.name}</h2>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F] flex-1 min-w-0">{trip.name}</h2>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleShareItinerary()}
+                          disabled={loadingShare}
+                          className="p-2 rounded-xl text-[#6b7280] hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Share trip"
+                          aria-label="Share trip"
+                        >
+                          {loadingShare ? (
+                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                          )}
+                        </button>
+                        {trip.user_id === user?.id && (
+                          <button
+                            type="button"
+                            onClick={() => setShowRemoveItineraryModal(true)}
+                            className="p-2 rounded-xl text-[#6b7280] hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="Remove trip"
+                            aria-label="Remove trip"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     {hasDates ? (
                       canEditDates ? (
                         <button
@@ -1884,6 +1957,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                 setShareStep('choose')
                 setInviteEmail('')
                 setInviteName('')
+                setInviteNote('')
                 setInviteError(null)
                 setInviteSent(false)
               }
@@ -1898,6 +1972,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     setShareStep('choose')
                     setInviteEmail('')
                     setInviteName('')
+                    setInviteNote('')
                     setInviteError(null)
                     setInviteSent(false)
                   }}
@@ -2041,6 +2116,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       disabled={sendingInvite || !shareUrl}
                     />
+                    <textarea
+                      placeholder="Add a note to include in the email (optional)"
+                      value={inviteNote}
+                      onChange={(e) => setInviteNote(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      disabled={sendingInvite || !shareUrl}
+                    />
                     <button
                       onClick={async () => {
                         if (!inviteEmail.trim() || !selectedItineraryId || !shareUrl) return
@@ -2072,6 +2155,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                               recipientName: inviteName.trim() || undefined,
                               itineraryName: selectedItinerary?.name,
                               share_type: shareType,
+                              inviteNote: inviteNote.trim() || undefined,
                             }),
                           })
 
@@ -2084,6 +2168,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           setInviteSent(true)
                           setInviteEmail('')
                           setInviteName('')
+                          setInviteNote('')
                           if (shareType === 'collaborate' && selectedItineraryId) {
                             loadShareCollaborators(selectedItineraryId)
                           }
@@ -2169,6 +2254,7 @@ title: 'Shared trip',
                       setShareStep('choose')
                       setInviteEmail('')
                       setInviteName('')
+                      setInviteNote('')
                       setInviteError(null)
                       setInviteSent(false)
                     }}

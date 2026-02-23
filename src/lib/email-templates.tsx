@@ -101,24 +101,38 @@ function CTAButton({ text, url }: { text: string; url: string }) {
  * Invite Email Template
  * Sent when someone shares an itinerary. Copy is kept factual and low-promotion to reduce spam filtering.
  */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/\n/g, '<br />')
+}
+
 export function getInviteEmailTemplate({
   recipientName = 'there',
   senderName = 'A friend',
   itineraryName = 'an itinerary',
   shareUrl,
   shareType = 'copy',
+  senderNote,
 }: {
   recipientName?: string
   senderName?: string
   itineraryName?: string
   shareUrl: string
   shareType?: 'copy' | 'collaborate'
+  senderNote?: string
 }): string {
   const isCollaborate = shareType === 'collaborate'
   const ctaText = isCollaborate ? 'Open itinerary' : 'View itinerary'
   const bodyCopy = isCollaborate
     ? `${senderName} invited you to collaborate on "${itineraryName}". You can view and edit it together.`
     : `${senderName} shared "${itineraryName}" with you. You can view it and add a copy to your account if you like.`
+  const noteBlock = senderNote?.trim()
+    ? `<div style="margin: 0 0 24px 0; padding: 16px; background: #f3f4f6; border-radius: 8px; border-left: 4px solid #3b82f6;"><p style="margin: 0; font-size: 15px; color: #374151; line-height: 1.6;">${escapeHtml(senderNote.trim())}</p><p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">— ${escapeHtml(senderName)}</p></div>`
+    : ''
   return BaseEmailTemplate({
     title: isCollaborate ? `${senderName} invited you to collaborate` : `${senderName} shared an itinerary with you`,
     preheader: isCollaborate ? `Open the link to view and edit the itinerary.` : `Open the link to view the itinerary.`,
@@ -132,6 +146,7 @@ export function getInviteEmailTemplate({
           <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
             ${bodyCopy}
           </p>
+          ${noteBlock}
           <p style="margin: 0 0 30px 0; font-size: 16px; color: #374151; line-height: 1.6;">
             ${isCollaborate ? 'Use the button below to open the itinerary.' : 'Use the button below to open the itinerary.'}
           </p>
@@ -162,12 +177,14 @@ export function getInviteEmailPlainText({
   itineraryName = 'an itinerary',
   shareUrl,
   shareType = 'copy',
+  senderNote,
 }: {
   recipientName?: string
   senderName?: string
   itineraryName?: string
   shareUrl: string
   shareType?: 'copy' | 'collaborate'
+  senderNote?: string
 }): string {
   const isCollaborate = shareType === 'collaborate'
   const lines = [
@@ -176,7 +193,9 @@ export function getInviteEmailPlainText({
     isCollaborate
       ? `${senderName} invited you to collaborate on "${itineraryName}". You can view and edit it together.`
       : `${senderName} shared "${itineraryName}" with you. You can view it and add a copy to your account if you like.`,
-    '',
+    ...(senderNote?.trim()
+      ? ['', `Message from ${senderName}:`, senderNote.trim(), '']
+      : []),
     'Open the itinerary:',
     shareUrl,
     '',
@@ -330,6 +349,7 @@ export async function sendInviteEmail({
   itineraryName,
   shareUrl,
   shareType = 'copy',
+  senderNote,
 }: {
   to: string | string[]
   recipientName?: string
@@ -337,6 +357,7 @@ export async function sendInviteEmail({
   itineraryName?: string
   shareUrl: string
   shareType?: 'copy' | 'collaborate'
+  senderNote?: string
 }) {
   const html = getInviteEmailTemplate({
     recipientName,
@@ -344,6 +365,7 @@ export async function sendInviteEmail({
     itineraryName,
     shareUrl,
     shareType,
+    senderNote,
   })
 
   const text = getInviteEmailPlainText({
@@ -352,6 +374,7 @@ export async function sendInviteEmail({
     itineraryName,
     shareUrl,
     shareType,
+    senderNote,
   })
 
   // Transactional-style subject (avoids "on FiBi" and promotional phrasing that trigger content filters)

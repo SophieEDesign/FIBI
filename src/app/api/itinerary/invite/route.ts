@@ -11,7 +11,8 @@ export const dynamic = 'force-dynamic'
  *   itinerary_id: string,
  *   recipientEmail: string,
  *   recipientName?: string,
- *   itineraryName?: string
+ *   itineraryName?: string,
+ *   inviteNote?: string
  * }
  */
 export async function POST(request: NextRequest) {
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
     const recipientEmail = recipientEmailRaw || undefined
     const recipientName = body?.recipientName
     const itineraryName = body?.itineraryName
+    const inviteNote = typeof body?.inviteNote === 'string' ? body.inviteNote.trim() || undefined : undefined
     const share_type = body?.share_type === 'collaborate' ? 'collaborate' : 'copy'
 
     if (!itinerary_id || typeof itinerary_id !== 'string') {
@@ -149,6 +151,7 @@ export async function POST(request: NextRequest) {
         itineraryName: itineraryName || itinerary.name || 'an itinerary',
         shareUrl,
         shareType: share_type,
+        senderNote: inviteNote,
       })
 
       return NextResponse.json({
