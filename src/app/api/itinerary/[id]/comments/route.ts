@@ -61,7 +61,7 @@ export async function GET(
         .select('id, full_name')
         .in('id', userIds)
       nameByUserId = Object.fromEntries(
-        (profiles || []).map((p) => [p.id, p.full_name || p.id.slice(0, 8)])
+        (profiles || []).map((p) => [p.id, (p.full_name && p.full_name.trim()) || 'Someone'])
       )
     }
 

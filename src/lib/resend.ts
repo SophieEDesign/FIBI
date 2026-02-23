@@ -19,17 +19,20 @@ export function getResendClient() {
 /**
  * Send an email using Resend.
  * All HTML emails are wrapped with the shared header and footer (gradient logo, Made with ❤️).
+ * Optional text: when provided, sends multipart (text + html) for better deliverability.
  */
 export async function sendEmail({
   to,
   subject,
   html,
+  text,
   from = 'hello@fibi.world',
   replyTo,
 }: {
   to: string | string[]
   subject: string
   html: string
+  text?: string
   from?: string
   replyTo?: string
 }) {
@@ -43,6 +46,7 @@ export async function sendEmail({
       to: Array.isArray(to) ? to : [to],
       subject,
       html: wrappedHtml,
+      ...(text && { text }),
       ...(replyTo && { reply_to: replyTo }),
     })
     

@@ -99,7 +99,7 @@ function CTAButton({ text, url }: { text: string; url: string }) {
 
 /**
  * Invite Email Template
- * Sent when someone shares an itinerary
+ * Sent when someone shares an itinerary. Copy is kept factual and low-promotion to reduce spam filtering.
  */
 export function getInviteEmailTemplate({
   recipientName = 'there',
@@ -115,45 +115,74 @@ export function getInviteEmailTemplate({
   shareType?: 'copy' | 'collaborate'
 }): string {
   const isCollaborate = shareType === 'collaborate'
-  const ctaText = isCollaborate ? 'Join as collaborator' : 'View itinerary'
+  const ctaText = isCollaborate ? 'Open itinerary' : 'View itinerary'
   const bodyCopy = isCollaborate
-    ? `<strong style="color: #2563eb;">${senderName}</strong> invited you to collaborate on <strong>${itineraryName}</strong>. You'll see it in your calendar and can edit it together.`
-    : `<strong style="color: #2563eb;">${senderName}</strong> wants to share <strong>${itineraryName}</strong> with you on FiBi! Check out their travel plans and you can add a copy to your account.`
+    ? `${senderName} invited you to collaborate on "${itineraryName}". You can view and edit it together.`
+    : `${senderName} shared "${itineraryName}" with you. You can view it and add a copy to your account if you like.`
   return BaseEmailTemplate({
     title: isCollaborate ? `${senderName} invited you to collaborate` : `${senderName} shared an itinerary with you`,
-    preheader: isCollaborate ? `Collaborate on ${itineraryName} on FiBi` : `${senderName} wants to share ${itineraryName} with you on FiBi`,
+    preheader: isCollaborate ? `Open the link to view and edit the itinerary.` : `Open the link to view the itinerary.`,
     children: `
       ${EmailHeader()}
       <tr>
         <td style="padding: 40px 30px;">
           <h1 style="margin: 0 0 20px 0; font-size: 28px; font-weight: 700; color: #111827; line-height: 1.2;">
-            👋 Hey ${recipientName}!
+            Hi ${recipientName},
           </h1>
           <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
             ${bodyCopy}
           </p>
           <p style="margin: 0 0 30px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-            ${isCollaborate ? 'Open the link below to join and start planning together.' : 'Check out their travel plans and start planning your next adventure together.'} 🗺️✨
+            ${isCollaborate ? 'Use the button below to open the itinerary.' : 'Use the button below to open the itinerary.'}
           </p>
           ${CTAButton({ text: ctaText, url: shareUrl })}
           <p style="margin: 30px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-            Or copy and paste this link into your browser:<br />
+            If the button does not work, copy this link into your browser:<br />
             <a href="${shareUrl}" style="color: #2563eb; text-decoration: underline; word-break: break-all;">${shareUrl}</a>
           </p>
         </td>
       </tr>
       <tr>
         <td style="padding: 0 30px 40px 30px;">
-          <div style="background: linear-gradient(135deg, #eff6ff 0%, #ecfeff 100%); border-radius: 12px; padding: 20px; border-left: 4px solid #2563eb;">
-            <p style="margin: 0; font-size: 14px; color: #1e40af; line-height: 1.6;">
-              <strong>💡 New to FiBi?</strong><br />
-              FiBi helps you save and organize places you want to visit. Share from any app, add notes, and plan your perfect trip!
-            </p>
-          </div>
+          <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">
+            This link was sent via FiBi (fibi.world). If you did not expect this email, you can ignore it.
+          </p>
         </td>
       </tr>
     `,
   })
+}
+
+/**
+ * Plain-text version of the invite email (improves deliverability; some filters prefer multipart).
+ */
+export function getInviteEmailPlainText({
+  recipientName = 'there',
+  senderName = 'A friend',
+  itineraryName = 'an itinerary',
+  shareUrl,
+  shareType = 'copy',
+}: {
+  recipientName?: string
+  senderName?: string
+  itineraryName?: string
+  shareUrl: string
+  shareType?: 'copy' | 'collaborate'
+}): string {
+  const isCollaborate = shareType === 'collaborate'
+  const lines = [
+    `Hi ${recipientName},`,
+    '',
+    isCollaborate
+      ? `${senderName} invited you to collaborate on "${itineraryName}". You can view and edit it together.`
+      : `${senderName} shared "${itineraryName}" with you. You can view it and add a copy to your account if you like.`,
+    '',
+    'Open the itinerary:',
+    shareUrl,
+    '',
+    'This link was sent via FiBi (fibi.world). If you did not expect this email, you can ignore it.',
+  ]
+  return lines.join('\n')
 }
 
 /**
@@ -291,7 +320,8 @@ export function getPasswordResetEmailTemplate({
 }
 
 /**
- * Helper function to send an invite email
+ * Helper function to send an invite email.
+ * Uses transactional subject and plain-text alternative to reduce spam filtering.
  */
 export async function sendInviteEmail({
   to,
@@ -316,14 +346,25 @@ export async function sendInviteEmail({
     shareType,
   })
 
+  const text = getInviteEmailPlainText({
+    recipientName,
+    senderName,
+    itineraryName,
+    shareUrl,
+    shareType,
+  })
+
+  // Transactional-style subject (avoids "on FiBi" and promotional phrasing that trigger content filters)
+  const name = senderName || 'Someone'
   const subject = shareType === 'collaborate'
-    ? `${senderName || 'Someone'} invited you to collaborate on ${itineraryName || 'an itinerary'} on FiBi`
-    : `${senderName || 'Someone'} shared ${itineraryName || 'an itinerary'} with you on FiBi`
+    ? `[FiBi] ${name} invited you to collaborate on an itinerary`
+    : `[FiBi] ${name} shared an itinerary with you`
 
   return sendEmail({
     to,
     subject,
     html,
+    text,
   })
 }
 
