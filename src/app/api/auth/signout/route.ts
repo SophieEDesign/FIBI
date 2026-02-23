@@ -15,6 +15,9 @@ function getLoginRedirect(request: NextRequest): NextResponse {
  * Supports GET (e.g. link) and POST (e.g. fetch with credentials).
  */
 async function signOut(request: NextRequest) {
+  // #region agent log
+  await fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '73b393' }, body: JSON.stringify({ sessionId: '73b393', location: 'signout/route.ts:signOut', message: 'API signOut entered', data: { method: request.method }, timestamp: Date.now(), hypothesisId: 'C' }) }).catch(() => {})
+  // #endregion
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !key) {
@@ -60,6 +63,9 @@ async function signOut(request: NextRequest) {
   })
 
   await supabase.auth.signOut()
+  // #region agent log
+  await fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '73b393' }, body: JSON.stringify({ sessionId: '73b393', location: 'signout/route.ts:signOut-return', message: 'API returning redirect', data: { status: response.status }, timestamp: Date.now(), hypothesisId: 'C' }) }).catch(() => {})
+  // #endregion
   return response
 }
 

@@ -14,6 +14,9 @@ export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopN
   const pathname = usePathname()
 
   const handleSignOut = () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'73b393'},body:JSON.stringify({sessionId:'73b393',location:'DesktopNavigation.tsx:handleSignOut',message:'handleSignOut called',data:{hasOnSignOut:!!onSignOut},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (onSignOut) {
       onSignOut()
     } else {

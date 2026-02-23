@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+// Explicit render URL: safe to load with defer/async; do not use turnstile.ready() with async load
+const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 
 export default function SignupClient() {
   const [email, setEmail] = useState('')
@@ -66,25 +67,20 @@ export default function SignupClient() {
     document.head.appendChild(script)
   }, [siteKey])
 
-  // Explicit render Turnstile when script is ready and container is mounted
+  // Render Turnstile when script is ready and container is mounted. Do not use turnstile.ready()
+  // when script is loaded dynamically (async); use turnstile.render() directly after script onload.
   useEffect(() => {
     if (!siteKey || !turnstileReady || typeof window === 'undefined') return
     const container = turnstileContainerRef.current
-    if (!container) return
-    const tw = (window as unknown as { turnstile?: { ready: (cb: () => void) => void; render: (el: HTMLElement, opts: { sitekey: string; callback: (token: string) => void }) => string; remove?: (id: string) => void } }).turnstile
-    if (!tw) return
-    let cancelled = false
-    tw.ready(() => {
-      if (cancelled || !container.isConnected) return
-      if (turnstileWidgetIdRef.current) return
-      const widgetId = tw.render(container, {
-        sitekey: siteKey,
-        callback: (token: string) => setTurnstileToken(token),
-      })
-      turnstileWidgetIdRef.current = widgetId
+    if (!container || !container.isConnected) return
+    const tw = (window as unknown as { turnstile?: { render: (el: HTMLElement, opts: { sitekey: string; callback: (token: string) => void }) => string; remove?: (id: string) => void } }).turnstile
+    if (!tw || turnstileWidgetIdRef.current) return
+    const widgetId = tw.render(container, {
+      sitekey: siteKey,
+      callback: (token: string) => setTurnstileToken(token),
     })
+    turnstileWidgetIdRef.current = widgetId
     return () => {
-      cancelled = true
       const id = turnstileWidgetIdRef.current
       if (id && tw.remove) {
         tw.remove(id)
