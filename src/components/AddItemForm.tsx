@@ -6,6 +6,7 @@ import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHo
 import { CATEGORIES, type Itinerary } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { signOut } from '@/lib/signout'
 import MobileMenu from '@/components/MobileMenu'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import LinkPreview from '@/components/LinkPreview'
@@ -1479,9 +1480,7 @@ export default function AddItemForm() {
               {/* Mobile menu */}
               <MobileMenu
                 isAuthenticated={isAuthenticated}
-                onSignOut={() => {
-                  window.location.href = '/api/auth/signout'
-                }}
+                onSignOut={signOut}
               />
             </div>
           </div>

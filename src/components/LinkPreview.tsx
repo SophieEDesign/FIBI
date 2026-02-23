@@ -40,21 +40,6 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
   const isFacebook = platform === 'Facebook'
   const isTwitter = platform === 'Twitter'
 
-  // Debug logging
-  useEffect(() => {
-    if (url.trim()) {
-      console.log('LinkPreview: Props received', {
-        url,
-        hasOGImage: !!ogImage,
-        hasFetchedOGImage: !!fetchedOgImage,
-        effectiveOgImage: !!effectiveOgImage,
-        ogImage: ogImage?.substring(0, 100),
-        hasScreenshot: !!screenshotUrl,
-        screenshotUrl: screenshotUrl?.substring(0, 100),
-      })
-    }
-  }, [url, ogImage, screenshotUrl, fetchedOgImage, effectiveOgImage])
-
   // Fetch metadata to get OG image - always try, even if oEmbed provides data
   // This ensures we get preview images for all URLs, not just those with oEmbed thumbnails
   useEffect(() => {
@@ -76,7 +61,6 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
         if (response.ok) {
           const data = await response.json()
           if (data.image) {
-            console.log('LinkPreview: Fetched OG image from metadata API', { image: data.image.substring(0, 100) })
             setFetchedOgImage(data.image)
           }
         }
@@ -161,20 +145,6 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
     : null
 
   // Debug logging for preview source
-  useEffect(() => {
-    if (url.trim()) {
-      console.log('LinkPreview: Preview source determined', {
-        previewSource,
-        hasOEmbedHTML: !!oembedData?.html,
-        hasOEmbedThumbnail: !!oembedData?.thumbnail_url,
-        hasScreenshot: !!screenshotUrl,
-        hasOGImage: !!effectiveOgImage,
-        ogImageValue: effectiveOgImage,
-        imageError,
-      })
-    }
-  }, [url, previewSource, oembedData, screenshotUrl, effectiveOgImage, imageError])
-
   // Determine preview label - prioritize provided platform, then oEmbed provider_name, then detected platform, then generic
   // If provider_name is "Generic" or similar, prefer the detected/platform prop
   const providerName = oembedData?.provider_name
@@ -324,22 +294,15 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
             src={imageUrl || undefined}
             alt={oembedData?.title || previewLabel}
             className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
             onLoad={() => {
-              console.log('LinkPreview: Image loaded successfully', { imageUrl, previewSource })
               setImageError(null)
               onImageLoad?.()
             }}
             onError={(e) => {
-              console.warn('LinkPreview: Image failed to load', { imageUrl, previewSource, rawImageUrl })
               const img = e.currentTarget
-              // Only fall back to raw URL when it would not be blocked (FB/Instagram CDNs return 403 for direct loads)
-              const wouldNeedProxy = rawImageUrl && (() => {
-                try {
-                  const h = new URL(rawImageUrl, typeof window !== 'undefined' ? window.location.origin : 'https://example.com').hostname.toLowerCase()
-                  return h.includes('fbcdn.net') || h.includes('cdninstagram.com') || h.includes('tiktokcdn.com')
-                } catch { return true }
-              })()
-              if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && !wouldNeedProxy && img.src !== rawImageUrl) {
+              // When proxy returns 404, try raw URL once (no-referrer can work for some CDNs)
+              if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && img.src !== rawImageUrl) {
                 img.src = rawImageUrl
                 return
               }

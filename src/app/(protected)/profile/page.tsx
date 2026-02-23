@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/useAuth'
+import { signOut } from '@/lib/signout'
 import { createClient } from '@/lib/supabase/client'
 
 interface UserStats {
@@ -161,7 +162,7 @@ export default function ProfilePage() {
   }, [showClearConfirm])
 
   const handleSignOut = () => {
-    window.location.href = '/api/auth/signout'
+    signOut()
   }
 
   const handleUpdateEmail = async () => {

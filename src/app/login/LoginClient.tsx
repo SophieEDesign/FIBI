@@ -47,6 +47,8 @@ export default function LoginClient() {
         setSuccessMessage('Your email has been confirmed! You can now log in.')
       } else if (messageParam === 'password_reset') {
         setSuccessMessage('Your password has been reset successfully! You can now log in.')
+      } else if (messageParam === 'signout_preview') {
+        setSuccessMessage('If you\'re on a preview link, sign out may not have cleared your session. Try the live site (fibi.world) to sign out fully.')
       }
     }
   }, [searchParams, checkingAuth])

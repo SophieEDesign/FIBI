@@ -87,7 +87,8 @@ async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '')
-      console.warn(`TikTok oEmbed failed: ${response.status} ${response.statusText}`, errorText.substring(0, 200))
+      // Log at debug; 400 is common (TikTok API). Fallback to generic metadata will still run.
+      console.debug(`TikTok oEmbed failed: ${response.status}`, errorText.substring(0, 150))
       return { error: 'TikTok oEmbed failed' }
     }
 
@@ -222,8 +223,9 @@ async function fetchInstagramOEmbed(url: string): Promise<OEmbedResponse> {
                                errorData.error?.message?.toLowerCase().includes('permission') ||
                                errorData.error?.message?.toLowerCase().includes('not approved')
       
+      // Log at debug to avoid log noise; Meta oEmbed requires App Review approval
       if (isApiNotApproved) {
-        console.warn(`Instagram oEmbed API not approved or permission denied: ${response.status}`, errorData.error)
+        console.debug('Instagram oEmbed: API not approved (Meta App Review required). Falling back to metadata.')
       } else {
         console.warn(`Instagram oEmbed failed: ${response.status}`, errorData.error?.message || errorText.substring(0, 100))
       }

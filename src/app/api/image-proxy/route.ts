@@ -79,9 +79,13 @@ export async function GET(request: NextRequest) {
       })
 
       if (!response.ok) {
-        console.warn(`Image proxy failed: ${response.status} for ${imageUrl}`)
-        // For FB/IG CDNs, do not redirect to raw URL (browser would get 403 again).
-        // Return 404 so the client's img onError runs and placeholder is shown.
+        // Log at debug level to avoid flooding logs; FB/IG CDNs often block server-side fetches (403)
+        if (response.status === 403) {
+          console.debug(`Image proxy 403 (CDN blocks server fetch): ${hostname}`)
+        } else {
+          console.warn(`Image proxy failed: ${response.status} for ${imageUrl}`)
+        }
+        // Return 404 so the client's img onError runs and can try raw URL or show placeholder.
         return new NextResponse(null, { status: 404 })
       }
 

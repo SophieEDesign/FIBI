@@ -6,6 +6,7 @@ import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { signOut } from '@/lib/signout'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -201,7 +202,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   }
 
   const handleSignOut = () => {
-    window.location.href = '/api/auth/signout'
+    signOut()
   }
 
   // Parse categories/statuses from item (supports both single string and array)

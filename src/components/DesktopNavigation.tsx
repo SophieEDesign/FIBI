@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { signOut } from '@/lib/signout'
 
 interface DesktopNavigationProps {
   user: any
@@ -16,7 +17,7 @@ export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopN
     if (onSignOut) {
       onSignOut()
     } else {
-      window.location.href = '/api/auth/signout'
+      signOut()
     }
   }
 
