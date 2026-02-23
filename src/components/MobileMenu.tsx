@@ -165,6 +165,13 @@ export default function MobileMenu({ isAuthenticated, onSignOut }: MobileMenuPro
           ) : (
             <>
               <Link
+                href="/signup"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Sign up
+              </Link>
+              <Link
                 href="/login"
                 onClick={() => setIsOpen(false)}
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

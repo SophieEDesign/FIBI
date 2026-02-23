@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 interface DesktopNavigationProps {
@@ -13,7 +12,6 @@ interface DesktopNavigationProps {
 
 export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopNavigationProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const supabase = createClient()
 
   const handleSignOut = async () => {
@@ -21,8 +19,7 @@ export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopN
       onSignOut()
     } else {
       await supabase.auth.signOut()
-      router.push('/login')
-      router.refresh()
+      window.location.href = '/login'
     }
   }
 

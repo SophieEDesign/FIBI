@@ -216,7 +216,7 @@ export default function LoginClient() {
         <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Welcome back</h2>
-            <p className="text-sm text-gray-600">Don&apos;t have an account? <Link href="/signup" className="text-gray-900 font-medium hover:underline">Sign up</Link></p>
+            <p className="text-sm text-gray-600 mb-3">Don&apos;t have an account? <Link href="/signup" className="text-gray-900 font-medium hover:underline">Sign up</Link></p>
           </div>
 
           {viewMode === 'forgot-password' && (
@@ -315,13 +315,23 @@ export default function LoginClient() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
-            >
-              {loading ? 'Loading...' : viewMode === 'forgot-password' ? 'Send reset link' : 'Log in'}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+              >
+                {loading ? 'Loading...' : viewMode === 'forgot-password' ? 'Send reset link' : 'Log in'}
+              </button>
+              {viewMode === 'login' && (
+                <Link
+                  href="/signup"
+                  className="flex-1 py-3 px-4 rounded-lg font-medium border-2 border-gray-300 text-gray-700 hover:border-gray-900 hover:bg-gray-50 transition-colors text-center focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+                >
+                  Sign up
+                </Link>
+              )}
+            </div>
 
             {viewMode === 'forgot-password' && (
               <div className="text-center">

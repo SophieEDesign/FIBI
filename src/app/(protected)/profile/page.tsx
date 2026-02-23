@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
@@ -19,7 +18,6 @@ interface UserPreferences {
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
-  const router = useRouter()
   const supabase = createClient()
   const [stats, setStats] = useState<UserStats>({
     totalPlaces: 0,
@@ -162,8 +160,7 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    window.location.href = '/login'
   }
 
   const handleUpdateEmail = async () => {

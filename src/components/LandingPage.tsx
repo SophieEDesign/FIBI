@@ -28,12 +28,20 @@ export default function LandingPage() {
                 className="h-8 w-auto"
               />
             </Link>
-            <Link
-              href="/login"
-              className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg"
-            >
-              Sign in
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/signup"
+                className="text-gray-700 hover:text-gray-900 px-4 py-2 rounded-lg font-medium border border-gray-300 hover:border-gray-400 transition-all"
+              >
+                Sign up
+              </Link>
+              <Link
+                href="/login"
+                className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-md hover:shadow-lg"
+              >
+                Sign in
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -385,9 +393,15 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                 <Link
                   href="/login"
-                  className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl"
+                  className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl text-center"
                 >
                   Sign in to start saving
+                </Link>
+                <Link
+                  href="/signup"
+                  className="bg-white text-gray-900 px-6 py-3 rounded-lg font-medium border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all shadow-md hover:shadow-lg text-center"
+                >
+                  Sign up
                 </Link>
                 <button
                   onClick={handleInstallClick}
@@ -409,6 +423,12 @@ export default function LandingPage() {
               © {new Date().getFullYear()} Fibi. Save places before you lose them.
             </p>
             <div className="flex items-center gap-6">
+              <Link
+                href="/signup"
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Sign up
+              </Link>
               <Link
                 href="/login"
                 className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
