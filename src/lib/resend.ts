@@ -17,6 +17,21 @@ export function getResendClient() {
 }
 
 /**
+ * Normalize recipient(s) for Resend: must be "email@example.com" or "Name <email@example.com>".
+ * Trims whitespace and filters out empty entries.
+ */
+function normalizeTo(to: string | string[]): string[] {
+  const arr = Array.isArray(to) ? to : [to]
+  const normalized = arr
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter((entry) => entry.length > 0)
+  if (normalized.length === 0) {
+    throw new Error('Invalid `to` field. At least one valid email address is required (e.g. email@example.com or Name <email@example.com>).')
+  }
+  return normalized
+}
+
+/**
  * Send an email using Resend.
  * All HTML emails are wrapped with the shared header and footer (gradient logo, Made with ❤️).
  * Optional text: when provided, sends multipart (text + html) for better deliverability.
@@ -37,13 +52,14 @@ export async function sendEmail({
   replyTo?: string
 }) {
   try {
+    const toList = normalizeTo(to)
     const resend = getResendClient()
     const footerAddress = await getEmailFooterAddress()
     const wrappedHtml = wrapEmailWithLayout(html, { footerAddress })
 
     const { data, error } = await resend.emails.send({
       from,
-      to: Array.isArray(to) ? to : [to],
+      to: toList,
       subject,
       html: wrappedHtml,
       ...(text && { text }),
@@ -79,11 +95,12 @@ export async function sendTextEmail({
   replyTo?: string
 }) {
   try {
+    const toList = normalizeTo(to)
     const resend = getResendClient()
     
     const { data, error } = await resend.emails.send({
       from,
-      to: Array.isArray(to) ? to : [to],
+      to: toList,
       subject,
       text,
       ...(replyTo && { reply_to: replyTo }),

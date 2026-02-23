@@ -39,7 +39,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const itinerary_id = body?.itinerary_id
-    const recipientEmail = body?.recipientEmail
+    const recipientEmailRaw = typeof body?.recipientEmail === 'string' ? body.recipientEmail.trim() : ''
+    const recipientEmail = recipientEmailRaw || undefined
     const recipientName = body?.recipientName
     const itineraryName = body?.itineraryName
     const share_type = body?.share_type === 'collaborate' ? 'collaborate' : 'copy'
@@ -48,11 +49,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'itinerary_id is required' }, { status: 400 })
     }
 
-    if (!recipientEmail || typeof recipientEmail !== 'string') {
+    if (!recipientEmail) {
       return NextResponse.json({ error: 'recipientEmail is required' }, { status: 400 })
     }
 
-    // Basic email validation
+    // Basic email validation (Resend requires email@example.com or "Name <email@example.com>")
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(recipientEmail)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 })
