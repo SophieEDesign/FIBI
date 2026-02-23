@@ -65,6 +65,10 @@ export async function POST(request: NextRequest) {
       console.log('[resend-confirm] return 200 without sending reason=alreadyConfirmed path=auth')
       fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:authAlreadyConfirmed',message:'return 200 without sending',data:{path:'auth',reason:'alreadyConfirmed'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
       // #endregion
+      // Sync profile so UI (which only reads profiles.email_verified_at) hides the banner
+      if (authResult.data?.user?.email_confirmed_at && !profileResult.data?.email_verified_at) {
+        await admin.from('profiles').update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', sessionUser.id)
+      }
       return NextResponse.json({ ok: true })
     }
     const last = cooldownsByUserId.get(sessionUser.id)
@@ -163,6 +167,10 @@ export async function POST(request: NextRequest) {
     console.log('[resend-confirm] return 200 without sending reason=alreadyConfirmed path=unauth')
     fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:unauthAlreadyConfirmed',message:'return 200 without sending',data:{path:'unauth',reason:'alreadyConfirmed'},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
     // #endregion
+    // Sync profile so UI (which only reads profiles.email_verified_at) hides the banner
+    if (authResult.data?.user?.email_confirmed_at && !profileResult.data?.email_verified_at) {
+      await admin.from('profiles').update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', user.id)
+    }
     return NextResponse.json({ ok: true })
   }
 

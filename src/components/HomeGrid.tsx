@@ -66,6 +66,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         throw new Error(typeof data?.error === 'string' ? data.error : `Failed to send (${res.status})`)
       }
       setResendMessage('Check your inbox for the link.')
+      // Refetch so banner hides if server synced profile (already confirmed in Supabase)
+      loadEmailVerified()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong. Try again or check your email.'
       setResendMessage(msg)

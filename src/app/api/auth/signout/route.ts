@@ -25,6 +25,7 @@ async function signOut(request: NextRequest) {
   const loginUrl = new URL('/login', origin)
   const response = NextResponse.redirect(loginUrl)
 
+  const cookieNames: string[] = []
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -46,7 +47,10 @@ async function signOut(request: NextRequest) {
             } catch {
               // keep value
             }
-            if (name) out.push({ name, value })
+            if (name) {
+              out.push({ name, value })
+              cookieNames.push(name)
+            }
           })
         }
         return out
@@ -60,6 +64,16 @@ async function signOut(request: NextRequest) {
   })
 
   await supabase.auth.signOut()
+
+  // Force-clear any Supabase auth cookies so the next request (e.g. /login) sees no session.
+  // Prevents "flash" where login page redirects back to /app because getSession() still had cookies.
+  const clearOptions = { path: '/', maxAge: 0 }
+  for (const name of cookieNames) {
+    if (name.startsWith('sb-') && name.includes('auth-token')) {
+      response.cookies.set(name, '', clearOptions)
+    }
+  }
+
   return response
 }
 
