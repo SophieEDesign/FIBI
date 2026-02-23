@@ -5,6 +5,7 @@ If you see **401 (Unauthorized)** on your Vercel **preview** URL (e.g. `fibi-xxx
 - `/api/manifest`
 - `/api/oembed`
 - `/api/metadata`
+- `/api/admin/users` (Admin page: "Could not load user data (401)")
 - or any other path
 
 the response is coming from **Vercel Deployment Protection**, not from the FiBi app. Protection runs before the request reaches Next.js, so the app never gets a chance to respond.
@@ -17,7 +18,14 @@ the response is coming from **Vercel Deployment Protection**, not from the FiBi 
    - **Disable protection for Preview deployments** (e.g. turn off “Vercel Authentication” or “Password Protection” for Previews), or  
    - **Add an exception** so that your preview domain (or the specific deployment URL) is not protected.
 
-After that, the same preview URL will return 200 for `/api/manifest`, `/api/oembed`, and `/api/metadata` (and the rest of the app will be reachable without the protection prompt).
+After that, the same preview URL will return 200 for `/api/manifest`, `/api/oembed`, `/api/metadata`, the Admin page, and the rest of the app (no protection prompt).
+
+### Admin page specifically
+
+If you see **"Could not load user data (401)"** on the **Admin** page:
+
+- **On a preview URL:** The request to `/api/admin/users` is likely blocked by Vercel Deployment Protection. Add the preview URL to **Deployment Protection Exceptions** (or disable protection for Previews), or use the production site for admin.
+- **On the live/production site:** Usually a session issue: the token may be expired or not sent. Try **signing out and back in**. The app uses a refreshed session for the admin API; if it still fails, check the browser console and that cookies for your domain are allowed.
 
 ## Resend confirmation email
 
@@ -28,7 +36,13 @@ After that, the same preview URL will return 200 for `/api/manifest`, `/api/oemb
 - **403 on `fbcdn.net` / `cdninstagram.com`** – Meta often blocks direct image loads. The app now:
   - Uses **`/api/image-proxy?url=...`** for thumbnail/preview images from those hosts (LinkPreview, CalendarView, SharedItineraryView, PlaceDetailDrawer, EmbedPreview).
   - Uses a **browser-like User-Agent** when the proxy fetches from Meta so more requests succeed.
+  - **No fallback to raw URL** for those hosts when the proxy fails (fallback would get 403); the placeholder is shown instead.
 - If you still see broken preview images on a **Vercel preview** URL, the image-proxy request may be getting **401** from Vercel Deployment Protection. Disable protection for previews (see above) so the proxy (and manifest/oembed/metadata) return 200.
+
+## Comments API (401)
+
+- **GET `/api/itinerary/[id]/comments`** requires either a logged-in user (owner/collaborator) or a valid **`share_token`** query param (for shared itinerary view). When viewing a shared itinerary, pass `?share_token=...` to load comments without auth.
+- If you see 401 while logged in on the calendar, session cookies may not have been sent on the first request; the client retries once. On Vercel preview, Deployment Protection can also cause 401 before the request reaches the app.
 
 ## Not receiving emails
 

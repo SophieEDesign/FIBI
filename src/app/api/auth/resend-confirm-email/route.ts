@@ -47,8 +47,9 @@ export async function POST(request: NextRequest) {
   const { data: { user: sessionUser } } = await supabase.auth.getUser()
   const now = Date.now()
 
-  // Authenticated path: use session user
-  if (sessionUser?.email && sessionUser?.id) {
+  // Authenticated path: use session user (trim email for Resend's to field)
+  const sessionEmail = typeof sessionUser?.email === 'string' ? sessionUser.email.trim() : ''
+  if (sessionEmail && isValidEmail(sessionEmail) && sessionUser?.id) {
     const last = cooldownsByUserId.get(sessionUser.id)
     if (last != null && now - last < COOLDOWN_MS) {
       const waitSec = Math.ceil((COOLDOWN_MS - (now - last)) / 1000)
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       const origin = request.nextUrl.origin
       const token = createConfirmEmailToken(sessionUser.id)
       const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
-      await sendConfirmEmail({ to: sessionUser.email, confirmUrl })
+      await sendConfirmEmail({ to: sessionEmail, confirmUrl })
     } catch (err) {
       console.error('Resend confirm email error:', err)
       cooldownsByUserId.delete(sessionUser.id)
@@ -115,11 +116,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  const toEmail = (user.email || '').trim()
+  if (!toEmail || !isValidEmail(toEmail)) {
+    return NextResponse.json({ ok: true })
+  }
+
   try {
     const origin = request.nextUrl.origin
     const token = createConfirmEmailToken(user.id)
     const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
-    await sendConfirmEmail({ to: user.email, confirmUrl })
+    await sendConfirmEmail({ to: toEmail, confirmUrl })
   } catch (err) {
     console.error('Resend confirm email error (by email):', err)
     cooldownsByEmail.delete(emailKey)

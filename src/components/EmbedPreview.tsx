@@ -186,10 +186,17 @@ export default function EmbedPreview({
           }}
           onError={(e) => {
             const target = e.target as HTMLImageElement
-            // If proxied image fails, try original URL as fallback once
-            if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && target.src !== rawImageUrl) {
+            // Only fall back to raw URL when it would not be blocked (e.g. non–FB/IG hosts).
+            // Facebook/Instagram CDNs return 403 for direct loads, so skip fallback for those.
+            const wouldNeedProxy = rawImageUrl && (() => {
+              try {
+                const h = new URL(rawImageUrl, window.location.origin).hostname.toLowerCase()
+                return h.includes('fbcdn.net') || h.includes('cdninstagram.com') || h.includes('tiktokcdn.com')
+              } catch { return true }
+            })()
+            if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && !wouldNeedProxy && target.src !== rawImageUrl) {
               target.src = rawImageUrl
-              return // Don't mark error yet, try original URL
+              return
             }
             setImageError(true)
           }}

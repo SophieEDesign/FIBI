@@ -208,7 +208,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
     }
   }
 
-  const loadComments = async (itineraryId: string) => {
+  const loadComments = async (itineraryId: string, retryOnce = false) => {
     if (!user) return
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -218,6 +218,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
       if (res.ok) {
         const data = await res.json()
         setItineraryComments(data)
+      } else if (res.status === 401 && !retryOnce) {
+        // Session may not have been sent yet; retry once after a short delay
+        setTimeout(() => loadComments(itineraryId, true), 400)
       } else {
         setItineraryComments([])
       }

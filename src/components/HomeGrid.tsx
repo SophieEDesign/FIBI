@@ -38,7 +38,11 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const confirmExpired = searchParams?.get('confirm') === 'expired'
 
   const handleResendConfirmation = async () => {
-    if (!user?.email) return
+    const email = (user?.email && typeof user.email === 'string') ? user.email.trim() : ''
+    if (!email) {
+      setResendMessage('Email not available. Try the live site (fibi.world) or sign out and back in.')
+      return
+    }
     setResendLoading(true)
     setResendMessage(null)
     try {
@@ -46,7 +50,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email }),
+        body: JSON.stringify({ email }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

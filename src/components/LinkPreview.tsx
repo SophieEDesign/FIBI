@@ -332,12 +332,17 @@ export default function LinkPreview({ url, ogImage, screenshotUrl, description, 
             onError={(e) => {
               console.warn('LinkPreview: Image failed to load', { imageUrl, previewSource, rawImageUrl })
               const img = e.currentTarget
-              // If proxied image fails, try original URL as fallback
-              if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && img.src !== rawImageUrl) {
+              // Only fall back to raw URL when it would not be blocked (FB/Instagram CDNs return 403 for direct loads)
+              const wouldNeedProxy = rawImageUrl && (() => {
+                try {
+                  const h = new URL(rawImageUrl, typeof window !== 'undefined' ? window.location.origin : 'https://example.com').hostname.toLowerCase()
+                  return h.includes('fbcdn.net') || h.includes('cdninstagram.com') || h.includes('tiktokcdn.com')
+                } catch { return true }
+              })()
+              if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && !wouldNeedProxy && img.src !== rawImageUrl) {
                 img.src = rawImageUrl
-                return // Don't mark as error yet, try original URL
+                return
               }
-              // Mark this source as failed and trigger re-render to try next fallback
               setImageError(previewSource)
               img.style.display = 'none'
             }}

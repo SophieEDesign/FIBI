@@ -46,6 +46,9 @@ export default function AdminDashboard() {
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
+    // Prefer getUser() first so the session is refreshed if needed (getSession() can be stale/expired and cause 401 on live)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return {}
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.access_token) {
       return { Authorization: `Bearer ${session.access_token}` }
@@ -61,7 +64,7 @@ export default function AdminDashboard() {
         if (response.status === 403) {
           setError('Access denied. Admin role required.')
         } else if (response.status === 401) {
-          setError('Could not load user data (401). If this is a Vercel preview with Deployment Protection, add the preview URL to Deployment Protection Exceptions in Vercel project settings.')
+          setError('Could not load user data (401). Try signing out and back in. If you\'re on a preview deployment, add the URL to Vercel Deployment Protection Exceptions.')
         } else {
           setError('Failed to load user data')
         }
