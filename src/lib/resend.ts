@@ -17,13 +17,21 @@ export function getResendClient() {
 }
 
 /**
+ * Strip control characters and zero-width/invisible chars that Resend rejects.
+ * Keeps normal printable ASCII and common email chars (e.g. + in user+tag@domain.com).
+ */
+function sanitizeEmailAddress(s: string): string {
+  return s.replace(/[\0-\x1F\x7F\u200B-\u200D\uFEFF]/g, '').trim()
+}
+
+/**
  * Normalize recipient(s) for Resend: must be "email@example.com" or "Name <email@example.com>".
- * Trims whitespace and filters out empty entries.
+ * Trims whitespace, strips control/invisible chars, and filters out empty entries.
  */
 function normalizeTo(to: string | string[]): string[] {
   const arr = Array.isArray(to) ? to : [to]
   const normalized = arr
-    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .map((entry) => (typeof entry === 'string' ? sanitizeEmailAddress(entry) : ''))
     .filter((entry) => entry.length > 0)
   if (normalized.length === 0) {
     throw new Error('Invalid `to` field. At least one valid email address is required (e.g. email@example.com or Name <email@example.com>).')
