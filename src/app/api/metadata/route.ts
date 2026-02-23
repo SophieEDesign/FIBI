@@ -41,15 +41,31 @@ async function resolveCanonicalUrlIfNeeded(url: string): Promise<string> {
   return url
 }
 
+/** Facebook serves OG-rich HTML to its own crawler; use that User-Agent when fetching Facebook URLs. */
+const FACEBOOK_CRAWLER_UA = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+function getUserAgentForUrl(url: string): string {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    // Meta serves OG-rich HTML to their crawler for Facebook and Instagram
+    if (host.includes('facebook.com') || host.includes('fb.com') || host.includes('instagram.com')) return FACEBOOK_CRAWLER_UA
+  } catch {
+    // ignore
+  }
+  return DEFAULT_UA
+}
+
 async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Response> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
+  const userAgent = getUserAgentForUrl(url)
 
   try {
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': userAgent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -64,6 +80,16 @@ async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Re
     clearTimeout(timeoutId)
     throw error
   }
+}
+
+/** Decode common HTML entities in meta content (e.g. &amp; in URLs). */
+function decodeMetaContent(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
 }
 
 function extractMetadata(html: string): MetadataResponse {
@@ -84,19 +110,26 @@ function extractMetadata(html: string): MetadataResponse {
   const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) || 
                        html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
   if (ogTitleMatch) {
-    metadata.title = ogTitleMatch[1].trim()
+    metadata.title = decodeMetaContent(ogTitleMatch[1].trim())
   }
 
   const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
   if (ogDescriptionMatch) {
-    metadata.description = ogDescriptionMatch[1].trim()
+    metadata.description = decodeMetaContent(ogDescriptionMatch[1].trim())
   }
 
   const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
                       html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
   if (ogImageMatch) {
-    metadata.image = ogImageMatch[1].trim()
+    metadata.image = decodeMetaContent(ogImageMatch[1].trim())
+  }
+
+  // Fallback to og:image:secure_url (common on Facebook/Meta)
+  if (!metadata.image) {
+    const secureMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image:secure_url["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                        html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image:secure_url["']/i)
+    if (secureMatch) metadata.image = decodeMetaContent(secureMatch[1].trim())
   }
 
   // Fallback to Twitter image if no og:image
@@ -106,7 +139,7 @@ function extractMetadata(html: string): MetadataResponse {
                               html.match(/<meta[^>]*property\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
                               html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']twitter:image["']/i)
     if (twitterImageMatch) {
-      metadata.image = twitterImageMatch[1].trim()
+      metadata.image = decodeMetaContent(twitterImageMatch[1].trim())
     }
   }
 

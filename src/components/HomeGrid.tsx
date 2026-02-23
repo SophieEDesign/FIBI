@@ -50,6 +50,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        // 401 on preview = Vercel Deployment Protection blocked the request
+        if (res.status === 401) {
+          throw new Error(
+            "Request was blocked. If you're on a preview or staging link, try the live site (fibi.world) to resend, or check your original signup email for the confirm link."
+          )
+        }
+        if (res.status === 500 && typeof data?.error === 'string' && data.error.toLowerCase().includes('resend_api_key')) {
+          throw new Error('Email is not configured on this server. Try the live site or contact support.')
+        }
         throw new Error(data?.error ?? 'Failed to send')
       }
       setResendMessage('Check your inbox for the link.')

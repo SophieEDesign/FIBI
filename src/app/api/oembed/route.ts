@@ -23,6 +23,31 @@ function detectPlatformFromUrl(url: string): 'tiktok' | 'instagram' | 'youtube' 
   return 'generic'
 }
 
+/** Facebook serves OG-rich HTML to its own crawler; use that User-Agent when fetching Facebook URLs. */
+const FACEBOOK_CRAWLER_UA = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+const DEFAULT_FETCH_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+function getUserAgentForFetchUrl(url: string): string {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    // Meta serves OG-rich HTML to their crawler for Facebook and Instagram
+    if (host.includes('facebook.com') || host.includes('fb.com') || host.includes('instagram.com')) return FACEBOOK_CRAWLER_UA
+  } catch {
+    // ignore
+  }
+  return DEFAULT_FETCH_UA
+}
+
+/** Decode common HTML entities in meta content. */
+function decodeMetaContent(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
 /** Resolve short/share URLs to canonical URL by following redirects. Same pull-through for TikTok, Instagram, YouTube, Facebook, etc. */
 async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'generic'): Promise<string> {
   if (platform === 'generic') return url
@@ -339,7 +364,7 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
         const response = await fetch(fetchUrl, {
           signal: controller.signal,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': getUserAgentForFetchUrl(fetchUrl),
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -359,13 +384,15 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
           let title: string | null = null
           let description: string | null = null
           
-          // Extract og:image (try multiple patterns)
-          const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i) ||
-                                 html.match(/<meta[^>]*property\s*=\s*["']og:image:secure_url["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image:secure_url["']/i)
+          // Extract og:image (try og:image first, then og:image:secure_url)
+          let ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                            html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
+          if (!ogImageMatch) {
+            ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image:secure_url["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
+                           html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image:secure_url["']/i)
+          }
           if (ogImageMatch) {
-            thumbnailUrl = ogImageMatch[1].trim()
+            thumbnailUrl = decodeMetaContent(ogImageMatch[1].trim())
             // Handle relative URLs
             if (thumbnailUrl && !thumbnailUrl.startsWith('http')) {
               try {
@@ -381,14 +408,14 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
           const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
                               html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
           if (ogTitleMatch) {
-            title = ogTitleMatch[1].trim()
+            title = decodeMetaContent(ogTitleMatch[1].trim())
           }
           
           // Extract og:description
           const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
                                      html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
           if (ogDescriptionMatch) {
-            description = ogDescriptionMatch[1].trim()
+            description = decodeMetaContent(ogDescriptionMatch[1].trim())
           }
           
           // For TikTok, Instagram, YouTube, Facebook: try JSON-LD / structured data if og:description missing

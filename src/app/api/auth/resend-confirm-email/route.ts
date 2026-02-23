@@ -66,8 +66,10 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error('Resend confirm email error:', err)
       cooldownsByUserId.delete(sessionUser.id)
+      const message = err instanceof Error ? err.message : ''
+      const isConfig = message.includes('RESEND_API_KEY') || message.includes('not set')
       return NextResponse.json(
-        { error: 'Failed to send email. Please try again.' },
+        { error: isConfig ? 'RESEND_API_KEY is not set on this server.' : 'Failed to send email. Please try again.' },
         { status: 500 }
       )
     }
@@ -121,8 +123,10 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('Resend confirm email error (by email):', err)
     cooldownsByEmail.delete(emailKey)
+    const message = err instanceof Error ? err.message : ''
+    const isConfig = message.includes('RESEND_API_KEY') || message.includes('not set')
     return NextResponse.json(
-      { error: 'Failed to send email. Please try again.' },
+      { error: isConfig ? 'RESEND_API_KEY is not set on this server.' : 'Failed to send email. Please try again.' },
       { status: 500 }
     )
   }
