@@ -65,8 +65,9 @@ export default function EmailLogClient() {
     try {
       const d = new Date(s)
       return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+    } catch {
+      return s
     }
-    return s
   }
 
   return (
