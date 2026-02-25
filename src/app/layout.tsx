@@ -1,6 +1,21 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import CookieConsentBar from '@/components/CookieConsentBar';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
 
 function getSiteUrl(): string {
   if (typeof process !== 'undefined') {
@@ -104,13 +119,14 @@ export default function RootLayout({
         />
         <meta name="apple-mobile-web-app-title" content="FIBI" />
       </head>
-      <body>
+      <body className={`${inter.variable} ${dmSans.variable} ${inter.className}`}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
         {children}
         <CookieConsentBar />
+        <GoogleAnalytics />
       </body>
     </html>
   );

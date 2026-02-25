@@ -69,11 +69,17 @@ function BaseEmailTemplate({
 /**
  * Header component for emails
  */
+/** Light logo for dark/gradient backgrounds */
+const EMAIL_LOGO_LIGHT_URL = 'https://fibi.world/Fibi%20Logo%20Light.png'
+/** FiBi signature gradient: Blue → Gold → Coral → Lavender */
+const EMAIL_GRADIENT =
+  'linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 25%, #F2B705 50%, #E8A57C 75%, #B985C9 100%)'
+
 function EmailHeader() {
   return `
   <tr>
-    <td style="background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%); padding: 40px 30px; text-align: center;">
-      <img src="https://fibi.world/FIBI%20Logo.png" alt="FiBi" style="height: 40px; width: auto; margin-bottom: 10px;" />
+    <td style="background: ${EMAIL_GRADIENT}; padding: 40px 30px; text-align: center;">
+      <img src="${EMAIL_LOGO_LIGHT_URL}" alt="FiBi" style="height: 40px; width: auto; margin-bottom: 10px;" />
       <div style="height: 2px; background: rgba(255, 255, 255, 0.3); margin-top: 20px;"></div>
     </td>
   </tr>
@@ -88,7 +94,7 @@ function CTAButton({ text, url }: { text: string; url: string }) {
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
     <tr>
       <td align="center" style="padding: 20px 30px;">
-        <a href="${url}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); transition: all 0.3s ease;">
+        <a href="${url}" style="display: inline-block; padding: 16px 32px; background: ${EMAIL_GRADIENT}; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); transition: all 0.3s ease;">
           ${text}
         </a>
       </td>
@@ -220,7 +226,7 @@ export function getWelcomeEmailTemplate({
       ${EmailHeader()}
       <tr>
         <td style="padding: 40px 30px;">
-          <h1 style="margin: 0 0 20px 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2;">
+          <h1 style="margin: 0 0 20px 0; font-size: 32px; font-weight: 700; background: ${EMAIL_GRADIENT}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2;">
             Welcome to FiBi! 🎉
           </h1>
           <p style="margin: 0 0 20px 0; font-size: 18px; color: #374151; line-height: 1.6;">
@@ -274,7 +280,7 @@ export function getWelcomeEmailTemplate({
       </tr>
       <tr>
         <td style="padding: 0 30px 40px 30px;">
-          <div style="background: linear-gradient(135deg, #eff6ff 0%, #ecfeff 100%); border-radius: 12px; padding: 20px; text-align: center;">
+          <div style="background: linear-gradient(135deg, #BEE9FF 0%, #E8D5F5 100%); border-radius: 12px; padding: 20px; text-align: center;">
             <p style="margin: 0 0 10px 0; font-size: 16px; color: #1e40af; font-weight: 600;">
               💡 Pro Tip
             </p>

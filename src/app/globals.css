@@ -3,30 +3,60 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #1f2937;
-  --charcoal: #1f2937;
-  --secondary: #6b7280;
-  --accent: #5b7c99;
+  /* FiBi neutrals – calm, organised + inspired */
+  --background: #F7F8FA;
+  --foreground: #111827;
+  --charcoal: #111827;
+  --secondary: #6B7280;
+  --accent: #2E9BD6;
+  /* Brand gradient (Blue → Gold → Coral → Lavender) */
+  --fibi-blue-deep: #2E9BD6;
+  --fibi-blue-mid: #5EC3F2;
+  --fibi-blue-light: #BEE9FF;
+  --fibi-gold: #F2B705;
+  --fibi-sand: #F2C879;
+  --fibi-coral: #E8A57C;
+  --fibi-lavender: #C8A6E8;
+  --fibi-mauve: #B985C9;
+  --fibi-plum: #8C5FAF;
+  /* Supporting UI */
+  --fibi-primary: #2E9BD6;
+  --fibi-accent-purple: #B985C9;
+  --fibi-accent-gold: #F2B705;
+  /* Neutrals */
+  --fibi-bg-light: #F7F8FA;
+  --fibi-bg-dark: #0F1230;
+  --fibi-text-primary: #111827;
+  --fibi-muted: #6B7280;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0F1230;
+    --foreground: #F7F8FA;
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   line-height: 1.6;
 }
 
-/* Better contrast for placeholder text (WCAG-friendly on white) */
+/* H1/H2 → DM Sans (medium / semibold). Body / UI → Inter (set on body). */
+h1 {
+  font-family: var(--font-dm-sans), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600; /* semibold */
+}
+h2 {
+  font-family: var(--font-dm-sans), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500; /* medium */
+}
+
+/* Better contrast for placeholder text (WCAG-friendly on light bg) */
 ::placeholder {
-  color: #4b5563; /* gray-600 */
+  color: var(--fibi-muted);
   opacity: 1;
 }
 

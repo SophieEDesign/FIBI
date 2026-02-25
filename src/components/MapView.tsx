@@ -829,9 +829,9 @@ export default function MapView() {
       {filteredItems.length === 0 && !loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 pointer-events-none z-30">
           <div className="text-center bg-white rounded-lg shadow-sm p-6 max-w-sm">
-            <p className="text-gray-600 mb-2">No places with locations yet</p>
+            <p className="text-gray-600 mb-2">No places on the map yet</p>
             <p className="text-sm text-gray-500 mb-4">
-              Add locations to your saved places to see them on the map
+              Add a place with a location to see it here.
             </p>
             <Link
               href="/app/add"
@@ -867,7 +867,7 @@ export default function MapView() {
           }}
         >
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Create trip</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Start a new trip</h2>
             <div className="space-y-4">
               <div>
                 <label htmlFor="trip-name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -894,7 +894,7 @@ export default function MapView() {
                   disabled={!newItineraryName.trim() || creatingItinerary}
                   className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {creatingItinerary ? 'Creating...' : 'Create'}
+                  {creatingItinerary ? 'Creating…' : 'Start trip'}
                 </button>
                 <button
                   onClick={() => {
@@ -1045,7 +1045,7 @@ function MapAddToTripModal({
                   onClick={() => setShowCreateItinerary(true)}
                   className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  + Create new trip
+                  + Start a new trip
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -1066,7 +1066,7 @@ function MapAddToTripModal({
                       disabled={!newItineraryName.trim() || creatingItinerary}
                       className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {creatingItinerary ? 'Creating...' : 'Create'}
+                      {creatingItinerary ? 'Creating…' : 'Start trip'}
                     </button>
                     <button
                       onClick={() => {

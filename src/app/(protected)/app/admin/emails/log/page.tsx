@@ -7,9 +7,9 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
-const EmailTemplatesClient = dynamic(() => import('@/components/EmailTemplatesClient'), { ssr: false })
+const EmailLogClient = dynamic(() => import('@/components/EmailLogClient'), { ssr: false })
 
-export default function AdminEmailsTemplatesPage() {
+export default function AdminEmailsLogPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [adminChecked, setAdminChecked] = useState(false)
@@ -18,7 +18,7 @@ export default function AdminEmailsTemplatesPage() {
   useEffect(() => {
     if (authLoading || !user?.id) {
       if (!authLoading && !user) {
-        router.replace('/login?redirect=/app/admin/emails/templates')
+        router.replace('/login?redirect=/app/admin/emails/log')
       }
       return
     }
@@ -73,19 +73,19 @@ export default function AdminEmailsTemplatesPage() {
             ← Admin
           </Link>
           <Link
+            href="/app/admin/emails/templates"
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
+            Templates
+          </Link>
+          <Link
             href="/app/admin/emails/automations"
             className="text-sm text-gray-600 hover:text-gray-900"
           >
             Automations
           </Link>
-          <Link
-            href="/app/admin/emails/log"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Email log
-          </Link>
         </div>
-        <EmailTemplatesClient />
+        <EmailLogClient />
       </div>
     </div>
   )

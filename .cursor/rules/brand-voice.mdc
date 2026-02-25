@@ -1,0 +1,28 @@
+---
+description: FIBI brand voice – calm, clear, considered. Use for all user-facing copy, errors, empty states, and microcopy.
+alwaysApply: true
+---
+
+# FIBI Brand Voice
+
+When writing or editing **user-facing copy** (UI labels, buttons, empty states, error messages, marketing text), follow the brand voice. Full reference: `docs/BRAND_VOICE.md`.
+
+## Core personality
+**Calm. Clear. Considered.** A thoughtful friend who has everything organised. No shouting, no rush, no oversell.
+
+## Tone pillars
+1. **Calm, not chaotic** – Gentle, grounded, assured. ("Keep your travel ideas in one calm place.")
+2. **Aspirational, but real** – Specifics and real moments. ("That café you saved. The beach you meant to visit.")
+3. **Organised, not complicated** – Simple verbs: save, organise, plan, keep, see. No jargon (workflow, optimisation, productivity stack, smart algorithm).
+
+## Sentence style
+- Short sentences. White space. Gentle rhythm.
+- **Never:** corporate or techy long sentences (e.g. "cutting-edge travel inspiration management platform designed to streamline digital discovery workflows").
+
+## Microcopy
+- **Buttons:** "Save to trip", "Add to map", "Start a new trip", "Keep this place" – not "Create record", "Submit", "Execute action".
+- **Errors:** Short. No drama. e.g. "That didn't work. Try again."
+- **Empty states:** e.g. "No saved places yet. Start with something you love."
+
+## What FIBI is NOT
+Loud, trendy slang, "girlboss" energy, corporate tech startup, cold hyper-minimal productivity tool.

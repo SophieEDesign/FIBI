@@ -1378,7 +1378,7 @@ export default function AddItemForm() {
       router.refresh()
     } catch (err: any) {
       console.error('Error saving item:', err)
-      setError(err.message || 'Failed to save item')
+      setError('That didn’t work. Try again.')
       setLoading(false)
     }
   }
@@ -1682,7 +1682,7 @@ export default function AddItemForm() {
                     onClick={() => setShowCreateItinerary(true)}
                     className="text-sm text-secondary hover:text-charcoal"
                   >
-                    + Create new trip
+                    + Start a new trip
                   </button>
                 ) : (
                   <div className="flex gap-2">
@@ -1700,7 +1700,7 @@ export default function AddItemForm() {
                       disabled={creatingItinerary || !newItineraryName.trim()}
                       className="px-4 py-2 bg-charcoal text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-50"
                     >
-                      {creatingItinerary ? 'Creating...' : 'Create'}
+                      {creatingItinerary ? 'Creating…' : 'Start trip'}
                     </button>
                     <button
                       type="button"

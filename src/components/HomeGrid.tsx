@@ -1063,7 +1063,7 @@ function AddToTripModal({
                   onClick={() => setShowCreateItinerary(true)}
                   className="w-full px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
-                  + Create new trip
+                  + Start a new trip
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -1086,7 +1086,7 @@ function AddToTripModal({
                       disabled={!newItineraryName.trim() || creatingItinerary}
                       className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {creatingItinerary ? 'Creating...' : 'Create'}
+                      {creatingItinerary ? 'Creating…' : 'Start trip'}
                     </button>
                     <button
                       onClick={() => {

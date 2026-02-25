@@ -216,3 +216,21 @@ export async function getUsersForAutomation(
       evaluateUserConditions(u, conditions)
   )
 }
+
+/**
+ * Get users eligible for a one-off send: has email, marketing_opt_in, and matches filters.
+ * Used by admin "Send one-off" to a filterable list (e.g. confirmed only).
+ */
+export async function getUsersForOneOff(
+  adminClient: SupabaseClient,
+  filters: AutomationConditions | null | undefined
+): Promise<UserWithStats[]> {
+  const allUsers = await fetchUsersWithStats(adminClient)
+  const conditions = filters ?? {}
+  return allUsers.filter(
+    (u) =>
+      u.email &&
+      u.marketing_opt_in &&
+      evaluateUserConditions(u, conditions)
+  )
+}

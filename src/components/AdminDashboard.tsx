@@ -59,6 +59,9 @@ export default function AdminDashboard() {
   const [emailFooterAddress, setEmailFooterAddress] = useState('')
   const [emailFooterSaving, setEmailFooterSaving] = useState(false)
   const [emailFooterMessage, setEmailFooterMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [gaMeasurementId, setGaMeasurementId] = useState('')
+  const [gaSaving, setGaSaving] = useState(false)
+  const [gaMessage, setGaMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
@@ -110,8 +113,9 @@ export default function AdminDashboard() {
       fetch('/api/admin/site-settings', { credentials: 'include', headers: { ...headers } })
         .then((res) => (res.ok ? res.json() : null))
         .then((json) => {
-          if (!cancelled && json && typeof json.email_footer_address === 'string') {
-            setEmailFooterAddress(json.email_footer_address)
+          if (!cancelled && json) {
+            if (typeof json.email_footer_address === 'string') setEmailFooterAddress(json.email_footer_address)
+            if (typeof json.ga_measurement_id === 'string') setGaMeasurementId(json.ga_measurement_id)
           }
         })
         .catch(() => {})
@@ -154,6 +158,31 @@ export default function AdminDashboard() {
       setEmailFooterMessage({ type: 'error', text: 'Failed to save email footer address.' })
     } finally {
       setEmailFooterSaving(false)
+    }
+  }
+
+  const handleSaveGaMeasurementId = async () => {
+    setGaMessage(null)
+    setGaSaving(true)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/site-settings', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ ga_measurement_id: gaMeasurementId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setGaMessage({ type: 'error', text: data.error || 'Failed to save' })
+        return
+      }
+      setGaMessage({ type: 'success', text: 'Analytics measurement ID saved. It will load for users who have accepted cookies.' })
+      setTimeout(() => setGaMessage(null), 5000)
+    } catch {
+      setGaMessage({ type: 'error', text: 'Failed to save Google Analytics ID.' })
+    } finally {
+      setGaSaving(false)
     }
   }
 
@@ -318,12 +347,51 @@ export default function AdminDashboard() {
             >
               Automations
             </Link>
+            <Link
+              href="/app/admin/emails/log"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Email log
+            </Link>
           </div>
         </div>
 
         {/* Activation funnel + insights. Future: add charts here using insights.weeklySignups, cohort retention, or map of places. */}
         <AdminFunnel funnel={funnel} />
         <ProductHealthInsights insights={insights} />
+
+        {/* SEO & Analytics */}
+        <div className="mb-8 bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">SEO &amp; Analytics</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Google Analytics Measurement ID (e.g. G-XXXXXXXXXX). Leave blank to disable. Analytics only loads for users who have accepted cookies.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[200px]">
+              <input
+                type="text"
+                value={gaMeasurementId}
+                onChange={(e) => setGaMeasurementId(e.target.value)}
+                placeholder="G-XXXXXXXXXX"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                aria-label="Google Analytics Measurement ID"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveGaMeasurementId}
+              disabled={gaSaving}
+              className="px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {gaSaving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+          {gaMessage && (
+            <p className={`mt-3 text-sm ${gaMessage.type === 'success' ? 'text-green-700' : 'text-red-600'}`} role="alert">
+              {gaMessage.text}
+            </p>
+          )}
+        </div>
 
         {/* Email footer address (CAN-SPAM) */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">

@@ -29,7 +29,7 @@ export default function CreateItineraryModal({
       }}
     >
       <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Create trip</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Start a new trip</h2>
         <div className="space-y-4">
           <div>
             <label htmlFor="trip-name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -56,7 +56,7 @@ export default function CreateItineraryModal({
               disabled={!name.trim() || creating}
               className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? 'Creating…' : 'Start trip'}
             </button>
             <button
               onClick={onClose}

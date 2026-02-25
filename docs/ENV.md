@@ -35,6 +35,14 @@ Required and optional environment variables by context. Never commit secrets; us
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional | Turnstile site key (client). |
 | `FACEBOOK_ACCESS_TOKEN` / `INSTAGRAM_ACCESS_TOKEN` | Optional | For oEmbed/metadata on Meta URLs when approved. |
 
+## Resend webhooks (click tracking)
+
+Optional. When set, `POST /api/webhooks/resend` accepts Resend’s `email.clicked` events and stores link clicks in `email_link_clicks` for the admin Email log.
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `RESEND_WEBHOOK_SECRET` | Optional | Webhook signing secret (starts with `whsec_`). Create a webhook in Resend Dashboard → Webhooks, subscribe to **email.clicked**, and set the endpoint to `https://your-domain.com/api/webhooks/resend`. Enable **Click tracking** for your domain in Resend. |
+
 ## Cron (email automations)
 
 Used by `GET /api/cron/email-automations` (Vercel Cron or external scheduler).
@@ -45,5 +53,5 @@ Used by `GET /api/cron/email-automations` (Vercel Cron or external scheduler).
 
 ## Security
 
-- **Never** use `NEXT_PUBLIC_` for: `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `CONFIRM_EMAIL_SECRET`, `CRON_KEY`, `CRON_SECRET`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_PLACES_API_KEY`, `TURNSTILE_SECRET_KEY`, or any Meta tokens. Those must be server-only.
+- **Never** use `NEXT_PUBLIC_` for: `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `CONFIRM_EMAIL_SECRET`, `CRON_KEY`, `CRON_SECRET`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_PLACES_API_KEY`, `TURNSTILE_SECRET_KEY`, or any Meta tokens. Those must be server-only.
 - Client-safe (may be `NEXT_PUBLIC_`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.

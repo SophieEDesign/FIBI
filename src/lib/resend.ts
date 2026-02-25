@@ -73,13 +73,13 @@ export async function sendEmail({
       ...(text && { text }),
       ...(replyTo && { reply_to: replyTo }),
     })
-    
+
     if (error) {
       console.error('Resend error:', error)
       throw new Error(`Failed to send email: ${error.message}`)
     }
-    
-    return data
+
+    return data as { id?: string } | undefined
   } catch (error) {
     console.error('Error sending email:', error)
     throw error

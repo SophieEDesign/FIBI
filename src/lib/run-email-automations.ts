@@ -16,11 +16,14 @@ import {
   type UserWithStats,
   type AutomationRow,
   type TemplateRow,
+  type AutomationConditions,
   fetchUsersWithStats,
   getUsersForAutomation,
+  getUsersForOneOff,
 } from '@/lib/email-automations'
 
 const MAX_SEND_PER_RUN = 200
+const MAX_ONE_OFF_PER_RUN = 500
 const THROTTLE_HOURS = 48
 const MAX_LIFECYCLE_EMAILS_PER_USER = 3
 const DELAY_BETWEEN_SENDS_MS = 550 // Resend: max 2 req/sec; 550ms = ~1.8/sec safe
@@ -185,7 +188,7 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
       continue
     }
     try {
-      await sendEmail({
+      const resendData = await sendEmail({
         to: user.email,
         subject: template.subject,
         html: template.html_content,
@@ -193,9 +196,11 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
       })
       await adminClient.from('email_logs').insert({
         user_id: user.id,
+        recipient_email: user.email,
         template_slug: automation.template_slug,
         automation_id: automation.id,
         status: 'sent',
+        resend_email_id: resendData?.id ?? null,
       })
       if (automation.template_slug === 'founding-followup') {
         await adminClient.from('profiles').update({ founding_followup_sent: true }).eq('id', user.id)
@@ -210,8 +215,94 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
       try {
         await adminClient.from('email_logs').insert({
           user_id: user.id,
+          recipient_email: user.email,
           template_slug: automation.template_slug,
           automation_id: automation.id,
+          status: 'failed',
+        })
+      } catch {
+        /* ignore */
+      }
+      await delay(DELAY_BETWEEN_SENDS_MS)
+    }
+  }
+
+  return result
+}
+
+/**
+ * Run a one-off send: send a template to all users matching filters (e.g. confirmed only).
+ * Always restricts to marketing_opt_in. No throttle or "already sent" check; logs to email_logs with automation_id null.
+ */
+export async function runOneOffSend(
+  templateSlug: string,
+  filters: AutomationConditions | null | undefined
+): Promise<RunResult> {
+  const result: RunResult = {
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+    errors: [],
+    limitReached: false,
+  }
+
+  const adminClient = getAdminSupabase()
+
+  const { data: template, error: templateError } = await adminClient
+    .from('email_templates')
+    .select('subject, html_content')
+    .eq('slug', templateSlug)
+    .single()
+
+  if (templateError || !template) {
+    result.errors.push(templateError ? `Template error: ${templateError.message}` : `Template not found: ${templateSlug}`)
+    return result
+  }
+
+  let users: UserWithStats[]
+  try {
+    users = await getUsersForOneOff(adminClient, filters ?? null)
+  } catch (err) {
+    result.errors.push(err instanceof Error ? err.message : 'Failed to fetch recipients')
+    return result
+  }
+
+  for (const user of users) {
+    if (result.sent >= MAX_ONE_OFF_PER_RUN) {
+      result.limitReached = true
+      result.errors.push(`Stopped: max ${MAX_ONE_OFF_PER_RUN} one-off emails per run`)
+      break
+    }
+    if (!user.email) {
+      result.skipped += 1
+      continue
+    }
+    try {
+      const resendData = await sendEmail({
+        to: user.email,
+        subject: template.subject,
+        html: template.html_content,
+        from: FROM_EMAIL,
+      })
+      await adminClient.from('email_logs').insert({
+        user_id: user.id,
+        recipient_email: user.email,
+        template_slug: templateSlug,
+        automation_id: null,
+        status: 'sent',
+        resend_email_id: resendData?.id ?? null,
+      })
+      result.sent += 1
+      await delay(DELAY_BETWEEN_SENDS_MS)
+    } catch (err) {
+      result.failed += 1
+      result.errors.push(`User ${user.email}: ${err instanceof Error ? err.message : String(err)}`)
+      try {
+        await adminClient.from('email_logs').insert({
+          user_id: user.id,
+          recipient_email: user.email,
+          template_slug: templateSlug,
+          automation_id: null,
           status: 'failed',
         })
       } catch {
@@ -313,7 +404,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
       }
 
       try {
-        await sendEmail({
+        const resendData = await sendEmail({
           to: user.email,
           subject: template.subject,
           html: template.html_content,
@@ -321,9 +412,11 @@ export async function runEmailAutomations(): Promise<RunResult> {
         })
         await adminClient.from('email_logs').insert({
           user_id: user.id,
+          recipient_email: user.email,
           template_slug: automation.template_slug,
           automation_id: automation.id,
           status: 'sent',
+          resend_email_id: resendData?.id ?? null,
         })
         if (automation.template_slug === 'founding-followup') {
           await adminClient.from('profiles').update({ founding_followup_sent: true }).eq('id', user.id)
@@ -340,6 +433,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
         try {
           await adminClient.from('email_logs').insert({
             user_id: user.id,
+            recipient_email: user.email,
             template_slug: automation.template_slug,
             automation_id: automation.id,
             status: 'failed',

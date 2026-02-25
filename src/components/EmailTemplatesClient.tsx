@@ -27,6 +27,11 @@ export default function EmailTemplatesClient() {
   const [saving, setSaving] = useState(false)
   const [sendingTest, setSendingTest] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [oneOffFilters, setOneOffFilters] = useState({ confirmed: false, hasPlace: false, hasItinerary: false })
+  const [recipientCount, setRecipientCount] = useState<number | null>(null)
+  const [loadingRecipients, setLoadingRecipients] = useState(false)
+  const [sendingOneOff, setSendingOneOff] = useState(false)
+  const [oneOffResult, setOneOffResult] = useState<{ sent: number; skipped: number; failed: number; errors: string[] } | null>(null)
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
@@ -66,12 +71,91 @@ export default function EmailTemplatesClient() {
     setEditing(null)
     setForm({ name: '', slug: '', subject: '', html_content: '', is_active: false })
     setFormError(null)
+    setRecipientCount(null)
+    setOneOffResult(null)
   }
+
+  const buildRecipientsQuery = useCallback(() => {
+    const params = new URLSearchParams()
+    if (oneOffFilters.confirmed) params.set('confirmed', '1')
+    if (oneOffFilters.hasPlace) params.set('places_count_gt', '0')
+    if (oneOffFilters.hasItinerary) params.set('itineraries_count_gt', '0')
+    return params.toString()
+  }, [oneOffFilters])
+
+  const buildOneOffFiltersBody = useCallback(() => {
+    const f: Record<string, boolean | number> = {}
+    if (oneOffFilters.confirmed) f.confirmed = true
+    if (oneOffFilters.hasPlace) f.places_count_gt = 0
+    if (oneOffFilters.hasItinerary) f.itineraries_count_gt = 0
+    return Object.keys(f).length ? f : undefined
+  }, [oneOffFilters])
+
+  const handlePreviewRecipients = useCallback(async () => {
+    const slug = editing?.slug
+    if (!slug) return
+    setLoadingRecipients(true)
+    setRecipientCount(null)
+    setOneOffResult(null)
+    try {
+      const headers = await getAuthHeaders()
+      const qs = buildRecipientsQuery()
+      const res = await fetch(`/api/admin/emails/recipients${qs ? `?${qs}` : ''}`, { credentials: 'include', headers })
+      if (!res.ok) {
+        setFormError('Failed to load recipient count')
+        return
+      }
+      const data = await res.json()
+      setRecipientCount(data.count ?? 0)
+    } catch {
+      setFormError('Failed to load recipient count')
+    } finally {
+      setLoadingRecipients(false)
+    }
+  }, [editing?.slug, getAuthHeaders, buildRecipientsQuery])
+
+  const handleSendOneOff = useCallback(async () => {
+    const slug = editing?.slug
+    if (!slug) return
+    const count = recipientCount ?? 0
+    if (count <= 0 && !window.confirm('No filters selected — this will send to all marketing-opted-in users. Continue?')) return
+    if (count > 0 && !window.confirm(`Send this template to ${count} recipient(s)?`)) return
+    setSendingOneOff(true)
+    setOneOffResult(null)
+    setFormError(null)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/emails/send-one-off', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ template_slug: slug, filters: buildOneOffFiltersBody() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFormError(data.error ?? 'Failed to send')
+        return
+      }
+      setOneOffResult({
+        sent: data.sent ?? 0,
+        skipped: data.skipped ?? 0,
+        failed: data.failed ?? 0,
+        errors: Array.isArray(data.errors) ? data.errors : [],
+      })
+      setRecipientCount(null)
+    } catch {
+      setFormError('Failed to send one-off')
+    } finally {
+      setSendingOneOff(false)
+    }
+  }, [editing?.slug, recipientCount, getAuthHeaders, buildOneOffFiltersBody])
 
   const handleEdit = async (t: Template) => {
     setEditing(t)
     setCreating(false)
     setFormError(null)
+    setRecipientCount(null)
+    setOneOffResult(null)
     setForm({
       name: t.name,
       slug: t.slug,
@@ -99,6 +183,8 @@ export default function EmailTemplatesClient() {
   const handleCancel = () => {
     setCreating(false)
     setEditing(null)
+    setRecipientCount(null)
+    setOneOffResult(null)
   }
 
   const handleSave = async () => {
@@ -345,6 +431,95 @@ export default function EmailTemplatesClient() {
               </div>
             )}
           </div>
+
+          {/* Send one-off to filterable list */}
+          {editing && (
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Send one-off</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Send this template once to users matching the filters below. Recipients are always limited to marketing opt-in.
+              </p>
+              <div className="flex flex-wrap gap-4 mb-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={oneOffFilters.confirmed}
+                    onChange={(e) => {
+                      setOneOffFilters((f) => ({ ...f, confirmed: e.target.checked }))
+                      setRecipientCount(null)
+                      setOneOffResult(null)
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">Confirmed only</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={oneOffFilters.hasPlace}
+                    onChange={(e) => {
+                      setOneOffFilters((f) => ({ ...f, hasPlace: e.target.checked }))
+                      setRecipientCount(null)
+                      setOneOffResult(null)
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">Has at least 1 place</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={oneOffFilters.hasItinerary}
+                    onChange={(e) => {
+                      setOneOffFilters((f) => ({ ...f, hasItinerary: e.target.checked }))
+                      setRecipientCount(null)
+                      setOneOffResult(null)
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">Has at least 1 itinerary</span>
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handlePreviewRecipients}
+                  disabled={loadingRecipients}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {loadingRecipients ? 'Loading…' : 'Preview count'}
+                </button>
+                {recipientCount !== null && (
+                  <span className="text-sm text-gray-600">
+                    {recipientCount} recipient{recipientCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSendOneOff}
+                  disabled={sendingOneOff}
+                  className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded disabled:opacity-50"
+                >
+                  {sendingOneOff ? 'Sending…' : recipientCount !== null ? `Send to ${recipientCount}` : 'Send one-off'}
+                </button>
+              </div>
+              {oneOffResult && (
+                <div className="mt-3 p-3 rounded bg-gray-50 text-sm">
+                  <p className="font-medium text-gray-900">Result: {oneOffResult.sent} sent, {oneOffResult.failed} failed, {oneOffResult.skipped} skipped.</p>
+                  {oneOffResult.errors.length > 0 && (
+                    <ul className="mt-2 list-disc list-inside text-red-600 max-h-24 overflow-y-auto">
+                      {oneOffResult.errors.slice(0, 10).map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                      {oneOffResult.errors.length > 10 && (
+                        <li>… and {oneOffResult.errors.length - 10} more</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Live preview */}
           <div className="mt-8">

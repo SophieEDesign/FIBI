@@ -9,17 +9,25 @@ function extractBodyContent(html: string): string {
   return html.trim()
 }
 
+/** FiBi signature gradient: Blue → Gold → Coral → Lavender */
+const EMAIL_HEADER_GRADIENT =
+  'linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 25%, #F2B705 50%, #E8A57C 75%, #B985C9 100%)'
+
 function hasLayout(html: string): boolean {
   return (
     html.includes('Made with ❤️') ||
+    html.includes('linear-gradient(135deg, #2E9BD6') ||
     html.includes('linear-gradient(135deg, #2563eb')
   )
 }
 
+/** Light logo for use on dark/gradient backgrounds (e.g. email header) */
+const LOGO_LIGHT_URL = 'https://fibi.world/Fibi%20Logo%20Light.png'
+
 const HEADER = `
 <tr>
-  <td style="background: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%); padding: 40px 30px; text-align: center;">
-    <img src="https://fibi.world/FIBI%20Logo.png" alt="FiBi" style="height: 40px; width: auto; margin-bottom: 10px;" />
+  <td style="background: ${EMAIL_HEADER_GRADIENT}; padding: 40px 30px; text-align: center;">
+    <img src="${LOGO_LIGHT_URL}" alt="FiBi" style="height: 40px; width: auto; margin-bottom: 10px;" />
     <div style="height: 2px; background: rgba(255, 255, 255, 0.3); margin-top: 20px;"></div>
   </td>
 </tr>

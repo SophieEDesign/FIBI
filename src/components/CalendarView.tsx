@@ -2495,7 +2495,7 @@ title: 'Shared trip',
               No saved places yet
             </h2>
             <p className="text-sm md:text-base text-gray-600 mb-6">
-              Add your first place to start planning your calendar.
+              Start with something you love.
             </p>
             <Link
               href="/app/add"

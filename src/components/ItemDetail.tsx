@@ -1031,7 +1031,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       onClick={() => setShowCreateItinerary(true)}
                       className="mt-2 w-full px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      + Create new trip
+                      + Start a new trip
                     </button>
                   ) : (
                     <div className="mt-2 space-y-2">
@@ -1051,7 +1051,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           disabled={!newItineraryName.trim() || creatingItinerary}
                           className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {creatingItinerary ? 'Creating...' : 'Create'}
+                          {creatingItinerary ? 'Creating…' : 'Start trip'}
                         </button>
                         <button
                           type="button"
