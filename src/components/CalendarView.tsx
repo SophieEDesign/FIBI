@@ -103,7 +103,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
   const [tripContentView, setTripContentView] = useState<'board' | 'videos'>('board')
   const [boardSort, setBoardSort] = useState<'position' | 'title' | 'date-added' | 'category'>('position')
-  const [boardGroupBy, setBoardGroupBy] = useState<'none' | 'category' | 'location'>('none')
+  const [boardGroupBy, setBoardGroupBy] = useState<'none' | 'category' | 'location' | 'liked' | 'planned'>('none')
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
@@ -718,6 +718,32 @@ export default function CalendarView({ user }: CalendarViewProps) {
       const groups: BoardGroup[] = Array.from(byLocation.entries())
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([label, items]) => ({ label, items }))
+      return { groups }
+    }
+    if (boardGroupBy === 'liked') {
+      const liked: SavedItem[] = []
+      const notLiked: SavedItem[] = []
+      for (const item of sorted) {
+        if (item.liked) liked.push(item)
+        else notLiked.push(item)
+      }
+      const groups: BoardGroup[] = [
+        ...(liked.length > 0 ? [{ label: 'Liked', items: liked }] : []),
+        ...(notLiked.length > 0 ? [{ label: 'Not liked', items: notLiked }] : []),
+      ]
+      return { groups }
+    }
+    if (boardGroupBy === 'planned') {
+      const planned: SavedItem[] = []
+      const notPlanned: SavedItem[] = []
+      for (const item of sorted) {
+        if (item.planned) planned.push(item)
+        else notPlanned.push(item)
+      }
+      const groups: BoardGroup[] = [
+        ...(planned.length > 0 ? [{ label: 'Planned', items: planned }] : []),
+        ...(notPlanned.length > 0 ? [{ label: 'Not planned', items: notPlanned }] : []),
+      ]
       return { groups }
     }
     return { flat: sorted }
@@ -1667,12 +1693,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           <span className="text-sm font-medium text-gray-600">Group:</span>
                           <select
                             value={boardGroupBy}
-                            onChange={(e) => setBoardGroupBy(e.target.value as 'none' | 'category' | 'location')}
+                            onChange={(e) => setBoardGroupBy(e.target.value as 'none' | 'category' | 'location' | 'liked' | 'planned')}
                             className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                           >
                             <option value="none">None</option>
                             <option value="category">Category</option>
                             <option value="location">Location</option>
+                            <option value="liked">Liked</option>
+                            <option value="planned">Planned</option>
                           </select>
                         </div>
                       </div>
