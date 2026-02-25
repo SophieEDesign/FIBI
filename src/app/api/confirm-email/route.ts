@@ -29,16 +29,28 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getAdminSupabase()
-  const { error } = await supabase
+  const now = new Date().toISOString()
+
+  const { error: profileError } = await supabase
     .from('profiles')
-    .update({ email_verified_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({ email_verified_at: now, updated_at: now })
     .eq('id', userId)
 
-  if (error) {
-    console.error('Confirm email update failed:', error)
+  if (profileError) {
+    console.error('Confirm email update failed:', profileError)
     const appUrl = new URL('/app', origin)
     appUrl.searchParams.set('confirm', 'error')
     return NextResponse.redirect(appUrl)
+  }
+
+  // So login works: set Supabase Auth email_confirmed_at when app confirms via this link
+  const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+    email_confirm: true,
+  } as { email_confirm?: boolean })
+
+  if (authError) {
+    console.error('Auth email_confirm update failed (user can still use app):', authError)
+    // Don't fail the flow — profile is updated; only Auth state may be out of sync
   }
 
   // If user has no session, send to login so they see "Email confirmed!" after signing in

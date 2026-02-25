@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { SavedItem } from '@/types/database'
-import { getHostname, isMobileDevice } from '@/lib/utils'
+import { getHostname, isMobileDevice, detectPlatform } from '@/lib/utils'
 import { getProxiedImageUrl } from '@/lib/image-proxy'
 import Link from 'next/link'
-import LinkPreview from '@/components/LinkPreview'
+import EmbedPreview from '@/components/EmbedPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
 import VideoFeed from '@/components/VideoFeed'
 import TripSwipeViewer from '@/components/TripSwipeViewer'
@@ -680,13 +680,11 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                         />
                       ) : (
                         <div className="absolute inset-0">
-                          <LinkPreview
+                          <EmbedPreview
                             url={item.url}
-                            ogImage={item.thumbnail_url}
-                            screenshotUrl={item.screenshot_url}
-                            description={item.description}
-                            platform={item.platform}
-                            hideLabel
+                            thumbnailUrl={item.thumbnail_url}
+                            platform={item.platform || detectPlatform(item.url)}
+                            displayTitle={title}
                           />
                         </div>
                       )}
@@ -752,11 +750,11 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <LinkPreview
+                        <EmbedPreview
                           url={item.url}
-                          ogImage={item.thumbnail_url}
-                          screenshotUrl={item.screenshot_url}
-                          description={item.description}
+                          thumbnailUrl={item.thumbnail_url}
+                          platform={item.platform || detectPlatform(item.url)}
+                          displayTitle={item.title || getHostname(item.url)}
                         />
                       )}
                     </div>
@@ -893,11 +891,11 @@ function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <LinkPreview
+            <EmbedPreview
               url={item.url}
-              ogImage={item.thumbnail_url}
-              screenshotUrl={item.screenshot_url}
-              description={item.description}
+              thumbnailUrl={item.thumbnail_url}
+              platform={item.platform || detectPlatform(item.url)}
+              displayTitle={displayTitle}
             />
           )}
         </div>
@@ -919,11 +917,11 @@ function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
             className="w-full h-full object-cover"
           />
         ) : (
-          <LinkPreview
+          <EmbedPreview
             url={item.url}
-            ogImage={item.thumbnail_url}
-            screenshotUrl={item.screenshot_url}
-            description={item.description}
+            thumbnailUrl={item.thumbnail_url}
+            platform={item.platform || detectPlatform(item.url)}
+            displayTitle={displayTitle}
           />
         )}
       </div>

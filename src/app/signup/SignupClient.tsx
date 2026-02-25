@@ -259,8 +259,15 @@ export default function SignupClient() {
               </div>
             )}
             {error && (
-              <div id="signup-error" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert" aria-live="assertive">
-                {error}
+              <div id="signup-error" className="space-y-2">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert" aria-live="assertive">
+                  {error}
+                </div>
+                {(error.includes('already') && (error.includes('exist') || error.includes('registered'))) && (
+                  <p className="text-sm text-gray-600">
+                    Forgot your password? <Link href="/login" className="text-gray-900 font-medium hover:underline">Sign in</Link> and use &quot;Forgot password?&quot; to reset it.
+                  </p>
+                )}
               </div>
             )}
 

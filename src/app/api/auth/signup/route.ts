@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
     const message = error.message ?? 'Sign up failed. Please try again.'
     if (
       message.includes('already registered') ||
+      message.includes('already been registered') ||
       message.includes('already exists') ||
       message.includes('User already registered')
     ) {
