@@ -15,6 +15,8 @@ export default function LoginClient() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [emailNotConfirmedError, setEmailNotConfirmedError] = useState(false)
+  const [syncingConfirm, setSyncingConfirm] = useState(false)
   const [checkingAuth, setCheckingAuth] = useState(true)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
@@ -104,6 +106,34 @@ export default function LoginClient() {
     }
   }, [router, searchParams, supabase])
 
+  const handleSyncEmailConfirmed = async () => {
+    if (!email?.trim()) return
+    setSyncingConfirm(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/auth/sync-email-confirmed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not sync. Try again.')
+        setSyncingConfirm(false)
+        return
+      }
+      if (data.synced) {
+        setSuccessMessage('Login status updated. Click Log in again.')
+        setEmailNotConfirmedError(false)
+      } else if (typeof data.message === 'string') {
+        setError(data.message)
+      }
+    } catch {
+      setError('Could not sync. Try again.')
+    } finally {
+      setSyncingConfirm(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -115,6 +145,7 @@ export default function LoginClient() {
     
     setLoading(true)
     setError(null)
+    setEmailNotConfirmedError(false)
     setSuccessMessage(null)
 
     try {
@@ -152,9 +183,11 @@ export default function LoginClient() {
           // Check if error is due to unconfirmed email
           if (error.message.includes('email') && error.message.includes('confirm')) {
             setError('Please check your email and confirm your account before signing in.')
+            setEmailNotConfirmedError(true)
             setLoading(false)
             return
           }
+          setEmailNotConfirmedError(false)
           
           // Check if user doesn't exist - try to be helpful
           if (error.message.includes('Invalid login credentials') || 
@@ -172,6 +205,7 @@ export default function LoginClient() {
             return
           }
           
+          setEmailNotConfirmedError(false)
           setError(error.message || 'An error occurred. Please try again.')
           setLoading(false)
           return
@@ -244,8 +278,20 @@ export default function LoginClient() {
               </div>
             )}
             {error && (
-              <div id="login-error" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert" aria-live="assertive">
-                {error}
+              <div id="login-error" className="space-y-2">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert" aria-live="assertive">
+                  {error}
+                </div>
+                {emailNotConfirmedError && viewMode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={handleSyncEmailConfirmed}
+                    disabled={syncingConfirm || !email?.trim()}
+                    className="text-sm text-gray-700 underline hover:no-underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {syncingConfirm ? 'Checking…' : 'I already confirmed my email — fix login'}
+                  </button>
+                )}
               </div>
             )}
 
@@ -260,7 +306,8 @@ export default function LoginClient() {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value)
-                    setError(null) // Clear error when typing
+                    setError(null)
+                    setEmailNotConfirmedError(false)
                   }}
                   required
                   className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
