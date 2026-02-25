@@ -30,7 +30,10 @@ export async function middleware(req: NextRequest) {
 
     return response
   } catch {
-    return NextResponse.next()
+    const loginUrl = new URL('/login', req.url)
+    const intended = req.nextUrl.pathname + req.nextUrl.search
+    loginUrl.searchParams.set('redirect', intended)
+    return NextResponse.redirect(loginUrl)
   }
 }
 

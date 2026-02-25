@@ -226,8 +226,8 @@ export default function SignupClient() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" aria-live="polite" aria-busy="true">
+        <div className="text-gray-600" role="status" aria-label="Loading">Loading...</div>
       </div>
     )
   }
@@ -250,14 +250,14 @@ export default function SignupClient() {
             <p className="text-sm text-gray-600">Already have an account? <Link href="/login" className="text-gray-900 font-medium hover:underline">Sign in</Link></p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" aria-busy={loading} aria-describedby={error ? 'signup-error' : successMessage ? 'signup-success' : undefined}>
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              <div id="signup-success" className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm" role="status" aria-live="polite">
                 {successMessage}
               </div>
             )}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div id="signup-error" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert" aria-live="assertive">
                 {error}
               </div>
             )}
@@ -372,7 +372,14 @@ export default function SignupClient() {
             </button>
 
             <p className="text-xs text-gray-500 text-center">
-              By signing up, you agree to our Terms of Service and Privacy Policy
+              By signing up, you agree to our{' '}
+              <Link href="/terms" className="underline hover:no-underline text-gray-700">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="underline hover:no-underline text-gray-700">
+                Privacy Policy
+              </Link>
             </p>
           </form>
         </div>

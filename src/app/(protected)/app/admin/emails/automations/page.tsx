@@ -1,11 +1,13 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import EmailAutomationsClient from '@/components/EmailAutomationsClient'
+
+const EmailAutomationsClient = dynamic(() => import('@/components/EmailAutomationsClient'), { ssr: false })
 
 export default function AdminEmailsAutomationsPage() {
   const router = useRouter()

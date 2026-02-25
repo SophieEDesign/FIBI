@@ -50,10 +50,6 @@ export async function POST(request: NextRequest) {
   // Authenticated path: use session user (trim email for Resend's to field)
   const sessionEmail = typeof sessionUser?.email === 'string' ? sessionUser.email.trim() : ''
   if (sessionEmail && isValidEmail(sessionEmail) && sessionUser?.id) {
-    // #region agent log
-    console.log('[resend-confirm] path=auth')
-    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:path',message:'path',data:{path:'auth'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     // Sync profile if Supabase says confirmed but profile doesn't (so UI banner can hide)
     const admin = getAdminSupabase()
     const [authResult, profileResult] = await Promise.all([
@@ -76,10 +72,6 @@ export async function POST(request: NextRequest) {
       const origin = request.nextUrl.origin
       const token = createConfirmEmailToken(sessionUser.id)
       const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
-      // #region agent log
-      console.log('[resend-confirm] aboutToSend path=auth')
-      fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:authSend',message:'aboutToSend',data:{path:'auth'},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       await sendConfirmEmail({ to: sessionEmail, confirmUrl })
     } catch (err) {
       console.error('Resend confirm email error (auth path):', err)
@@ -111,10 +103,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
-  // #region agent log
-  console.log('[resend-confirm] path=unauth')
-  fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:path',message:'path',data:{path:'unauth'},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
   const emailKey = email.toLowerCase()
   const last = cooldownsByEmail.get(emailKey)
   if (last != null && now - last < COOLDOWN_MS) {
@@ -130,10 +118,6 @@ export async function POST(request: NextRequest) {
   try {
     user = await findUserByEmail(email)
   } catch (adminErr) {
-    // #region agent log
-    console.log('[resend-confirm] findUserByEmail threw path=unauth -> 500')
-    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:findUserThrow',message:'findUserByEmail threw',data:{path:'unauth'},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     console.error('Resend confirm: findUserByEmail failed:', adminErr)
     return NextResponse.json(
       { error: 'Could not send right now. Try again in a minute.' },
@@ -141,10 +125,6 @@ export async function POST(request: NextRequest) {
     )
   }
   if (!user) {
-    // #region agent log
-    console.log('[resend-confirm] return 200 without sending reason=userNull path=unauth')
-    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:userNull',message:'return 200 without sending',data:{path:'unauth',reason:'userNull'},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     // Don't reveal whether the email exists; same response as success
     return NextResponse.json({ ok: true })
   }
@@ -167,10 +147,6 @@ export async function POST(request: NextRequest) {
     const origin = request.nextUrl.origin
     const token = createConfirmEmailToken(user.id)
     const confirmUrl = `${origin}/api/confirm-email?token=${encodeURIComponent(token)}`
-    // #region agent log
-    console.log('[resend-confirm] aboutToSend path=unauth')
-    fetch('http://127.0.0.1:7242/ingest/76aa133c-0ad7-4146-8805-8947d515aa6c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'cd187b'},body:JSON.stringify({sessionId:'cd187b',location:'resend-confirm-email/route.ts:unauthSend',message:'aboutToSend',data:{path:'unauth'},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     await sendConfirmEmail({ to: toEmail, confirmUrl })
   } catch (err) {
     console.error('Resend confirm email error (by email):', err)

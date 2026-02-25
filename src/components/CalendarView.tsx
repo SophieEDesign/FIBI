@@ -1553,12 +1553,17 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Videos
+                  {isMobile ? 'Video feed' : 'Videos'}
                 </button>
               </div>
 
               {tripContentView === 'videos' ? (
-                <VideoFeed items={tripPlacesOrdered} onSelectItem={setSelectedItem} />
+                <VideoFeed
+                  items={tripPlacesOrdered}
+                  onSelectItem={setSelectedItem}
+                  videoOnly={isMobile}
+                  autoOpenFullScreen={isMobile}
+                />
               ) : (
                 <>
                   {/* Moodboard - primary visual focus with clean spacing */}
@@ -2486,42 +2491,40 @@ function MoodboardCard({ item, isDragging, onSelect, onToggleIcon, isMobile }: M
             />
           </div>
         )}
-        {/* Card state icons: planned (tick) primary, liked (heart) - only when active */}
+        {/* Card state icons: planned (tick) and liked (heart) - always visible, subtle when off */}
         <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
-          {isPlanned && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onToggleIcon(item, 'planned')
-              }}
-              className="flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
-              aria-label="Remove planned"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </button>
-          )}
-          {isLiked && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onToggleIcon(item, 'liked')
-              }}
-              className={`flex items-center justify-center rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out] ${
-                both ? 'w-5 h-5' : 'w-6 h-6'
-              }`}
-              aria-label="Remove liked"
-            >
-              <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-              </svg>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleIcon(item, 'planned')
+            }}
+            className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-transform duration-200 hover:scale-110 active:scale-95 ${
+              isPlanned ? 'bg-black/50' : 'bg-black/30 hover:bg-black/40'
+            }`}
+            aria-label={isPlanned ? 'Remove planned' : 'Mark as planned'}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={isPlanned ? 2.5 : 2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleIcon(item, 'liked')
+            }}
+            className={`flex items-center justify-center rounded-full text-white transition-transform duration-200 hover:scale-110 active:scale-95 ${
+              both ? 'w-5 h-5' : 'w-6 h-6'
+            } ${isLiked ? 'bg-black/50' : 'bg-black/30 hover:bg-black/40'}`}
+            aria-label={isLiked ? 'Remove liked' : 'Mark as liked'}
+          >
+            <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+          </button>
         </div>
       </div>
       <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100 space-y-0.5">

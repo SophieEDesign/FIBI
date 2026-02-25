@@ -626,7 +626,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
-              Videos
+              {isMobile ? 'Video feed' : 'Videos'}
             </button>
           </div>
         </div>
@@ -635,7 +635,12 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
 
         {/* Videos View: scrollable feed with in-app preview */}
         {viewMode === 'videos' && (
-          <VideoFeed items={filteredItems} onSelectItem={setSelectedItem} />
+          <VideoFeed
+            items={filteredItems}
+            onSelectItem={setSelectedItem}
+            videoOnly={isMobile}
+            autoOpenFullScreen={isMobile}
+          />
         )}
 
         {/* Moodboard View: uniform square cards, image-first */}

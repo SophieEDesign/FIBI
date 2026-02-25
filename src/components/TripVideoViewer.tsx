@@ -95,7 +95,18 @@ export default function TripVideoViewer({ items, initialIndex, onClose }: TripVi
         <span className="text-sm text-gray-500 tabular-nums">
           {currentIndex + 1} / {items.length}
         </span>
-        <div className="w-10" aria-hidden />
+        {item.url ? (
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-gray-700 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Open in {item.platform}
+          </a>
+        ) : (
+          <div className="w-10" aria-hidden />
+        )}
       </div>
 
       {/* Swipeable area */}

@@ -1,11 +1,13 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import EmailTemplatesClient from '@/components/EmailTemplatesClient'
+
+const EmailTemplatesClient = dynamic(() => import('@/components/EmailTemplatesClient'), { ssr: false })
 
 export default function AdminEmailsTemplatesPage() {
   const router = useRouter()

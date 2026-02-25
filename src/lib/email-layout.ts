@@ -28,13 +28,18 @@ const HEADER = `
 function getFooterTable(opts?: { unsubscribeUrl?: string; footerAddress?: string }): string {
   const unsubLink = opts?.unsubscribeUrl || 'https://fibi.world/unsubscribe'
   const address = opts?.footerAddress ?? process.env.EMAIL_FOOTER_ADDRESS ?? ''
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://fibi.world'
   return `
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; margin-top: 20px;">
   <tr>
     <td align="center" style="padding: 20px; color: #6b7280; font-size: 14px;">
       <p style="margin: 0 0 8px 0;">Made with ❤️ by the FiBi team</p>
       <p style="margin: 0 0 8px 0; font-size: 12px;">
-        <a href="https://fibi.world" style="color: #3b82f6; text-decoration: none;">fibi.world</a>
+        <a href="${siteUrl}" style="color: #3b82f6; text-decoration: none;">fibi.world</a>
+        <span style="color: #9ca3af;"> · </span>
+        <a href="${siteUrl}/privacy" style="color: #6b7280; text-decoration: underline;">Privacy</a>
+        <span style="color: #9ca3af;"> · </span>
+        <a href="${siteUrl}/terms" style="color: #6b7280; text-decoration: underline;">Terms</a>
       </p>
       <p style="margin: 0 0 8px 0; font-size: 12px;">
         <a href="${unsubLink}" style="color: #6b7280; text-decoration: underline;">Unsubscribe</a> from these emails

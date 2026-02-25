@@ -25,3 +25,13 @@ This doc tracks Supabase Performance/Security Advisor findings and how they’re
   2. **Authentication** → **Providers** → **Email** (or **Auth** → **Settings** depending on UI).
   3. Turn on **“Leaked password protection”** / **“Check passwords against HaveIBeenPwned”**.
 - **Ref:** [Password strength and leaked password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)
+
+---
+
+## Ongoing
+
+### RLS and new objects
+
+When adding new tables or functions, run the Supabase Performance/Security Advisor and fix any findings. Ensure:
+- New tables have RLS enabled and policies that match intended access.
+- New `SECURITY DEFINER` or trigger functions set an explicit `search_path` (e.g. `SET search_path = public` or `''`) to satisfy lint 0011.

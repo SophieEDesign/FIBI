@@ -640,45 +640,43 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           />
                         </div>
                       )}
-                      {/* Top-right overlay: state icons (only when active) + add-to-trip */}
+                      {/* Top-right overlay: state icons (always visible, subtle when off) + add-to-trip */}
                       <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
-                        {/* Planned (tick): primary when both, 24px circle */}
-                        {isPlanned && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleToggleIcon(item, 'planned')
-                            }}
-                            className="flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out]"
-                            aria-label="Remove planned"
-                          >
-                            <svg className={both ? 'w-5 h-5' : 'w-5 h-5'} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                        )}
-                        {/* Liked (heart): smaller when both */}
-                        {isLiked && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              handleToggleIcon(item, 'liked')
-                            }}
-                            className={`flex items-center justify-center rounded-full bg-black/50 text-white transition-transform duration-200 hover:scale-110 active:scale-95 animate-[scale-in_0.25s_ease-out] ${
-                              both ? 'w-5 h-5' : 'w-6 h-6'
-                            }`}
-                            style={{ minWidth: both ? 20 : 24, minHeight: both ? 20 : 24 }}
-                            aria-label="Remove liked"
-                          >
-                            <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                            </svg>
-                          </button>
-                        )}
+                        {/* Planned (tick): 24px circle, filled when active */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleToggleIcon(item, 'planned')
+                          }}
+                          className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-transform duration-200 hover:scale-110 active:scale-95 ${
+                            isPlanned ? 'bg-black/50' : 'bg-black/30 hover:bg-black/40'
+                          }`}
+                          aria-label={isPlanned ? 'Remove planned' : 'Mark as planned'}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={isPlanned ? 2.5 : 2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </button>
+                        {/* Liked (heart): smaller when both active */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleToggleIcon(item, 'liked')
+                          }}
+                          className={`flex items-center justify-center rounded-full text-white transition-transform duration-200 hover:scale-110 active:scale-95 ${
+                            both ? 'w-5 h-5' : 'w-6 h-6'
+                          } ${isLiked ? 'bg-black/50' : 'bg-black/30 hover:bg-black/40'}`}
+                          style={both ? { minWidth: 20, minHeight: 20 } : undefined}
+                          aria-label={isLiked ? 'Remove liked' : 'Mark as liked'}
+                        >
+                          <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                          </svg>
+                        </button>
                         <button
                           type="button"
                           onClick={(e) => {

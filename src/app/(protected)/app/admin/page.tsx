@@ -1,10 +1,19 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
-import AdminDashboard from '@/components/AdminDashboard'
+
+const AdminDashboard = dynamic(() => import('@/components/AdminDashboard'), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-screen flex items-center justify-center text-gray-500">
+      Loading…
+    </div>
+  ),
+})
 
 export default function AdminPage() {
   const router = useRouter()

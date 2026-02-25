@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isUrlSafeForFetch } from '@/lib/ssrf'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,9 +50,15 @@ export async function GET(request: NextRequest) {
     
     const hostname = parsedUrl.hostname.toLowerCase()
     const isAllowedHost = allowedHosts.some(allowed => hostname.includes(allowed))
-    
+
     if (!isAllowedHost) {
-      // For other hosts, redirect to the original URL
+      // For other hosts, redirect only if URL is safe (no open redirect to internal/hostile hosts)
+      if (!isUrlSafeForFetch(imageUrl)) {
+        return NextResponse.json(
+          { error: 'URL not allowed' },
+          { status: 400 }
+        )
+      }
       return NextResponse.redirect(imageUrl, { status: 302 })
     }
 

@@ -410,6 +410,24 @@ export default function LandingPage() {
             </p>
             <div className="flex items-center gap-6">
               <Link
+                href="/privacy"
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Privacy
+              </Link>
+              <Link
+                href="/terms"
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Terms
+              </Link>
+              <a
+                href="mailto:hello@fibi.world"
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                Contact
+              </a>
+              <Link
                 href="/login"
                 className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
               >

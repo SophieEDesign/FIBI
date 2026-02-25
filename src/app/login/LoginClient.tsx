@@ -205,8 +205,8 @@ export default function LoginClient() {
 
   if (checkingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" aria-live="polite" aria-busy="true">
+        <div className="text-gray-600" role="status" aria-label="Loading">Loading...</div>
       </div>
     )
   }
@@ -237,14 +237,14 @@ export default function LoginClient() {
           )}
 
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" aria-busy={loading} aria-describedby={error ? 'login-error' : successMessage ? 'login-success' : undefined}>
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              <div id="login-success" className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm" role="status" aria-live="polite">
                 {successMessage}
               </div>
             )}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div id="login-error" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" role="alert" aria-live="assertive">
                 {error}
               </div>
             )}
