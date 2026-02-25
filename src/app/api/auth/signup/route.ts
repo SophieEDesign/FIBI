@@ -110,10 +110,11 @@ export async function POST(request: NextRequest) {
   const supabase = getAdminSupabase()
 
   type CreateUserOptions = Parameters<typeof supabase.auth.admin.createUser>[0]
+  // email_confirm: true so users can log in immediately; confirm link only updates banner / profiles.email_verified_at
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: false,
+    email_confirm: true,
     email_redirect_to: redirectUrl,
   } as CreateUserOptions)
 
