@@ -6,31 +6,27 @@ import { redirect } from 'next/navigation'
 export const dynamic = 'force-dynamic'
 
 /**
- * Public Home Page
- * 
- * Shows LandingPage for all users.
- * If user is logged in, optionally redirect to /app (commented out for now).
+ * Public Home Page (root "/" – not wrapped by protected layout)
+ *
+ * Shows LandingPage for unauthenticated users.
+ * Redirects to /app (Places) when user is logged in.
+ * Kept at root so we never get double header/footer from (protected) layout + LandingPage.
  */
 export default async function HomePage() {
   try {
-    // Check if user is authenticated and redirect to app if so
     const supabase = await createClient()
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser()
 
-    // If user is authenticated, redirect to app
     if (user && !authError) {
       redirect('/app')
     }
 
-    // Show landing page for unauthenticated users
     return <LandingPage />
   } catch (error) {
-    // If there's any error, show landing page (don't block access)
     console.error('Home page error:', error)
     return <LandingPage />
   }
 }
-

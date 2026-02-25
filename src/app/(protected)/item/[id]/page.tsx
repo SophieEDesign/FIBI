@@ -1,7 +1,12 @@
+import type { Metadata } from 'next'
 import ItemDetail from '@/components/ItemDetail'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 // Auth is handled by (protected)/layout.tsx
 export default async function ItemPage({

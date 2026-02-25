@@ -3,6 +3,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import type { FunnelStage, InsightSummary } from '@/lib/admin-metrics'
+import AdminFunnel from '@/components/admin/AdminFunnel'
+import ProductHealthInsights from '@/components/admin/ProductHealthInsights'
+import EmailAutomationPanel from '@/components/admin/EmailAutomationPanel'
 
 interface UserData {
   id: string
@@ -11,6 +15,7 @@ interface UserData {
   created_at: string
   last_login_at: string | null
   first_place_added_at: string | null
+  first_trip_created_at?: string | null
   places_count: number
   welcome_email_sent: boolean
   onboarding_nudge_sent: boolean
@@ -27,6 +32,17 @@ interface Metrics {
 export default function AdminDashboard() {
   const [users, setUsers] = useState<UserData[]>([])
   const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const [funnel, setFunnel] = useState<FunnelStage[]>([])
+  const [insights, setInsights] = useState<InsightSummary | null>(null)
+  const [automationLastRun, setAutomationLastRun] = useState<{
+    started_at: string
+    finished_at: string | null
+    sent: number
+    skipped: number
+    failed: number
+    status: 'running' | 'success' | 'failure'
+    errors: string[]
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sendingWelcomeId, setSendingWelcomeId] = useState<string | null>(null)
@@ -74,6 +90,8 @@ export default function AdminDashboard() {
       const data = await response.json()
       setUsers(data.users || [])
       setMetrics(data.metrics || null)
+      setFunnel(data.funnel || [])
+      setInsights(data.insights || null)
     } catch (err) {
       console.error('Error fetching admin data:', err)
       setError('Failed to load user data')
@@ -95,6 +113,19 @@ export default function AdminDashboard() {
           if (!cancelled && json && typeof json.email_footer_address === 'string') {
             setEmailFooterAddress(json.email_footer_address)
           }
+        })
+        .catch(() => {})
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    getAuthHeaders().then((headers) => {
+      fetch('/api/admin/emails/automation-status', { credentials: 'include', headers })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!cancelled && json?.lastRun) setAutomationLastRun(json.lastRun)
         })
         .catch(() => {})
     })
@@ -155,6 +186,11 @@ export default function AdminDashboard() {
         limitReached: data.limitReached,
         errors: data.errors,
       })
+      const statusRes = await fetch('/api/admin/emails/automation-status', { credentials: 'include', headers })
+      if (statusRes.ok) {
+        const statusJson = await statusRes.json()
+        if (statusJson?.lastRun) setAutomationLastRun(statusJson.lastRun)
+      }
     } catch (err) {
       setAutomationsResult({
         sent: 0,
@@ -285,31 +321,9 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Summary Metrics */}
-        {metrics && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm font-medium text-gray-500">Total Users</div>
-              <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.totalUsers}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm font-medium text-gray-500">Confirmed (email)</div>
-              <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.confirmedUsers}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm font-medium text-gray-500">Users with Login</div>
-              <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.usersWithLogin}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm font-medium text-gray-500">Users with Places</div>
-              <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.usersWithPlaces}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="text-sm font-medium text-gray-500">Active Last 7 Days</div>
-              <div className="mt-2 text-3xl font-semibold text-gray-900">{metrics.activeLast7Days}</div>
-            </div>
-          </div>
-        )}
+        {/* Activation funnel + insights. Future: add charts here using insights.weeklySignups, cohort retention, or map of places. */}
+        <AdminFunnel funnel={funnel} />
+        <ProductHealthInsights insights={insights} />
 
         {/* Email footer address (CAN-SPAM) */}
         <div className="mb-8 bg-white rounded-lg shadow p-6">
@@ -344,41 +358,12 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Run Email Automations */}
-        <div className="mb-8 bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Run Email Automations Now</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Manually trigger the email automation runner. Rules: max 1 email per user per 48h; never send same template twice; max 3 lifecycle emails per user; rate-limited to ~2/sec.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleRunAutomations}
-              disabled={automationsRunning}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {automationsRunning ? 'Running…' : 'Run Email Automations Now'}
-            </button>
-          </div>
-          {automationsResult && (
-            <div className="mt-4 p-4 rounded-lg border bg-gray-50 border-gray-200">
-              <p className="text-sm text-gray-800">
-                <strong>Done.</strong> Sent: {automationsResult.sent}, Skipped: {automationsResult.skipped}, Failed: {automationsResult.failed}
-                {automationsResult.limitReached && ' (limit reached)'}
-              </p>
-              {automationsResult.errors && automationsResult.errors.length > 0 && (
-                <ul className="mt-2 text-sm text-red-700 list-disc list-inside">
-                  {automationsResult.errors.slice(0, 10).map((e, i) => (
-                    <li key={i}>{e}</li>
-                  ))}
-                  {automationsResult.errors.length > 10 && (
-                    <li>… and {automationsResult.errors.length - 10} more</li>
-                  )}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
+        <EmailAutomationPanel
+          isRunning={automationsRunning}
+          lastRun={automationLastRun}
+          runResult={automationsResult}
+          onRun={handleRunAutomations}
+        />
 
         {/* Users Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">

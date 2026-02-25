@@ -15,34 +15,47 @@ function getSiteUrl(): string {
 }
 
 const siteUrl = getSiteUrl()
+const defaultTitle = 'FIBI – Organise Your Travel Inspiration'
+const defaultDescription = 'Save places from Instagram and TikTok. Organise travel ideas beautifully on a map. Lightweight, calm, structured.'
 
 export const metadata: Metadata = {
-  title: "FiBi - Save Your Travel Places",
-  description: "Save travel places from social media before you lose them",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: defaultTitle,
+    template: '%s | FIBI',
+  },
+  description: defaultDescription,
   openGraph: {
-    title: "FiBi - Save Your Travel Places",
-    description: "Save travel places from social media before you lose them",
-    type: "website",
-    url: siteUrl,
+    title: defaultTitle,
+    description: defaultDescription,
+    type: 'website',
+    url: '/',
     images: [
       {
-        url: `${siteUrl}/hero-image.png`,
+        url: '/hero-image.png',
         width: 1200,
         height: 630,
-        alt: "FiBi - Save Your Travel Places",
+        alt: defaultTitle,
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "FiBi - Save Your Travel Places",
-    description: "Save travel places from social media before you lose them",
-    images: [`${siteUrl}/hero-image.png`],
+    card: 'summary_large_image',
+    title: defaultTitle,
+    description: defaultDescription,
+    images: ['/hero-image.png'],
+  },
+  icons: {
+    icon: '/FIBI Logo.png',
+    apple: '/FIBI Logo.png',
+  },
+  alternates: {
+    canonical: '/',
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "FiBi",
+    statusBarStyle: 'default',
+    title: 'FIBI',
   },
 };
 
@@ -52,6 +65,24 @@ export const viewport: Viewport = {
   maximumScale: 1,
   themeColor: "#171717",
 };
+
+const structuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'FIBI',
+    url: 'https://fibi.world',
+    logo: 'https://fibi.world/logo.png',
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'FIBI',
+    applicationCategory: 'https://schema.org/TravelApplication',
+    operatingSystem: 'Web',
+    description: defaultDescription,
+  },
+]
 
 export default function RootLayout({
   children,
@@ -71,9 +102,13 @@ export default function RootLayout({
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
-        <meta name="apple-mobile-web-app-title" content="FiBi" />
+        <meta name="apple-mobile-web-app-title" content="FIBI" />
       </head>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         {children}
         <CookieConsentBar />
       </body>

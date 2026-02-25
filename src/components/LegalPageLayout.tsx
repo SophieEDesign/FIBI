@@ -15,7 +15,7 @@ export default function LegalPageLayout({ title, lastUpdated, children }: LegalP
     <div className="min-h-screen bg-[#f3f4f6]">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <Link
-          href="/"
+          href="/app"
           className="inline-block text-sm text-[#6b7280] hover:text-[#171717] mb-6 transition-colors"
         >
           ← Back to FiBi
