@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import CookieConsentBar from '@/components/CookieConsentBar';
 
 function getSiteUrl(): string {
   if (typeof process !== 'undefined') {
@@ -72,7 +73,10 @@ export default function RootLayout({
         />
         <meta name="apple-mobile-web-app-title" content="FiBi" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <CookieConsentBar />
+      </body>
     </html>
   );
 }

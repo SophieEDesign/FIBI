@@ -71,3 +71,7 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 - **SSRF**: `metadata` and `oembed` use `isUrlSafeForFetch(url)` before fetching. `image-proxy` uses an allowlist for proxy fetch and `isUrlSafeForFetch` before redirecting the client for non-allowed hosts.
 - **Admin**: Role is read from `profiles.role`. A trigger `enforce_profiles_role_immutable` prevents changing `role` via any UPDATE (migration `039_prevent_profiles_role_escalation.sql`). The first admin must be set via Supabase Dashboard or a migration. No API allows a normal user to set or update `profiles.role`.
 - **Service role**: Used only after `requireAdmin()` in admin routes, or in signup/confirm-email flows that are rate-limited and validated.
+
+### Error responses
+
+- 500 responses should return a generic `{ error: 'Internal server error' }` (or similar) so internal details or stack traces are not leaked. Log the real error server-side with `console.error`.

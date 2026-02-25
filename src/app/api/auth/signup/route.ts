@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
   const userAgent = request.headers.get('user-agent') ?? null
 
-  let body: { email?: string; password?: string; captchaToken?: string }
+  let body: { email?: string; password?: string; captchaToken?: string; marketingOptIn?: boolean }
   try {
     body = await request.json()
   } catch {
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
   const email = typeof body.email === 'string' ? body.email.trim() : ''
   const password = typeof body.password === 'string' ? body.password : ''
   const captchaToken = typeof body.captchaToken === 'string' ? body.captchaToken : null
+  const marketingOptIn = typeof body.marketingOptIn === 'boolean' ? body.marketingOptIn : false
 
   if (!email || !password) {
     return NextResponse.json(
@@ -140,6 +141,17 @@ export async function POST(request: NextRequest) {
       { error: 'Sign up completed but something went wrong. Please try signing in.' },
       { status: 500 }
     )
+  }
+
+  // Set marketing opt-in on profile (trigger already created profile with default false)
+  try {
+    await supabase
+      .from('profiles')
+      .update({ marketing_opt_in: marketingOptIn, updated_at: new Date().toISOString() })
+      .eq('id', data.user.id)
+  } catch (profileErr) {
+    const msg = profileErr instanceof Error ? profileErr.message : String(profileErr)
+    console.warn('Signup: could not set marketing_opt_in on profile:', msg)
   }
 
   // Send confirmation email (soft verify – user can use app immediately)

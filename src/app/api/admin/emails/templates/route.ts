@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching templates:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ templates: data ?? [] })
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Slug already exists' }, { status: 409 })
       }
       console.error('Error creating template:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json(data)

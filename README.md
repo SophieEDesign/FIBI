@@ -91,7 +91,7 @@ npm install
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Go to **SQL Editor** in your Supabase dashboard
-3. Run the migration file `supabase/migrations/001_initial_schema.sql` to create the `saved_items` table and RLS policies
+3. Run all migration files in `supabase/migrations/` in order (001, 002, …) to create tables and RLS policies
 
 ### 3. Configure Environment Variables
 
@@ -118,7 +118,7 @@ INSTAGRAM_ACCESS_TOKEN=your_instagram_access_token
 RESEND_API_KEY=your_resend_api_key
 ```
 
-You can find the Supabase values in your Supabase project settings under **API**.
+You can find the Supabase values in your Supabase project settings under **API**. For a full list of env vars by context (dev, preview, production, cron), see [docs/ENV.md](docs/ENV.md).
 
 For AI enrichment:
 - **OpenAI**: Get an API key from [platform.openai.com](https://platform.openai.com/api-keys) (uses `gpt-4o-mini` model)
@@ -171,34 +171,29 @@ The `saved_items` table includes:
 
 ## Row-Level Security (RLS)
 
-All RLS policies are configured to ensure:
-- Users can only view their own saved items
-- Users can only insert items for themselves
-- Users can only update their own items
-- Users can only delete their own items
+All RLS policies are configured so users only access their own data (and shared itineraries where applicable). For security lint fixes and ongoing RLS guidance, see [docs/SUPABASE_SECURITY_LINTS.md](docs/SUPABASE_SECURITY_LINTS.md).
 
 ## Project Structure
 
 ```
+src/
 ├── app/
-│   ├── api/
-│   │   └── metadata/          # API route for fetching URL metadata
-│   ├── add/                    # Add new place page
-│   ├── item/[id]/             # Item detail/edit page
-│   ├── login/                  # Authentication page
-│   ├── layout.tsx              # Root layout
-│   └── page.tsx                # Home page (grid view)
-├── components/
-│   ├── AddItemForm.tsx         # Form for adding new places
-│   ├── HomeGrid.tsx            # Main grid view component
-│   └── ItemDetail.tsx          # Item detail/edit component
-├── lib/
-│   ├── supabase/               # Supabase client utilities
-│   └── utils.ts                # Utility functions (platform detection)
-├── supabase/
-│   └── migrations/             # Database migrations
-└── types/
-    └── database.ts             # TypeScript types
+│   ├── (protected)/            # Auth-required routes
+│   │   ├── app/                 # Main app: /app, /app/calendar, /app/map, /app/how-to, /app/admin
+│   │   ├── add/                 # Add place
+│   │   ├── item/[id]/           # Item detail
+│   │   └── profile/             # User profile
+│   ├── login/, signup/, reset-password/
+│   ├── auth/callback/           # OAuth / magic-link callback
+│   ├── share/itinerary/[token]/  # Public shared itinerary
+│   ├── api/                     # API routes (auth, itinerary, admin, cron, etc.)
+│   ├── layout.tsx
+│   └── page.tsx                 # Landing
+├── components/                  # HomeGrid, AddItemForm, ItemDetail, CalendarView, MapView, etc.
+├── lib/                         # supabase/, auth, admin, utils, email, SSRF
+├── hooks/
+supabase/migrations/             # Ordered SQL migrations
+docs/                            # ENV.md, API_AUTH.md, ADMIN_SETUP, TESTING, etc.
 ```
 
 ## Building for Production
@@ -207,6 +202,8 @@ All RLS policies are configured to ensure:
 npm run build
 npm start
 ```
+
+For deployment (Vercel, env, cron), see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Notes
 

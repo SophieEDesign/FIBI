@@ -42,10 +42,10 @@ export async function POST(request: NextRequest) {
       success: true,
       messageId: result?.id,
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Email API error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to send email' },
+      { error: 'Failed to send email' },
       { status: 500 }
     )
   }

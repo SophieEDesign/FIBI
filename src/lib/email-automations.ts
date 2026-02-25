@@ -42,6 +42,7 @@ export type UserWithStats = {
   places_count: number
   itineraries_count: number
   founding_followup_sent: boolean
+  marketing_opt_in: boolean
 }
 
 const MS_PER_HOUR = 60 * 60 * 1000
@@ -170,12 +171,14 @@ export async function fetchUsersWithStats(
 
   const { data: profiles } = await adminClient
     .from('profiles')
-    .select('id, founding_followup_sent, email_verified_at')
+    .select('id, founding_followup_sent, email_verified_at, marketing_opt_in')
   const foundingMap = new Map<string, boolean>()
   const emailVerifiedMap = new Map<string, string | null>()
-  profiles?.forEach((p: { id: string; founding_followup_sent: boolean | null; email_verified_at: string | null }) => {
+  const marketingOptInMap = new Map<string, boolean>()
+  profiles?.forEach((p: { id: string; founding_followup_sent: boolean | null; email_verified_at: string | null; marketing_opt_in?: boolean | null }) => {
     foundingMap.set(p.id, p.founding_followup_sent ?? false)
     emailVerifiedMap.set(p.id, p.email_verified_at ?? null)
+    marketingOptInMap.set(p.id, p.marketing_opt_in ?? false)
   })
 
   return allUsers.map((u) => {
@@ -190,6 +193,7 @@ export async function fetchUsersWithStats(
     places_count: placeCounts.get(u.id) ?? 0,
     itineraries_count: itineraryCounts.get(u.id) ?? 0,
     founding_followup_sent: foundingMap.get(u.id) ?? false,
+    marketing_opt_in: marketingOptInMap.get(u.id) ?? false,
   }})
 }
 
@@ -206,6 +210,7 @@ export async function getUsersForAutomation(
   return allUsers.filter(
     (u) =>
       u.email &&
+      u.marketing_opt_in &&
       matchesTrigger(u, automation.trigger_type) &&
       passesDelay(u, automation.delay_hours) &&
       evaluateUserConditions(u, conditions)

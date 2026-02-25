@@ -9,8 +9,6 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     globals: true,
     testTimeout: 10000,
-    pool: 'forks',
-    poolOptions: { forks: { singleFork: true } },
     env: {
       NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',

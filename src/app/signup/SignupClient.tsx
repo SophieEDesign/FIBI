@@ -20,6 +20,7 @@ export default function SignupClient() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const [turnstileReady, setTurnstileReady] = useState(false)
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const turnstileWidgetIdRef = useRef<string | null>(null)
   const turnstileContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
@@ -182,6 +183,7 @@ export default function SignupClient() {
           email,
           password,
           captchaToken: turnstileToken || undefined,
+          marketingOptIn,
         }),
       })
 
@@ -351,6 +353,20 @@ export default function SignupClient() {
                   )}
                 </button>
               </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <input
+                id="marketingOptIn"
+                type="checkbox"
+                checked={marketingOptIn}
+                onChange={(e) => setMarketingOptIn(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                aria-describedby="marketingOptIn-description"
+              />
+              <label id="marketingOptIn-description" htmlFor="marketingOptIn" className="text-sm text-gray-600">
+                Send me product updates and tips (optional). You can unsubscribe anytime.
+              </label>
             </div>
 
             {siteKey && (

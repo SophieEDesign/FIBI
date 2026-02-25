@@ -53,7 +53,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Template not found' }, { status: 400 })
       }
       console.error('Error updating automation:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!data) {
