@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
+import SiteFooter from '@/components/SiteFooter'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
@@ -68,6 +69,7 @@ function ProtectedLayoutInner({
     <>
       <DesktopNavigation user={user} isAdmin={isAdmin} />
       {children}
+      <SiteFooter />
       <BottomNavigation isAdmin={isAdmin} />
     </>
   )

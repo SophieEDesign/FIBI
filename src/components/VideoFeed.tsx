@@ -90,7 +90,7 @@ export default function VideoFeed({ items, onSelectItem, videoOnly = false, auto
                     const idx = videoOnlyItems.findIndex((i) => i.id === item.id)
                     setFullScreenIndex(idx >= 0 ? idx : 0)
                   }}
-                  className="text-sm text-gray-500 hover:text-gray-900"
+                  className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors"
                 >
                   Full screen
                 </button>
@@ -101,7 +101,15 @@ export default function VideoFeed({ items, onSelectItem, videoOnly = false, auto
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="text-sm text-gray-500 hover:text-gray-900"
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-white transition-opacity hover:opacity-90 ${
+                    item.platform === 'TikTok'
+                      ? 'bg-black'
+                      : item.platform === 'Instagram'
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                        : item.platform === 'YouTube'
+                          ? 'bg-red-600'
+                          : 'bg-gray-600'
+                  }`}
                 >
                   Open in {item.platform}
                 </a>

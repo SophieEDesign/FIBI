@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
+import SiteFooter from '@/components/SiteFooter'
 
 export default function LandingPage() {
   const { isInstallable, promptInstall } = usePWAInstall()
@@ -401,42 +402,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-100 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-gray-500">
-              © {new Date().getFullYear()} Fibi. Save places before you lose them.
-            </p>
-            <div className="flex items-center gap-6">
-              <Link
-                href="/privacy"
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Privacy
-              </Link>
-              <Link
-                href="/terms"
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Terms
-              </Link>
-              <a
-                href="mailto:hello@fibi.world"
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Contact
-              </a>
-              <Link
-                href="/login"
-                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-              >
-                Sign in
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter showSignIn />
     </div>
   )
 }

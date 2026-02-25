@@ -102,6 +102,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [unplannedCategoryFilters, setUnplannedCategoryFilters] = useState<string[]>([])
   const [unplannedViewMode, setUnplannedViewMode] = useState<'grid' | 'list'>('grid')
   const [tripContentView, setTripContentView] = useState<'board' | 'videos'>('board')
+  const [boardSort, setBoardSort] = useState<'position' | 'title' | 'date-added' | 'category'>('position')
+  const [boardGroupBy, setBoardGroupBy] = useState<'none' | 'category' | 'location'>('none')
   const [showLocationDropdown, setShowLocationDropdown] = useState(false)
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
@@ -660,6 +662,66 @@ export default function CalendarView({ user }: CalendarViewProps) {
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     })
   }, [selectedItineraryId, filteredItems])
+
+  // Board display: sorted flat list or grouped by category/location (for Board tab only)
+  type BoardGroup = { label: string; items: SavedItem[] }
+  const boardDisplay = useMemo((): { flat: SavedItem[] } | { groups: BoardGroup[] } => {
+    if (!selectedItineraryId || tripPlacesOrdered.length === 0) return { flat: [] }
+    const getCategoryLabel = (item: SavedItem): string => {
+      if (!item.category) return 'Other'
+      try {
+        const parsed = JSON.parse(item.category)
+        const arr = Array.isArray(parsed) ? parsed : [parsed]
+        return (arr[0] && String(arr[0]).trim()) || 'Other'
+      } catch {
+        return (item.category && String(item.category).trim()) || 'Other'
+      }
+    }
+    const getLocationLabel = (item: SavedItem): string =>
+      (item.location_city && item.location_city.trim()) || (item.location_country && item.location_country.trim()) || 'No location'
+    const sortItems = (list: SavedItem[]) => {
+      const copy = [...list]
+      if (boardSort === 'position') return copy
+      if (boardSort === 'title') {
+        const title = (i: SavedItem) => (i.title || i.place_name || getHostname(i.url) || '').toLowerCase()
+        return copy.sort((a, b) => title(a).localeCompare(title(b)))
+      }
+      if (boardSort === 'date-added') {
+        return copy.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      }
+      if (boardSort === 'category') {
+        return copy.sort((a, b) => getCategoryLabel(a).localeCompare(getCategoryLabel(b)))
+      }
+      return copy
+    }
+    const sorted = sortItems(tripPlacesOrdered)
+    if (boardGroupBy === 'none') return { flat: sorted }
+    if (boardGroupBy === 'category') {
+      const byCategory = new Map<string, SavedItem[]>()
+      for (const item of sorted) {
+        const label = getCategoryLabel(item)
+        if (!byCategory.has(label)) byCategory.set(label, [])
+        byCategory.get(label)!.push(item)
+      }
+      const groups: BoardGroup[] = Array.from(byCategory.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([label, items]) => ({ label, items }))
+      return { groups }
+    }
+    if (boardGroupBy === 'location') {
+      const byLocation = new Map<string, SavedItem[]>()
+      for (const item of sorted) {
+        const label = getLocationLabel(item)
+        if (!byLocation.has(label)) byLocation.set(label, [])
+        byLocation.get(label)!.push(item)
+      }
+      const groups: BoardGroup[] = Array.from(byLocation.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([label, items]) => ({ label, items }))
+      return { groups }
+    }
+    return { flat: sorted }
+  }, [selectedItineraryId, tripPlacesOrdered, boardSort, boardGroupBy])
 
   // Generate calendar days for current month (kept for reference but not rendered in new UI)
   const calendarDays = useMemo(() => {
@@ -1586,8 +1648,36 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
                   {tripPlacesOrdered.length > 0 && (
                     <div className="mt-8">
+                      {/* Sort and Group toolbar */}
+                      <div className="flex flex-wrap items-center gap-3 mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600">Sort:</span>
+                          <select
+                            value={boardSort}
+                            onChange={(e) => setBoardSort(e.target.value as 'position' | 'title' | 'date-added' | 'category')}
+                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          >
+                            <option value="position">Order on board</option>
+                            <option value="title">Title A–Z</option>
+                            <option value="date-added">Date added</option>
+                            <option value="category">Category</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-gray-600">Group:</span>
+                          <select
+                            value={boardGroupBy}
+                            onChange={(e) => setBoardGroupBy(e.target.value as 'none' | 'category' | 'location')}
+                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          >
+                            <option value="none">None</option>
+                            <option value="category">Category</option>
+                            <option value="location">Location</option>
+                          </select>
+                        </div>
+                      </div>
                       <MoodboardGrid
-                        items={tripPlacesOrdered}
+                        boardDisplay={boardDisplay}
                         activeId={activeId}
                         draggedItem={draggedItem}
                         onSelect={(item) => setSelectedItem(item)}
@@ -2394,8 +2484,11 @@ title: 'Shared trip',
 }
 
 // Moodboard: masonry grid with draggable cards (title + location only, 16px radius)
+type BoardGroup = { label: string; items: SavedItem[] }
+type BoardDisplay = { flat: SavedItem[] } | { groups: BoardGroup[] }
+
 interface MoodboardGridProps {
-  items: SavedItem[]
+  boardDisplay: BoardDisplay
   activeId: string | null
   draggedItem: SavedItem | null
   onSelect: (item: SavedItem) => void
@@ -2403,26 +2496,57 @@ interface MoodboardGridProps {
   isMobile: boolean
 }
 
-function MoodboardGrid({ items, activeId, draggedItem, onSelect, onToggleIcon, isMobile }: MoodboardGridProps) {
+const gridClasses = (isOver: boolean, isMobile: boolean) =>
+  `min-h-[200px] rounded-2xl p-4 transition-colors grid gap-3 sm:gap-4 ${isOver ? 'bg-gray-100' : ''} ${
+    isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+  }`
+
+function MoodboardGrid({ boardDisplay, activeId, draggedItem, onSelect, onToggleIcon, isMobile }: MoodboardGridProps) {
   const { setNodeRef, isOver } = useDroppable({ id: 'moodboard' })
 
+  if ('flat' in boardDisplay) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={gridClasses(isOver, isMobile)}
+      >
+        {boardDisplay.flat.map((item) => (
+          <MoodboardCardWrapper key={item.id} item={item}>
+            <MoodboardCard
+              item={item}
+              isDragging={activeId === item.id}
+              onSelect={() => onSelect(item)}
+              onToggleIcon={onToggleIcon}
+              isMobile={isMobile}
+            />
+          </MoodboardCardWrapper>
+        ))}
+      </div>
+    )
+  }
+
+  // Grouped: separate sections with label and extra spacing
   return (
-    <div
-      ref={setNodeRef}
-      className={`min-h-[200px] rounded-2xl p-4 transition-colors grid gap-3 sm:gap-4 ${isOver ? 'bg-gray-100' : ''} ${
-        isMobile ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
-      }`}
-    >
-      {items.map((item) => (
-        <MoodboardCardWrapper key={item.id} item={item}>
-          <MoodboardCard
-            item={item}
-            isDragging={activeId === item.id}
-            onSelect={() => onSelect(item)}
-            onToggleIcon={onToggleIcon}
-            isMobile={isMobile}
-          />
-        </MoodboardCardWrapper>
+    <div ref={setNodeRef} className="space-y-8">
+      {boardDisplay.groups.map((group) => (
+        <div key={group.label} className="rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4 sm:p-5">
+          <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-3 sm:mb-4">
+            {group.label}
+          </h3>
+          <div className={gridClasses(false, isMobile)}>
+            {group.items.map((item) => (
+              <MoodboardCardWrapper key={item.id} item={item}>
+                <MoodboardCard
+                  item={item}
+                  isDragging={activeId === item.id}
+                  onSelect={() => onSelect(item)}
+                  onToggleIcon={onToggleIcon}
+                  isMobile={isMobile}
+                />
+              </MoodboardCardWrapper>
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   )

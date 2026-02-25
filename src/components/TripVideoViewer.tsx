@@ -80,19 +80,19 @@ export default function TripVideoViewer({ items, initialIndex, onClose }: TripVi
       aria-modal="true"
       aria-label="Video viewer"
     >
-      {/* Header: close and position */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-white/95 backdrop-blur-sm border-b border-gray-200 safe-area-inset-top">
+      {/* Header: close, position, and open-in-platform pill */}
+      <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-gray-200 shadow-sm safe-area-inset-top">
         <button
           type="button"
           onClick={onClose}
-          className="p-2 -ml-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          className="flex-shrink-0 p-2 -ml-2 rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           aria-label="Close"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-        <span className="text-sm text-gray-500 tabular-nums">
+        <span className="text-sm font-medium text-gray-700 tabular-nums">
           {currentIndex + 1} / {items.length}
         </span>
         {item.url ? (
@@ -100,7 +100,15 @@ export default function TripVideoViewer({ items, initialIndex, onClose }: TripVi
             href={item.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm font-medium text-gray-700 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+            className={`flex-shrink-0 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-white transition-opacity hover:opacity-90 ${
+              item.platform === 'TikTok'
+                ? 'bg-black'
+                : item.platform === 'Instagram'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500'
+                  : item.platform === 'YouTube'
+                    ? 'bg-red-600'
+                    : 'bg-gray-700'
+            }`}
           >
             Open in {item.platform}
           </a>
