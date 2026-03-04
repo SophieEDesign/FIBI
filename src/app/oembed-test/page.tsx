@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import LinkPreview from '@/components/LinkPreview'
 import { sanitizeOembedHtml } from '@/lib/sanitize-oembed'
 
@@ -9,10 +10,13 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Test page for Meta oEmbed verification
- * This page demonstrates how FiBi uses Instagram oEmbed to display rich previews
+ * This page demonstrates how FiBi uses Instagram oEmbed to display rich previews.
+ * Supports ?url= for Meta App Review: one URL shows our site + Meta content (e.g. /oembed-test?url=https://www.instagram.com/p/XXX/).
  */
 export default function OEmbedTestPage() {
-  // Example URLs for testing
+  const searchParams = useSearchParams()
+
+  // Example URLs for testing (TikTok is real and works without Meta approval)
   const exampleUrls = [
     {
       platform: 'Instagram',
@@ -30,13 +34,15 @@ export default function OEmbedTestPage() {
       label: 'TikTok Video'
     },
   ]
-  
-  const [testUrl, setTestUrl] = useState(exampleUrls[1].url) // Pre-fill with reel URL
+
+  const urlFromQuery = searchParams.get('url')
+
+  const [testUrl, setTestUrl] = useState(urlFromQuery || exampleUrls[1].url)
   const [oembedResult, setOembedResult] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const testOEmbed = async (url: string) => {
+  const testOEmbed = useCallback(async (url: string) => {
     setLoading(true)
     setError(null)
     setOembedResult(null)
@@ -59,7 +65,15 @@ export default function OEmbedTestPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Meta App Review: when visiting with ?url=..., auto-run the oEmbed test so one URL shows our feature + Meta content
+  useEffect(() => {
+    if (urlFromQuery && urlFromQuery.trim().length > 0) {
+      setTestUrl(urlFromQuery)
+      testOEmbed(urlFromQuery)
+    }
+  }, [urlFromQuery, testOEmbed])
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUrlSafeForFetch } from '@/lib/ssrf'
+import { extractOgMetaFromHtml } from '@/lib/og-meta'
 
 interface MetadataResponse {
   title: string | null
   description: string | null
   image: string | null
   scrapedContent: string | null // Visible text content from the page
+}
+
+function isMetaPlatformUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return host.includes('facebook.com') || host.includes('fb.com') || host.includes('instagram.com')
+  } catch {
+    return false
+  }
 }
 
 /** Resolve short URLs to canonical (same as oEmbed: TikTok, Instagram, YouTube, etc.) so OG tags are returned. */
@@ -41,7 +51,7 @@ async function resolveCanonicalUrlIfNeeded(url: string): Promise<string> {
   return url
 }
 
-/** Facebook serves OG-rich HTML to its own crawler; use that User-Agent when fetching Facebook URLs. */
+/** Facebook/Instagram serve OG-rich HTML to their crawler. Caption and image depend on Meta serving og:description/og:image to this UA; if Meta blocks or serves a login wall, preview will be empty. */
 const FACEBOOK_CRAWLER_UA = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
 const DEFAULT_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
@@ -82,16 +92,6 @@ async function fetchWithTimeout(url: string, timeout: number = 5000): Promise<Re
   }
 }
 
-/** Decode common HTML entities in meta content (e.g. &amp; in URLs). */
-function decodeMetaContent(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
-
 function extractMetadata(html: string): MetadataResponse {
   const metadata: MetadataResponse = {
     title: null,
@@ -100,57 +100,11 @@ function extractMetadata(html: string): MetadataResponse {
     scrapedContent: null,
   }
 
-  // Extract title
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-  if (titleMatch) {
-    metadata.title = titleMatch[1].trim()
-  }
-
-  // Extract Open Graph tags - handle both single and double quotes, and different attribute orders
-  const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) || 
-                       html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
-  if (ogTitleMatch) {
-    metadata.title = decodeMetaContent(ogTitleMatch[1].trim())
-  }
-
-  const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                             html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
-  if (ogDescriptionMatch) {
-    metadata.description = decodeMetaContent(ogDescriptionMatch[1].trim())
-  }
-
-  const ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                      html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
-  if (ogImageMatch) {
-    metadata.image = decodeMetaContent(ogImageMatch[1].trim())
-  }
-
-  // Fallback to og:image:secure_url (common on Facebook/Meta)
-  if (!metadata.image) {
-    const secureMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image:secure_url["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                        html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image:secure_url["']/i)
-    if (secureMatch) metadata.image = decodeMetaContent(secureMatch[1].trim())
-  }
-
-  // Fallback to Twitter image if no og:image
-  if (!metadata.image) {
-    const twitterImageMatch = html.match(/<meta[^>]*name\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']twitter:image["']/i) ||
-                              html.match(/<meta[^>]*property\s*=\s*["']twitter:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']twitter:image["']/i)
-    if (twitterImageMatch) {
-      metadata.image = decodeMetaContent(twitterImageMatch[1].trim())
-    }
-  }
-
-  // Fallback to meta description if no og:description
-  if (!metadata.description) {
-    const metaDescriptionMatch = html.match(/<meta[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                 html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']description["']/i)
-    if (metaDescriptionMatch) {
-      metadata.description = metaDescriptionMatch[1].trim()
-    }
-  }
+  // Use shared OG extraction (handles multiple attribute orders and quote styles)
+  const og = extractOgMetaFromHtml(html)
+  metadata.title = og.title
+  metadata.description = og.description
+  metadata.image = og.image
 
   // Try to extract from JSON-LD structured data (TikTok, YouTube, etc. use this)
   if (!metadata.description) {
@@ -333,8 +287,18 @@ export async function POST(request: NextRequest) {
           scrapedContent: null,
         })
       }
-      const response = await fetchWithTimeout(fetchUrl, 8000)
-      
+
+      const isMeta = isMetaPlatformUrl(fetchUrl)
+      let response = await fetchWithTimeout(fetchUrl, 8000)
+      let html = response.ok ? await response.text() : ''
+
+      // For Meta (Facebook/Instagram): retry once if fetch failed or OG tags missing (reduces "works then not" from transient blocks)
+      if (isMeta && (!response.ok || (!html.includes('og:image') && !html.includes('og:title')))) {
+        await new Promise(r => setTimeout(r, 500))
+        response = await fetchWithTimeout(fetchUrl, 8000)
+        if (response.ok) html = await response.text()
+      }
+
       if (!response.ok) {
         return NextResponse.json({
           title: null,
@@ -344,36 +308,17 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      const html = await response.text()
-      
-      // Debug: Check if HTML contains OG tags
-      const hasOGDescription = /og:description/i.test(html)
-      const hasOGImage = /og:image/i.test(html)
-      const hasMetaDescription = /<meta[^>]*name\s*=\s*["']description["']/i.test(html)
-      const htmlLength = html.length
-      
-      console.log('Metadata extraction - HTML analysis:', {
-        url,
-        htmlLength,
-        hasOGDescription,
-        hasOGImage,
-        hasMetaDescription,
-      })
-      
       const metadata = extractMetadata(html)
 
-      console.log('Metadata extraction result:', {
-        url,
-        hasTitle: !!metadata.title,
-        title: metadata.title?.substring(0, 100) || null,
-        hasDescription: !!metadata.description,
-        description: metadata.description?.substring(0, 200) || null,
-        descriptionLength: metadata.description?.length || 0,
-        hasImage: !!metadata.image,
-        imageUrl: metadata.image?.substring(0, 100) || null,
-        hasScrapedContent: !!metadata.scrapedContent,
-        scrapedContentLength: metadata.scrapedContent?.length || 0,
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Metadata extraction result:', {
+          url,
+          hasTitle: !!metadata.title,
+          hasDescription: !!metadata.description,
+          hasImage: !!metadata.image,
+          hasScrapedContent: !!metadata.scrapedContent,
+        })
+      }
 
       return NextResponse.json(metadata)
     } catch (error: any) {

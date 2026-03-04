@@ -83,22 +83,36 @@ export function cleanOGTitle(title: string | null | undefined): string | null {
     /^TikTok\s*[-–—]\s*/i,
     /^Instagram\s*[-–—]\s*/i,
     /^YouTube\s*[-–—]\s*/i,
+    /^Facebook\s*[-–—]\s*/i,
+    /^Meta\s*[-–—]\s*/i,
     /\s*[-–—]\s*TikTok$/i,
     /\s*[-–—]\s*Instagram$/i,
     /\s*[-–—]\s*YouTube$/i,
+    /\s*[-–—]\s*Facebook$/i,
+    /\s*[-–—]\s*Meta$/i,
     /^Watch\s+this\s+video\s*[-–—:]\s*/i,
     /^Watch\s*[-–—:]\s*/i,
     /^Video\s*[-–—:]\s*/i,
   ]
-  
+
   platformPatterns.forEach(pattern => {
     cleaned = cleaned.replace(pattern, '')
   })
-  
+
   // Remove extra whitespace
   cleaned = cleaned.trim()
-  
+
   return cleaned || null
+}
+
+/**
+ * True if the (cleaned) title is only a generic platform name and should not be used as the item title.
+ * Use with cleanOGTitle first: isGenericOgTitle(cleanOGTitle(metadata.title))
+ */
+export function isGenericOgTitle(title: string | null | undefined): boolean {
+  if (!title || !title.trim()) return true
+  const t = title.trim().toLowerCase()
+  return t === 'instagram' || t === 'facebook' || t === 'meta' || t === 'tiktok' || t === 'youtube'
 }
 
 /**

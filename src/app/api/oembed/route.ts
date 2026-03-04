@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUrlSafeForFetch } from '@/lib/ssrf'
+import { extractOgMetaFromHtml } from '@/lib/og-meta'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,15 +39,6 @@ function getUserAgentForFetchUrl(url: string): string {
   return DEFAULT_FETCH_UA
 }
 
-/** Decode common HTML entities in meta content. */
-function decodeMetaContent(s: string): string {
-  return s
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-}
 
 /** Resolve short/share URLs to canonical URL by following redirects. Same pull-through for TikTok, Instagram, YouTube, Facebook, etc. */
 async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'generic'): Promise<string> {
@@ -380,47 +372,21 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
         
         if (response.ok) {
           const html = await response.text()
-          
-          // Extract metadata using same logic as metadata API
-          let thumbnailUrl: string | null = null
-          let title: string | null = null
-          let description: string | null = null
-          
-          // Extract og:image (try og:image first, then og:image:secure_url)
-          let ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                            html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image["']/i)
-          if (!ogImageMatch) {
-            ogImageMatch = html.match(/<meta[^>]*property\s*=\s*["']og:image:secure_url["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                           html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:image:secure_url["']/i)
-          }
-          if (ogImageMatch) {
-            thumbnailUrl = decodeMetaContent(ogImageMatch[1].trim())
-            // Handle relative URLs
-            if (thumbnailUrl && !thumbnailUrl.startsWith('http')) {
-              try {
-                const baseUrl = new URL(fetchUrl)
-                thumbnailUrl = new URL(thumbnailUrl, baseUrl.origin).toString()
-              } catch {
-                // If URL construction fails, use original
-              }
+          const og = extractOgMetaFromHtml(html)
+          let thumbnailUrl = og.image
+          const title = og.title
+          let description = og.description
+
+          if (thumbnailUrl && !thumbnailUrl.startsWith('http')) {
+            try {
+              const baseUrl = new URL(fetchUrl)
+              thumbnailUrl = new URL(thumbnailUrl, baseUrl.origin).toString()
+            } catch {
+              // keep original
             }
           }
-          
-          // Extract og:title
-          const ogTitleMatch = html.match(/<meta[^>]*property\s*=\s*["']og:title["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                              html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:title["']/i)
-          if (ogTitleMatch) {
-            title = decodeMetaContent(ogTitleMatch[1].trim())
-          }
-          
-          // Extract og:description
-          const ogDescriptionMatch = html.match(/<meta[^>]*property\s*=\s*["']og:description["'][^>]*content\s*=\s*["']([^"']+)["']/i) ||
-                                     html.match(/<meta[^>]*content\s*=\s*["']([^"']+)["'][^>]*property\s*=\s*["']og:description["']/i)
-          if (ogDescriptionMatch) {
-            description = decodeMetaContent(ogDescriptionMatch[1].trim())
-          }
-          
-          // For TikTok, Instagram, YouTube, Facebook: try JSON-LD / structured data if og:description missing
+
+          // For TikTok, Instagram, YouTube, Facebook: try JSON-LD if og:description missing
           if ((platform === 'tiktok' || platform === 'instagram' || platform === 'youtube' || platform === 'facebook') && !description) {
             try {
               const jsonLdMatches = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
@@ -429,50 +395,49 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
                   try {
                     const jsonContent = match.replace(/<script[^>]*>|<\/script>/gi, '').trim()
                     const jsonData = JSON.parse(jsonContent)
-                    
-                    // Check for description in various JSON-LD structures
-                    if (jsonData.description && !description) {
+                    if (jsonData.description) {
                       description = jsonData.description.trim()
+                      break
                     }
-                    if (jsonData.text && !description) {
+                    if (jsonData.text) {
                       description = jsonData.text.trim()
+                      break
                     }
-                    if (jsonData.caption && !description) {
+                    if (jsonData.caption) {
                       description = jsonData.caption.trim()
+                      break
                     }
-                    // For VideoObject schema
-                    if (jsonData['@type'] === 'VideoObject' && jsonData.description && !description) {
+                    if (jsonData['@type'] === 'VideoObject' && jsonData.description) {
                       description = jsonData.description.trim()
+                      break
                     }
-                    // For array of objects
                     if (Array.isArray(jsonData)) {
                       for (const item of jsonData) {
-                        if (item.description && !description) {
+                        if (item.description) {
                           description = item.description.trim()
                           break
                         }
-                        if (item.text && !description) {
+                        if (item.text) {
                           description = item.text.trim()
                           break
                         }
-                        if (item.caption && !description) {
+                        if (item.caption) {
                           description = item.caption.trim()
                           break
                         }
                       }
+                      if (description) break
                     }
-                    if (description) break
-                  } catch (parseError) {
-                    // Skip invalid JSON, continue to next script tag
+                  } catch {
                     continue
                   }
                 }
               }
-            } catch (error) {
-              // Non-blocking - continue
+            } catch {
+              // Non-blocking
             }
           }
-          
+
           const providerName =
             platform === 'tiktok' ? 'TikTok'
             : platform === 'instagram' ? 'Instagram'

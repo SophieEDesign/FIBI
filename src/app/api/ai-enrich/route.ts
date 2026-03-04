@@ -114,10 +114,10 @@ Given the following information extracted from a shared link:
 ${context.scrapedContent ? `- Page Content (scraped): ${context.scrapedContent.substring(0, 1500)}${context.scrapedContent.length > 1500 ? '...' : ''}` : ''}
 
 Please suggest improvements. IMPORTANT RULES:
-1. For title: ALWAYS suggest a cleaner, shorter version. Even if the title seems fine, try to improve it (remove extra words, make it more concise, remove platform-specific text like "Instagram" or "TikTok"). Only return null if the title is already perfect.
-2. For location: AGGRESSIVELY extract any place name, city, or country mentioned. Look in the URL, title, description, and domain. Even if confidence is low, suggest it (we'll mark confidence as "low"). Examples: "Cornwall" from "cornwall" in URL, "Lisbon" from description, "Portugal" from context.
+1. For title: Suggest a clean, short title (place name or a concise label). Prefer the place name when it is clear from context. Remove platform noise ("Instagram", "TikTok", etc.). Only return null if the title is already perfect.
+2. For location (suggestedPlaceName, suggestedCity, suggestedCountry): Prefer place from the post caption or tagged location. Extract any place name, city, or country mentioned in the description/caption first, then in the title, URL, and domain. Instagram/TikTok posts often mention or tag locations in the caption—use that. Even if confidence is low, suggest it (we'll mark confidence as "low"). Examples: "Café XYZ" from caption, "Lisbon" from description, "Portugal" from context.
 3. For category: ALWAYS suggest a category based on the content. Use context clues: restaurant/food mentions = "Food", hotel/accommodation = "Stay", beach/ocean = "Beach", hiking/nature = "Nature", city/urban = "City", activity/experience = "Activity". If truly unclear, use "Other".
-4. Be smart: Use the URL domain (e.g., "tripadvisor.com" might suggest a place), platform (Instagram/TikTok often have location tags), and description text to extract information.
+4. Be smart: Use the description (post caption) and scraped content as the main source for place; then URL domain, platform (location tags), and title.
 
 Return ONLY a JSON object with this exact structure:
 {

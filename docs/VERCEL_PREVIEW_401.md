@@ -38,6 +38,7 @@ If you see **"Could not load user data (401)"** on the **Admin** page:
   - Uses a **browser-like User-Agent** when the proxy fetches from Meta so more requests succeed.
   - **No fallback to raw URL** for those hosts when the proxy fails (fallback would get 403); the placeholder is shown instead.
 - If you still see broken preview images on a **Vercel preview** URL, the image-proxy request may be getting **401** from Vercel Deployment Protection. Disable protection for previews (see above) so the proxy (and manifest/oembed/metadata) return 200.
+- **Preview not available:** Meta (Facebook/Instagram) sometimes blocks or rate-limits server-side fetches. When the image-proxy or metadata fetch gets 403, the app shows a placeholder. This is expected; the metadata API retries once for Meta URLs to reduce transient failures.
 
 ## Comments API (401)
 

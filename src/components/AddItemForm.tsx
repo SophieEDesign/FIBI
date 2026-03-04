@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle, extractGoogleMapsPlace } from '@/lib/utils'
+import { detectPlatform, uploadScreenshot, getHostname, cleanOGTitle, generateHostnameTitle, extractGoogleMapsPlace, isGenericOgTitle } from '@/lib/utils'
 import { CATEGORIES, type Itinerary } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -156,7 +156,7 @@ export default function AddItemForm() {
 
       if (catError) console.error('Error loading custom categories:', catError)
       if (categories) {
-        setUserCustomCategories(categories.map(c => c.value))
+        setUserCustomCategories(categories.map((c: { value: string }) => c.value))
       }
     } catch (err) {
       console.error('Error loading custom options:', err)
@@ -366,6 +366,15 @@ export default function AddItemForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiSuggestions, selectedPlace])
+
+  // Auto-apply AI suggested title when current title is empty or generic (e.g. "Place from instagram.com")
+  useEffect(() => {
+    if (!aiSuggestions?.title || userEditedTitle.current) return
+    if (!title.trim() || isGenericOgTitle(title) || title.startsWith('Place from ')) {
+      setTitle(aiSuggestions.title)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiSuggestions?.title])
 
   // Trigger AI enrichment if URL is already present when component mounts
   // This handles the case where page loads with URL already in the field
@@ -673,8 +682,9 @@ export default function AddItemForm() {
         let finalTitle = title // Start with current title (might be from shared title param or Google Maps)
         let finalDescription = description // Track description for AI enrichment
 
-        // For TikTok, Instagram, YouTube: get title/caption from oEmbed (or fallback metadata)
+        // For TikTok, Instagram, YouTube: get title/caption and thumbnail from oEmbed (or fallback metadata)
         let oembedCaption: string | null = null
+        let oembedThumbnail: string | null = null
         const platform = detectPlatform(urlParam)
         if (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube' || platform === 'Facebook') {
           try {
@@ -689,6 +699,9 @@ export default function AddItemForm() {
                 oembedCaption = oembedData.caption_text
               } else if (oembedData.title) {
                 oembedCaption = oembedData.title
+              }
+              if (oembedData.thumbnail_url) {
+                oembedThumbnail = oembedData.thumbnail_url
               }
             }
           } catch (err) {
@@ -706,23 +719,21 @@ export default function AddItemForm() {
           // Note: For TikTok, oEmbed title is the caption, not the title
 
           if (!userEditedTitle.current && !finalTitle) {
-            // Try cleaned OG title
+            // Use cleaned OG title only when it's not a generic platform name (Instagram, Facebook, etc.)
             const cleanedTitle = cleanOGTitle(metadata.title)
-            if (cleanedTitle) {
+            if (cleanedTitle && !isGenericOgTitle(cleanedTitle)) {
               finalTitle = cleanedTitle
               setTitle(cleanedTitle)
             } else {
-              // Fallback to hostname-based title
+              // Avoid "Instagram" / "Facebook" as title; use hostname so AI/place can fill in later
               finalTitle = generateHostnameTitle(urlParam)
               setTitle(finalTitle)
             }
           }
 
-          // Set description: Priority: oEmbed caption > metadata description > scrapedContent
-          // Always set if we have metadata description and current description is empty
-          // Use scrapedContent as fallback if description is not available
+          // Caption = post caption. Single source order: oEmbed caption_text → metadata description → scrapedContent. Never overwrite non-empty with empty.
           const descriptionToUse = oembedCaption || metadata.description || metadata.scrapedContent
-          if (descriptionToUse) {
+          if (descriptionToUse && (!description || description.trim() === '')) {
             console.log('AddItemForm: Setting description from metadata', {
               metadataDescription: metadata.description?.substring(0, 100) || null,
               scrapedContent: metadata.scrapedContent?.substring(0, 100) || null,
@@ -730,14 +741,12 @@ export default function AddItemForm() {
               currentDescription: description.substring(0, 100),
               willSet: !description || description.trim() === '',
             })
-            if (!description || description.trim() === '') {
-              setDescription(descriptionToUse)
-              finalDescription = descriptionToUse
-            } else {
-              // If description already exists, still track it for AI enrichment
-              finalDescription = description
-            }
-          } else {
+            setDescription(descriptionToUse)
+            finalDescription = descriptionToUse
+          } else if (description && description.trim() !== '') {
+            finalDescription = description
+          }
+          if (!descriptionToUse) {
             console.log('AddItemForm: No description in metadata', {
               hasDescription: !!metadata.description,
               hasScrapedContent: !!metadata.scrapedContent,
@@ -745,20 +754,16 @@ export default function AddItemForm() {
             })
           }
 
-          // Set thumbnail (OG image)
-          if (metadata.image && !thumbnailUrl) {
-            console.log('AddItemForm: Setting thumbnail from metadata', {
-              imageUrl: metadata.image.substring(0, 100),
-              currentThumbnail: thumbnailUrl.substring(0, 100) || 'none',
-            })
-            setThumbnailUrl(metadata.image)
-          } else {
-            console.log('AddItemForm: No image in metadata or thumbnail already set', {
-              hasImage: !!metadata.image,
-              hasThumbnail: !!thumbnailUrl,
-            })
+          // Set thumbnail: prefer oEmbed thumbnail, then metadata image (so preview works when either source has it)
+          const thumbnailToSet = oembedThumbnail || metadata.image
+          if (thumbnailToSet) {
+            setThumbnailUrl(thumbnailToSet)
           }
         } else {
+          // No metadata: still set thumbnail from oEmbed if we got one
+          if (oembedThumbnail) {
+            setThumbnailUrl(oembedThumbnail)
+          }
           // No metadata available - ensure title is never empty
           if (!userEditedTitle.current && !finalTitle) {
             finalTitle = generateHostnameTitle(urlParam)
@@ -952,8 +957,9 @@ export default function AddItemForm() {
       let finalTitle = title // Start with current title
       let finalDescription = description // Track description for AI enrichment
 
-      // For TikTok, Instagram, YouTube: get title/caption from oEmbed (or fallback metadata)
+      // For TikTok, Instagram, YouTube: get title/caption and thumbnail from oEmbed (or fallback metadata)
       let oembedCaption: string | null = null
+      let oembedThumbnail: string | null = null
       const platform = detectPlatform(newUrl)
       if (platform === 'TikTok' || platform === 'Instagram' || platform === 'YouTube' || platform === 'Facebook') {
         try {
@@ -969,6 +975,9 @@ export default function AddItemForm() {
             } else if (oembedData.title) {
               oembedCaption = oembedData.title
             }
+            if (oembedData.thumbnail_url) {
+              oembedThumbnail = oembedData.thumbnail_url
+            }
           }
         } catch (err) {
           console.debug('AddItemForm: Error fetching oEmbed data (non-blocking):', err)
@@ -976,10 +985,9 @@ export default function AddItemForm() {
       }
 
       if (metadata) {
-        // Priority: cleaned OG title > hostname title
-        // Note: For TikTok, oEmbed title is the caption, not the title
+        // Use cleaned OG title only when not a generic platform name (Instagram, Facebook, etc.)
         const cleanedTitle = cleanOGTitle(metadata.title)
-        if (cleanedTitle) {
+        if (cleanedTitle && !isGenericOgTitle(cleanedTitle)) {
           finalTitle = cleanedTitle
           setTitle(cleanedTitle)
         } else {
@@ -987,26 +995,15 @@ export default function AddItemForm() {
           setTitle(finalTitle)
         }
 
-        // Set description: Priority: oEmbed caption > metadata description > scrapedContent
+        // Caption = post caption. Order: oEmbed caption_text → metadata description → scrapedContent. Never overwrite non-empty with empty.
         const descriptionToUse = oembedCaption || metadata.description || metadata.scrapedContent
-        if (descriptionToUse) {
-          console.log('AddItemForm: Setting description (handleUrlChange)', {
-            platform,
-            oembedCaption: oembedCaption?.substring(0, 100) || null,
-            oembedCaptionLength: oembedCaption?.length || 0,
-            metadataDescription: metadata.description?.substring(0, 100) || null,
-            scrapedContent: metadata.scrapedContent?.substring(0, 100) || null,
-            currentDescription: description.substring(0, 100),
-            willSet: !description || description.trim() === '',
-            finalDescription: descriptionToUse.substring(0, 100),
-          })
-          if (!description || description.trim() === '') {
-            setDescription(descriptionToUse)
-            finalDescription = descriptionToUse
-          } else {
-            finalDescription = description
-          }
-        } else {
+        if (descriptionToUse && (!description || description.trim() === '')) {
+          setDescription(descriptionToUse)
+          finalDescription = descriptionToUse
+        } else if (description && description.trim() !== '') {
+          finalDescription = description
+        }
+        if (!descriptionToUse) {
           console.log('AddItemForm: No description found (handleUrlChange)', {
             platform,
             hasOembedCaption: !!oembedCaption,
@@ -1016,20 +1013,15 @@ export default function AddItemForm() {
             scrapedContentLength: metadata.scrapedContent?.length || 0,
           })
         }
-        // Set image (always set if we have it and no screenshot)
-        if (metadata.image && !screenshotUrl) {
-          console.log('AddItemForm: Setting thumbnail from metadata (handleUrlChange)', {
-            imageUrl: metadata.image.substring(0, 100),
-            currentThumbnail: thumbnailUrl.substring(0, 100) || 'none',
-          })
-          setThumbnailUrl(metadata.image)
-        } else {
-          console.log('AddItemForm: No image in metadata or screenshot exists (handleUrlChange)', {
-            hasImage: !!metadata.image,
-            hasScreenshot: !!screenshotUrl,
-          })
+        // Set thumbnail: prefer oEmbed thumbnail, then metadata image (no screenshot)
+        const thumbnailToSet = oembedThumbnail || metadata.image
+        if (thumbnailToSet && !screenshotUrl) {
+          setThumbnailUrl(thumbnailToSet)
         }
       } else {
+        if (oembedThumbnail && !screenshotUrl) {
+          setThumbnailUrl(oembedThumbnail)
+        }
         // Ensure title is never empty
         if (!finalTitle) {
           finalTitle = generateHostnameTitle(newUrl)
