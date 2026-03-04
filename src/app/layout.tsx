@@ -118,6 +118,7 @@ export default function RootLayout({
           content="black-translucent"
         />
         <meta name="apple-mobile-web-app-title" content="FIBI" />
+        <meta property="fb:app_id" content="25519623950997349" />
       </head>
       <body className={`${inter.variable} ${dmSans.variable} ${inter.className}`}>
         <script
