@@ -685,6 +685,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                             thumbnailUrl={item.thumbnail_url}
                             platform={item.platform || detectPlatform(item.url)}
                             displayTitle={title}
+                            description={item.description}
                           />
                         </div>
                       )}
@@ -755,6 +756,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                           thumbnailUrl={item.thumbnail_url}
                           platform={item.platform || detectPlatform(item.url)}
                           displayTitle={item.title || getHostname(item.url)}
+                          description={item.description}
                         />
                       )}
                     </div>
@@ -896,6 +898,7 @@ function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
               thumbnailUrl={item.thumbnail_url}
               platform={item.platform || detectPlatform(item.url)}
               displayTitle={displayTitle}
+              description={item.description}
             />
           )}
         </div>

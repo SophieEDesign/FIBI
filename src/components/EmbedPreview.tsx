@@ -8,6 +8,8 @@ interface EmbedPreviewProps {
   thumbnailUrl: string | null
   platform: string
   displayTitle: string
+  /** Post caption / description – shown in a box below the image when provided */
+  description?: string | null
   onImageLoad?: () => void
 }
 
@@ -26,6 +28,7 @@ export default function EmbedPreview({
   thumbnailUrl, 
   platform, 
   displayTitle,
+  description,
   onImageLoad 
 }: EmbedPreviewProps) {
   const [oembedThumbnail, setOembedThumbnail] = useState<string | null>(null)
@@ -36,17 +39,15 @@ export default function EmbedPreview({
   const isTikTok = platform === 'TikTok'
   const isInstagram = platform === 'Instagram'
   const isYouTube = platform === 'YouTube'
+  const isFacebook = platform === 'Facebook'
 
-  // Fetch metadata to get OG image - always try if thumbnailUrl is not provided
-  // This ensures we get preview images even when thumbnail_url wasn't saved
+  // Fetch metadata to get OG image when no thumbnail was saved (or to supplement)
+  // This ensures we get preview images on itinerary/shared views when thumbnail_url is null
   useEffect(() => {
     if (!url.trim()) return
     
-    // If we already have thumbnailUrl prop, don't fetch (it's already provided)
     if (thumbnailUrl) return
     
-    // Always fetch metadata to get OG image, even if oEmbed data exists
-    // oEmbed might have HTML but no thumbnail, or might not work for all platforms
     const fetchMetadata = async () => {
       try {
         const response = await fetch('/api/metadata', {
@@ -66,21 +67,15 @@ export default function EmbedPreview({
       }
     }
     
-    // Fetch metadata with a small delay to avoid race conditions
     const timeoutId = setTimeout(fetchMetadata, 300)
     return () => clearTimeout(timeoutId)
   }, [url, thumbnailUrl])
 
-  // Fetch oEmbed thumbnail for supported platforms
+  // Fetch oEmbed thumbnail for supported platforms (including Facebook – uses generic metadata fallback)
   useEffect(() => {
-    // Only fetch if we have a URL and it's a supported platform
-    if (!url || (!isTikTok && !isInstagram && !isYouTube)) {
-      return
-    }
+    if (!url.trim()) return
+    if (!isTikTok && !isInstagram && !isYouTube && !isFacebook) return
 
-    // Don't fetch if we already have a thumbnail from OG tags
-    // (oEmbed is a fallback/enhancement, not a replacement)
-    // Actually, let's try oEmbed first as it's often better quality
     const fetchOEmbedThumbnail = async () => {
       setLoading(true)
       try {
@@ -103,10 +98,9 @@ export default function EmbedPreview({
       }
     }
 
-    // Debounce to avoid too many requests
     const timeoutId = setTimeout(fetchOEmbedThumbnail, 300)
     return () => clearTimeout(timeoutId)
-  }, [url, isTikTok, isInstagram, isYouTube])
+  }, [url, isTikTok, isInstagram, isYouTube, isFacebook])
 
   // Helper function to get proxied image URL for images that might be blocked
   const getProxiedImageUrl = (url: string | null | undefined): string | null => {
@@ -162,37 +156,47 @@ export default function EmbedPreview({
     <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100">
       <div className="text-center">
         <div className="text-gray-400 text-4xl mb-2">
-          {platform === 'TikTok' ? '🎵' : platform === 'Instagram' ? '📷' : platform === 'YouTube' ? '▶️' : '🔗'}
+          {platform === 'TikTok' ? '🎵' : platform === 'Instagram' ? '📷' : platform === 'YouTube' ? '▶️' : platform === 'Facebook' ? '📘' : '🔗'}
         </div>
         <p className="text-xs text-gray-500">Preview unavailable</p>
       </div>
     </div>
   )
 
+  const hasCaption = description && description.trim().length > 0
+
   return (
-    <div className="w-full h-full relative">
-      {showPlaceholder && placeholderContent}
-      {rawImageUrl && imageUrl && (
-        <img
-          src={imageUrl}
-          alt={displayTitle}
-          className={`w-full h-full object-cover ${showPlaceholder ? 'hidden' : ''}`}
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          onLoad={() => {
-            setImageError(false)
-            onImageLoad?.()
-          }}
-          onError={(e) => {
-            const target = e.target as HTMLImageElement
-            // When proxy returns 404, try raw URL once (no-referrer can work for some CDNs)
-            if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && target.src !== rawImageUrl) {
-              target.src = rawImageUrl
-              return
-            }
-            setImageError(true)
-          }}
-        />
+    <div className="w-full h-full flex flex-col">
+      <div className="relative flex-1 min-h-0">
+        {showPlaceholder && placeholderContent}
+        {rawImageUrl && imageUrl && (
+          <img
+            src={imageUrl}
+            alt={displayTitle}
+            className={`w-full h-full object-cover ${showPlaceholder ? 'hidden' : ''}`}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onLoad={() => {
+              setImageError(false)
+              onImageLoad?.()
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement
+              // When proxy returns 404, try raw URL once (no-referrer can work for some CDNs)
+              if (imageUrl?.includes('/api/image-proxy') && rawImageUrl && target.src !== rawImageUrl) {
+                target.src = rawImageUrl
+                return
+              }
+              setImageError(true)
+            }}
+          />
+        )}
+      </div>
+      {hasCaption && (
+        <div className="flex-shrink-0 px-2 py-1.5 bg-gray-50 border-t border-gray-100 overflow-hidden">
+          <p className="text-xs text-gray-500 mb-0.5">Post caption</p>
+          <p className="text-xs text-gray-900 whitespace-pre-wrap line-clamp-3 break-words">{description.trim()}</p>
+        </div>
       )}
     </div>
   )

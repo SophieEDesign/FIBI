@@ -72,6 +72,13 @@ You should see:
 
 No login is required for this page.
 
+**Optional – verify in the app (with login)**  
+If you prefer to see the oEmbed feature inside the app:
+1. Create a free account at **https://fibi.world/login** (Sign up → confirm email).
+2. Go to **https://fibi.world/add**.
+3. Paste this Instagram reel URL in the input: `https://www.instagram.com/reels/C8whh4qSCCa/`
+4. The app will call the oEmbed endpoint and show a rich preview (thumbnail, caption, author). Click Save to add it to the feed.
+
 **Optional – direct API check**  
 To verify the oEmbed endpoint directly:
 
@@ -79,23 +86,35 @@ To verify the oEmbed endpoint directly:
 
 You should get a JSON response (HTTP 200). Until our app is approved, some fields may be empty; the endpoint itself must return 200 and valid JSON.
 
-**If you see 401 Unauthorized**  
+**If you see a login or password prompt**  
 Our host (Vercel) may be showing a login prompt. If that happens:
 
 - Try opening the URL in an incognito/private window, or  
 - Contact us so we can add an exception for Meta’s reviewer access.
 
-We have verified the URL in the [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) (or we will do so before resubmission).
+We have tested this URL in the [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/); it returns HTTP 200 and the expected Open Graph data (including fb:app_id). Reviewers can use the same debugger to verify access.
 
 ---
 
-## 4. Before you resubmit
+## 4. Why reviewers might say "URL not working" (when it works for you)
+
+**A) Vercel Deployment Protection (most likely)**  
+If **Production** has "Vercel Authentication" or "Password Protection" enabled, reviewers see a **login/password screen** before your app. For them, "the URL" leads to that screen, so they report it as not working. You may not see it (e.g. different network, cached session, or exception).
+
+- **Fix:** Vercel → Project → Settings → **Deployment Protection** → ensure **Production** is **not** protected (or add an exception). The oEmbed test URL must load without any login when reviewers open it.
+
+**B) They want to see oEmbed "in the app"**  
+Some reviewers prefer to see the feature inside the product (e.g. Add flow). Give both: (1) single URL, no login; (2) optional: create account → go to /add → paste Instagram URL → see preview. See Section 3 for the optional in-app instructions to paste in your notes.
+
+---
+
+## 5. Before you resubmit
 
 - [ ] **Use a real Meta URL**  
   Use a public post from your **official** Instagram or Facebook page in the `url=` parameter (no placeholder like `ABC123xyz` or `Cx123456789`).
 
-- [ ] **Test the exact URL**  
-  In a browser, open the full URL you will send to Meta (e.g. `https://fibi.world/oembed-test?url=...`). Confirm you see the test page and the oEmbed result (or a clear message), with **no** login wall or error page.
+- [ ] **Test the exact URL in incognito**  
+  Open the full URL you will send in an **incognito/private** window (or another device). You must see the FiBi oEmbed test page and preview/JSON—**not** a Vercel or other login/password screen.
 
 - [ ] **Avoid 401 on production**  
   If fibi.world is behind Vercel Deployment Protection, reviewers will get 401. Either add an exception for the production domain (or for Meta’s access) or temporarily disable protection for production so reviewers can open the link. See `docs/VERCEL_PREVIEW_401.md`.
@@ -105,7 +124,7 @@ We have verified the URL in the [Facebook Sharing Debugger](https://developers.f
 
 ---
 
-## 5. Summary for the resubmission form
+## 6. Summary for the resubmission form
 
 - **Updated URL:**  
   `https://fibi.world/oembed-test?url=<encoded_public_instagram_or_facebook_post_url>`
@@ -113,5 +132,8 @@ We have verified the URL in the [Facebook Sharing Debugger](https://developers.f
 - **What reviewers will see:**  
   FiBi’s oEmbed test page, with the oEmbed feature and the Meta (Instagram/Facebook) content loaded via that feature.
 
-- **If 401 appears:**  
-  Explain that Vercel Deployment Protection may be blocking access and that you have added (or will add) an exception so Meta reviewers can access the URL, or that you have verified the URL in the Facebook Sharing Debugger.
+- **Debugger verification:**  
+  We have tested the URL in the Facebook Sharing Debugger; it returns HTTP 200 and the expected Open Graph data. Reviewers can use the same tool to verify.
+
+- **If a login prompt appears:**  
+  Explain that Vercel Deployment Protection may be blocking access and that you have made the URL publicly accessible (and verified it in the debugger).
