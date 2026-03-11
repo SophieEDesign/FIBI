@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 function getSiteUrl(): string {
   if (typeof process !== 'undefined') {
     if (process.env.NEXT_PUBLIC_SITE_URL) {
-      return process.env.NEXT_PUBLIC_SITE_URL
+      return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '')
     }
     if (process.env.VERCEL_URL) {
       return `https://${process.env.VERCEL_URL}`
