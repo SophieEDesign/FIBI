@@ -61,51 +61,89 @@ export function isTikTokUrl(url: string): boolean {
   }
 }
 
-/**
- * Resolve TikTok short/share links (vm.*, vt.*, /t/) to a canonical video URL.
- * Prefer GET — TikTok often ignores HEAD redirects.
- */
-export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
+/** Full video/photo URLs already work with oEmbed — skip redirect chase. */
+export function isTikTokCanonicalVideoUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase()
-    const needsResolve =
-      host.startsWith('vm.') ||
-      host.startsWith('vt.') ||
-      parsed.pathname.startsWith('/t/') ||
-      host.includes('tiktok.com')
-
-    if (!needsResolve) return url
-
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 8000)
-
-    // GET follows redirects more reliably than HEAD for TikTok short links
-    const response = await fetch(url, {
-      method: 'GET',
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    })
-    clearTimeout(timeoutId)
-
-    // Don't keep the body; we only need the final URL
-    try {
-      await response.body?.cancel()
-    } catch {
-      // ignore
-    }
-
-    const finalUrl = response.url
-    if (finalUrl && finalUrl !== url) return finalUrl
+    if (!host.includes('tiktok.com')) return false
+    if (host.startsWith('vm.') || host.startsWith('vt.')) return false
+    return /\/(video|photo)\/\d+/.test(parsed.pathname)
   } catch {
-    // keep original
+    return false
   }
-  return url
+}
+
+function needsTikTokResolve(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    if (host.startsWith('vm.') || host.startsWith('vt.')) return true
+    if (parsed.pathname.startsWith('/t/')) return true
+    // Share links without /video/ or /photo/
+    if (host.includes('tiktok.com') && !isTikTokCanonicalVideoUrl(url)) return true
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Resolve TikTok short/share links (vm.*, vt.*, /t/) without downloading page bodies.
+ * Follows Location headers with redirect: 'manual'.
+ */
+export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
+  if (!needsTikTokResolve(url)) return url
+
+  let current = url
+  const seen = new Set<string>()
+
+  for (let i = 0; i < 8; i++) {
+    if (seen.has(current)) break
+    seen.add(current)
+    if (isTikTokCanonicalVideoUrl(current)) return current
+
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 6000)
+      const response = await fetch(current, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      })
+      clearTimeout(timeoutId)
+
+      // Drop body immediately
+      try {
+        await response.body?.cancel()
+      } catch {
+        // ignore
+      }
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location')
+        if (!location) break
+        current = new URL(location, current).toString()
+        continue
+      }
+
+      // Some environments return the final URL even with manual redirect
+      if (response.url && response.url !== current) {
+        current = response.url
+        continue
+      }
+      break
+    } catch {
+      break
+    }
+  }
+
+  return current
 }
 
 /**
@@ -123,7 +161,6 @@ export async function fetchTikTokOEmbed(url: string): Promise<TikTokOEmbedResult
         Referer: 'https://www.tiktok.com/',
         Origin: 'https://www.tiktok.com',
       },
-      // Avoid Next data cache for volatile TikTok responses
       cache: 'no-store',
     })
 
@@ -163,12 +200,16 @@ export async function fetchTikTokOEmbed(url: string): Promise<TikTokOEmbedResult
 }
 
 /**
- * Resolve short link if needed, then oEmbed. Tries original URL first (often works),
- * then canonical if different.
+ * Resolve short link if needed, then oEmbed. Tries the given URL first
+ * (canonical video URLs work without resolving).
  */
 export async function fetchTikTokMetadata(url: string): Promise<TikTokOEmbedResult | null> {
   const first = await fetchTikTokOEmbed(url)
   if (first && (first.image || first.title || first.description)) {
+    return first
+  }
+
+  if (isTikTokCanonicalVideoUrl(url)) {
     return first
   }
 

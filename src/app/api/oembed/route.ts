@@ -3,6 +3,7 @@ import { isUrlSafeForFetch } from '@/lib/ssrf'
 import { extractOgMetaFromHtml } from '@/lib/og-meta'
 import {
   fetchTikTokMetadata,
+  isTikTokCanonicalVideoUrl,
   isTikTokUrl,
   resolveTikTokCanonicalUrl,
 } from '@/lib/tiktok-oembed'
@@ -244,8 +245,13 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
   let oembedData: OEmbedResponse | null = null
 
   // Resolve short links to canonical URL so oEmbed and metadata fetch work (TikTok vm.*, Instagram, YouTube youtu.be, etc.)
+  // For TikTok, skip resolve when already a /video/ or /photo/ URL — oEmbed works directly and resolve can be slow.
   let fetchUrl = url
-  if (platform !== 'generic') {
+  if (platform === 'tiktok') {
+    if (!isTikTokCanonicalVideoUrl(url)) {
+      fetchUrl = await resolveCanonicalUrl(url, platform)
+    }
+  } else if (platform !== 'generic') {
     fetchUrl = await resolveCanonicalUrl(url, platform)
   }
   if (!isUrlSafeForFetch(fetchUrl)) {
