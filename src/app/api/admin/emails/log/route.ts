@@ -20,24 +20,37 @@ export async function GET(request: NextRequest) {
 
     const admin = getAdminSupabase()
 
-    let query = admin
-      .from('email_logs')
-      .select(
-        'id, user_id, recipient_email, template_slug, automation_id, campaign_id, sent_at, status, resend_email_id, opened_at, bounced_at, complained_at, delivered_at, unsubscribed_at, error_detail',
-        { count: 'exact' }
-      )
-      .order('sent_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const baseSelect =
+      'id, user_id, recipient_email, template_slug, automation_id, campaign_id, sent_at, status, resend_email_id, opened_at, bounced_at, complained_at, delivered_at, unsubscribed_at'
+    // error_detail is from migration 054; fall back if not yet applied on this DB
+    const selectWithError = `${baseSelect}, error_detail`
 
-    if (templateSlug) {
-      query = query.eq('template_slug', templateSlug)
-    }
-    const statusFilter = searchParams.get('status')?.trim()
-    if (statusFilter === 'sent' || statusFilter === 'failed') {
-      query = query.eq('status', statusFilter)
+    const buildQuery = (columns: string) => {
+      let query = admin
+        .from('email_logs')
+        .select(columns, { count: 'exact' })
+        .order('sent_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+
+      if (templateSlug) {
+        query = query.eq('template_slug', templateSlug)
+      }
+      const statusFilter = searchParams.get('status')?.trim()
+      if (statusFilter === 'sent' || statusFilter === 'failed') {
+        query = query.eq('status', statusFilter)
+      }
+      return query
     }
 
-    const { data: logs, error: logError, count: total } = await query
+    let { data: logs, error: logError, count: total } = await buildQuery(selectWithError)
+
+    if (
+      logError &&
+      typeof logError.message === 'string' &&
+      logError.message.includes('error_detail')
+    ) {
+      ;({ data: logs, error: logError, count: total } = await buildQuery(baseSelect))
+    }
 
     if (logError) {
       console.error('Error fetching email log:', logError)

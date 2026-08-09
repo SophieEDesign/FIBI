@@ -5,6 +5,12 @@ import Link from 'next/link'
 import DOMPurify from 'dompurify'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
 import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
+import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
+import {
+  type ConditionsForm,
+  conditionsToForm,
+  formToConditions,
+} from '@/lib/email-conditions'
 
 interface Campaign {
   id: string
@@ -28,6 +34,17 @@ interface Campaign {
   from_name: string | null
   from_email: string | null
   created_at?: string
+}
+
+interface TemplateOption {
+  slug: string
+  name: string
+  subject: string
+}
+
+interface SegmentOption {
+  id: string
+  name: string
 }
 
 type Tab = 'overview' | 'email' | 'report'
@@ -54,63 +71,125 @@ function statusBadgeClass(status: string): string {
   }
 }
 
+function toDatetimeLocalValue(iso: string | null): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 export default function EmailCampaignDetailClient({ campaignId }: { campaignId: string }) {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [segmentName, setSegmentName] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<TemplateOption[]>([])
+  const [segments, setSegments] = useState<SegmentOption[]>([])
   const [htmlPreview, setHtmlPreview] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  // Editable form
+  const [name, setName] = useState('')
+  const [fromName, setFromName] = useState('FiBi')
+  const [fromEmail, setFromEmail] = useState('hello@fibi.world')
+  const [subject, setSubject] = useState('')
+  const [previewText, setPreviewText] = useState('')
+  const [templateSlug, setTemplateSlug] = useState('')
+  const [segmentId, setSegmentId] = useState('')
+  const [conditions, setConditions] = useState<ConditionsForm>({})
+  const [scheduleMode, setScheduleMode] = useState<'draft' | 'later'>('draft')
+  const [scheduledAt, setScheduledAt] = useState('')
 
   const getAuthHeaders = useCallback(async () => getAdminAuthHeaders(), [])
+
+  const applyCampaignToForm = (c: Campaign) => {
+    setName(c.name || '')
+    setFromName(c.from_name || 'FiBi')
+    setFromEmail(c.from_email || 'hello@fibi.world')
+    setSubject(c.subject || '')
+    setPreviewText(c.preview_text || '')
+    setTemplateSlug(c.template_slug || '')
+    setSegmentId(c.segment_id || '')
+    setConditions(conditionsToForm(c.filters ?? {}))
+    if (c.status === 'scheduled' && c.scheduled_at) {
+      setScheduleMode('later')
+      setScheduledAt(toDatetimeLocalValue(c.scheduled_at))
+    } else {
+      setScheduleMode('draft')
+      setScheduledAt('')
+    }
+  }
+
+  const loadPreview = async (
+    headers: Record<string, string>,
+    slug: string,
+    preview: string | null
+  ) => {
+    if (!slug) {
+      setHtmlPreview('')
+      return
+    }
+    const tRes = await fetch(`/api/admin/emails/templates/${encodeURIComponent(slug)}`, {
+      credentials: 'include',
+      headers,
+    })
+    if (!tRes.ok) {
+      setHtmlPreview('')
+      return
+    }
+    const t = await tRes.json()
+    const body = typeof t.html_content === 'string' ? t.html_content : ''
+    const withPre =
+      preview?.trim()
+        ? `<div style="display:none;font-size:1px;color:#fff;max-height:0;overflow:hidden;">${preview.replace(/</g, '')}</div>${body}`
+        : body
+    setHtmlPreview(wrapEmailWithLayout(withPre))
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(`/api/admin/emails/campaigns/${campaignId}`, {
-        credentials: 'include',
-        headers,
-      })
-      if (!res.ok) {
-        setError(res.status === 404 ? 'Campaign not found' : 'Could not load campaign')
+      const [cRes, tRes, sRes] = await Promise.all([
+        fetch(`/api/admin/emails/campaigns/${campaignId}`, { credentials: 'include', headers }),
+        fetch('/api/admin/emails/templates', { credentials: 'include', headers }),
+        fetch('/api/admin/emails/segments', { credentials: 'include', headers }),
+      ])
+      if (!cRes.ok) {
+        setError(cRes.status === 404 ? 'Campaign not found' : 'Could not load campaign')
         return
       }
-      const data = await res.json()
+      const data = await cRes.json()
       const c = data.campaign as Campaign
       setCampaign(c)
+      applyCampaignToForm(c)
 
-      if (c.segment_id) {
-        const segRes = await fetch(`/api/admin/emails/segments/${c.segment_id}`, {
-          credentials: 'include',
-          headers,
-        })
-        if (segRes.ok) {
-          const segData = await segRes.json()
-          setSegmentName(segData.segment?.name ?? null)
-        }
-      } else {
-        setSegmentName(null)
+      if (tRes.ok) {
+        const tData = await tRes.json()
+        setTemplates(
+          (tData.templates ?? []).map((t: { slug: string; name: string; subject?: string }) => ({
+            slug: t.slug,
+            name: t.name,
+            subject: t.subject ?? '',
+          }))
+        )
+      }
+      if (sRes.ok) {
+        const sData = await sRes.json()
+        setSegments(
+          (sData.segments ?? []).map((s: { id: string; name: string }) => ({
+            id: s.id,
+            name: s.name,
+          }))
+        )
       }
 
-      if (c.template_slug) {
-        const tRes = await fetch(`/api/admin/emails/templates/${encodeURIComponent(c.template_slug)}`, {
-          credentials: 'include',
-          headers,
-        })
-        if (tRes.ok) {
-          const t = await tRes.json()
-          const body = typeof t.html_content === 'string' ? t.html_content : ''
-          const preview =
-            c.preview_text?.trim()
-              ? `<div style="display:none;font-size:1px;color:#fff;max-height:0;overflow:hidden;">${c.preview_text.replace(/</g, '')}</div>${body}`
-              : body
-          setHtmlPreview(wrapEmailWithLayout(preview))
-        }
-      }
+      await loadPreview(headers, c.template_slug, c.preview_text)
     } catch {
       setError('Could not load campaign')
     } finally {
@@ -121,6 +200,77 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
   useEffect(() => {
     load()
   }, [load])
+
+  const canEdit = campaign ? ['draft', 'scheduled', 'failed'].includes(campaign.status) : false
+  const canSend = campaign ? ['draft', 'scheduled', 'failed'].includes(campaign.status) : false
+  const canCancel = campaign ? ['draft', 'scheduled'].includes(campaign.status) : false
+
+  const saveSettings = async () => {
+    if (!campaign || !canEdit) return
+    setSaving(true)
+    setSaveError(null)
+    setActionMessage(null)
+    try {
+      if (!name.trim()) {
+        setSaveError('Campaign name is required')
+        return
+      }
+      if (!subject.trim()) {
+        setSaveError('Subject line is required')
+        return
+      }
+      if (!templateSlug) {
+        setSaveError('Choose a template')
+        return
+      }
+      if (!fromName.trim() || !fromEmail.includes('@')) {
+        setSaveError('Check from name and email')
+        return
+      }
+      if (scheduleMode === 'later' && !scheduledAt) {
+        setSaveError('Pick a send time, or keep as draft')
+        return
+      }
+
+      const headers = await getAuthHeaders()
+      const body: Record<string, unknown> = {
+        name: name.trim(),
+        subject: subject.trim(),
+        preview_text: previewText.trim() || null,
+        from_name: fromName.trim(),
+        from_email: fromEmail.trim(),
+        template_slug: templateSlug,
+        segment_id: segmentId || null,
+        filters: segmentId ? null : formToConditions(conditions),
+      }
+
+      if (scheduleMode === 'later') {
+        body.status = 'scheduled'
+        body.scheduled_at = new Date(scheduledAt).toISOString()
+      } else {
+        body.status = campaign.status === 'failed' ? 'draft' : 'draft'
+        body.scheduled_at = null
+      }
+
+      const res = await fetch(`/api/admin/emails/campaigns/${campaign.id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setSaveError(data.error || 'Could not save')
+        return
+      }
+      setActionMessage('Settings saved.')
+      await load()
+    } catch {
+      setSaveError('That didn\'t work. Try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const sendNow = async () => {
     if (!campaign || !confirm('Send this campaign now?')) return
@@ -179,11 +329,11 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
       'p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'div', 'span', 'img',
       'table', 'tr', 'td', 'tbody', 'thead', 'th', 'body', 'html', 'head', 'meta', 'hr',
     ],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'style', 'width', 'height', 'cellpadding', 'cellspacing', 'border', 'align', 'role'],
+    ALLOWED_ATTR: [
+      'href', 'target', 'rel', 'src', 'alt', 'style', 'width', 'height', 'cellpadding',
+      'cellspacing', 'border', 'align', 'role',
+    ],
   })
-
-  const canSend = ['draft', 'scheduled', 'failed'].includes(campaign.status)
-  const canCancel = ['draft', 'scheduled'].includes(campaign.status)
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Settings' },
@@ -214,12 +364,22 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {canEdit && (
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save settings'}
+              </button>
+            )}
             {canSend && (
               <button
                 type="button"
                 onClick={sendNow}
                 disabled={sending}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
               >
                 {sending ? 'Sending…' : 'Send now'}
               </button>
@@ -228,7 +388,7 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
               <button
                 type="button"
                 onClick={cancelCampaign}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 text-red-700"
               >
                 Cancel campaign
               </button>
@@ -236,8 +396,18 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
           </div>
         </div>
         {actionMessage && (
-          <p className="mt-3 text-sm text-gray-700" role="status">
+          <p className="mt-3 text-sm text-emerald-700" role="status">
             {actionMessage}
+          </p>
+        )}
+        {saveError && (
+          <p className="mt-3 text-sm text-red-600" role="alert">
+            {saveError}
+          </p>
+        )}
+        {!canEdit && (
+          <p className="mt-3 text-sm text-gray-500">
+            This campaign can&apos;t be edited (already sent or cancelled).
           </p>
         )}
       </div>
@@ -263,52 +433,166 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
 
       {tab === 'overview' && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-3 text-sm">
+          <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4 text-sm">
             <h2 className="text-base font-semibold text-gray-900">Delivery settings</h2>
-            <p>
-              <span className="text-gray-500">To:</span>{' '}
-              {segmentName
-                ? `Segment — ${segmentName}`
-                : campaign.segment_id
-                  ? 'Saved segment'
-                  : campaign.filters && Object.keys(campaign.filters).length
-                    ? 'Custom filters'
-                    : 'All marketing-opted-in users'}
-            </p>
-            <p>
-              <span className="text-gray-500">From:</span>{' '}
-              {campaign.from_name || 'FiBi'} &lt;{campaign.from_email || 'hello@fibi.world'}&gt;
-            </p>
-            <p>
-              <span className="text-gray-500">Subject:</span> {campaign.subject || '—'}
-            </p>
-            <p>
-              <span className="text-gray-500">Preview text:</span> {campaign.preview_text || '—'}
-            </p>
-            <p>
-              <span className="text-gray-500">Template:</span>{' '}
-              <Link
-                href="/app/admin/emails/templates"
-                className="underline font-mono text-xs"
+
+            <label className="block">
+              <span className="text-gray-700 font-medium">Campaign name</span>
+              <input
+                type="text"
+                value={name}
+                disabled={!canEdit}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-gray-700 font-medium">Audience (segment)</span>
+              <select
+                value={segmentId}
+                disabled={!canEdit}
+                onChange={(e) => setSegmentId(e.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
               >
-                {campaign.template_slug}
-              </Link>
-            </p>
-            {campaign.filters && Object.keys(campaign.filters).length > 0 && (
-              <div>
-                <p className="text-gray-500 mb-1">Filters</p>
-                <pre className="text-xs bg-gray-50 rounded p-3 overflow-x-auto">
-                  {JSON.stringify(campaign.filters, null, 2)}
-                </pre>
+                <option value="">Custom filters / all opted-in</option>
+                {segments.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {!segmentId && (
+              <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 mb-2">Custom filters</p>
+                <AudienceConditionsForm
+                  value={conditions}
+                  onChange={setConditions}
+                  disabled={!canEdit}
+                />
               </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-gray-700 font-medium">From name</span>
+                <input
+                  type="text"
+                  value={fromName}
+                  disabled={!canEdit}
+                  onChange={(e) => setFromName(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+                />
+              </label>
+              <label className="block">
+                <span className="text-gray-700 font-medium">From email</span>
+                <input
+                  type="email"
+                  value={fromEmail}
+                  disabled={!canEdit}
+                  onChange={(e) => setFromEmail(e.target.value)}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-gray-700 font-medium">Subject line</span>
+              <input
+                type="text"
+                value={subject}
+                disabled={!canEdit}
+                onChange={(e) => setSubject(e.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-gray-700 font-medium">Preview text</span>
+              <input
+                type="text"
+                value={previewText}
+                disabled={!canEdit}
+                onChange={(e) => setPreviewText(e.target.value)}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-gray-700 font-medium">Template</span>
+              <select
+                value={templateSlug}
+                disabled={!canEdit}
+                onChange={async (e) => {
+                  const slug = e.target.value
+                  setTemplateSlug(slug)
+                  const t = templates.find((x) => x.slug === slug)
+                  if (t?.subject && !subject.trim()) setSubject(t.subject)
+                  const headers = await getAuthHeaders()
+                  await loadPreview(headers, slug, previewText)
+                }}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+              >
+                <option value="">Select…</option>
+                {templates.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {canEdit && (
+              <div className="pt-2 border-t border-gray-100 space-y-3">
+                <p className="font-medium text-gray-700">Schedule</p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={scheduleMode === 'draft'}
+                      onChange={() => setScheduleMode('draft')}
+                    />
+                    Keep as draft
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      checked={scheduleMode === 'later'}
+                      onChange={() => setScheduleMode('later')}
+                    />
+                    Schedule for later
+                  </label>
+                </div>
+                {scheduleMode === 'later' && (
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  />
+                )}
+              </div>
+            )}
+
+            {canEdit && (
+              <button
+                type="button"
+                onClick={saveSettings}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Save settings'}
+              </button>
             )}
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white p-5 text-sm">
             <h2 className="text-base font-semibold text-gray-900 mb-3">Inbox preview</h2>
-            <p className="font-medium text-gray-900">{campaign.from_name || 'FiBi'}</p>
-            <p className="font-semibold text-gray-800">{campaign.subject || 'No subject'}</p>
-            <p className="text-gray-500">{campaign.preview_text || 'No preview text'}</p>
+            <p className="font-medium text-gray-900">{fromName || 'FiBi'}</p>
+            <p className="font-semibold text-gray-800">{subject || 'No subject'}</p>
+            <p className="text-gray-500">{previewText || 'No preview text'}</p>
             <button
               type="button"
               onClick={() => setTab('email')}
@@ -316,14 +600,28 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
             >
               View full email →
             </button>
+            <p className="mt-6 text-xs text-gray-500">
+              To change the email body design, edit the template under{' '}
+              <Link href="/app/admin/emails/templates" className="underline">
+                Templates
+              </Link>
+              , then save settings here if you switched templates.
+            </p>
           </div>
         </div>
       )}
 
       {tab === 'email' && (
         <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-          <div className="border-b border-gray-100 px-4 py-3 bg-gray-50 text-sm text-gray-600">
-            Subject: <span className="text-gray-900 font-medium">{campaign.subject || '—'}</span>
+          <div className="border-b border-gray-100 px-4 py-3 bg-gray-50 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Subject: <span className="text-gray-900 font-medium">{subject || campaign.subject || '—'}</span>
+            </span>
+            {canEdit && (
+              <Link href="/app/admin/emails/templates" className="underline text-gray-700">
+                Edit template content
+              </Link>
+            )}
           </div>
           {htmlPreview ? (
             <div

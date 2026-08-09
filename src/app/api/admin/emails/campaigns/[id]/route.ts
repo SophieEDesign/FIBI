@@ -75,8 +75,8 @@ export async function PATCH(
       .maybeSingle()
 
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (!['draft', 'scheduled'].includes(existing.status)) {
-      return NextResponse.json({ error: 'Only draft or scheduled campaigns can be edited' }, { status: 400 })
+    if (!['draft', 'scheduled', 'failed'].includes(existing.status)) {
+      return NextResponse.json({ error: 'Only draft, scheduled, or failed campaigns can be edited' }, { status: 400 })
     }
 
     const patch: Record<string, unknown> = {}
