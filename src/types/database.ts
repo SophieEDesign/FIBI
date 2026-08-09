@@ -111,6 +111,8 @@ export interface TravelGuidePlace {
   place_id: string | null
   source_url: string | null
   source_platform: string | null
+  /** Original TikTok / Instagram / YouTube URL when available (link out — do not rehost). */
+  video_url: string | null
   image_url: string | null
   created_at: string
   updated_at: string

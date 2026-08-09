@@ -242,7 +242,9 @@ export default function TravelGuideView({
                     disabled={savingAll}
                     className="inline-flex items-center px-5 py-2.5 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60"
                   >
-                    {savingAll ? 'Saving…' : 'Save all to a Travel Board'}
+                    {savingAll
+                      ? 'Saving…'
+                      : `Add all ${places.length} to a ${guide.destination_name || 'Travel'} Board`}
                   </button>
                   {(!userId || isAnon) && (
                     <Link
@@ -319,6 +321,28 @@ export default function TravelGuideView({
             <p className="text-fibi-muted py-12 text-center">
               Places for this guide are coming soon.
             </p>
+          )}
+
+          {places.length > 0 && (
+            <div className="mt-12 pt-10 border-t border-gray-100 space-y-4">
+              <h2 className="text-2xl font-medium text-fibi-text-primary">
+                Save them for later
+              </h2>
+              <p className="text-fibi-muted leading-relaxed max-w-xl">
+                You don&apos;t need to plan the trip now. Save the places that catch your eye, and
+                FIBI will keep them together until you&apos;re ready to go.
+              </p>
+              <button
+                type="button"
+                onClick={handleSaveAll}
+                disabled={savingAll}
+                className="inline-flex items-center px-5 py-2.5 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60"
+              >
+                {savingAll
+                  ? 'Saving…'
+                  : `Add all ${places.length} to a ${guide.destination_name || 'Travel'} Board`}
+              </button>
+            </div>
           )}
         </section>
 

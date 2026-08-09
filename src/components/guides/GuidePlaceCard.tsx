@@ -1,7 +1,7 @@
 'use client'
 
 import type { TravelGuidePlace } from '@/types/database'
-import { sourceCtaLabel } from '@/lib/travel-guides'
+import { foundOnLabel, sourceCtaLabel, videoCtaLabel } from '@/lib/travel-guides'
 
 interface GuidePlaceCardProps {
   place: TravelGuidePlace
@@ -25,6 +25,18 @@ export default function GuidePlaceCard({
     place.latitude != null &&
     place.longitude != null &&
     !Number.isNaN(Number(place.latitude))
+
+  const videoUrl = place.video_url?.trim() || null
+  // If the only source is a social video URL stored in source_url, treat it as video
+  const sourceIsVideo =
+    !videoUrl &&
+    !!place.source_url &&
+    /tiktok|instagram|youtube|youtu\.be/i.test(
+      `${place.source_platform || ''} ${place.source_url || ''}`
+    )
+  const effectiveVideoUrl = videoUrl || (sourceIsVideo ? place.source_url : null)
+  const referenceUrl =
+    place.source_url && place.source_url !== effectiveVideoUrl ? place.source_url : null
 
   return (
     <article
@@ -56,39 +68,73 @@ export default function GuidePlaceCard({
           </div>
 
           {place.description && (
-            <p className="text-fibi-muted leading-relaxed">{place.description}</p>
+            <div className="text-fibi-muted leading-relaxed whitespace-pre-line">
+              {place.description}
+            </div>
           )}
 
-          <div className="flex flex-wrap gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={saving || saved}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60 transition-opacity"
-            >
-              {saved ? 'Saved' : saving ? 'Saving…' : 'Save to FIBI'}
-            </button>
+          <div className="pt-2 space-y-3">
+            <p className="text-xs uppercase tracking-wide text-fibi-muted">
+              {foundOnLabel(
+                effectiveVideoUrl
+                  ? place.source_platform || 'TikTok'
+                  : place.source_platform
+              )}
+            </p>
 
-            {hasCoords && (
+            <div className="flex flex-wrap gap-3">
+              {effectiveVideoUrl && (
+                <a
+                  href={effectiveVideoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-text-primary border border-gray-200 hover:border-gray-300"
+                >
+                  {videoCtaLabel(place.source_platform)}
+                </a>
+              )}
+
+              {referenceUrl && !effectiveVideoUrl && (
+                <a
+                  href={referenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-muted hover:text-fibi-text-primary"
+                >
+                  {sourceCtaLabel(place.source_platform)}
+                </a>
+              )}
+
+              {referenceUrl && effectiveVideoUrl && (
+                <a
+                  href={referenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-muted hover:text-fibi-text-primary"
+                >
+                  Read more
+                </a>
+              )}
+
+              {hasCoords && (
+                <button
+                  type="button"
+                  onClick={onShowOnMap}
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-text-primary border border-gray-200 hover:border-gray-300"
+                >
+                  View the place
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={onShowOnMap}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-text-primary border border-gray-200 hover:border-gray-300"
+                onClick={onSave}
+                disabled={saving || saved}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60 transition-opacity"
               >
-                Show on map
+                {saved ? 'Saved' : saving ? 'Saving…' : 'Save to FIBI'}
               </button>
-            )}
-
-            {place.source_url && (
-              <a
-                href={place.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-muted hover:text-fibi-text-primary"
-              >
-                {sourceCtaLabel(place.source_platform)}
-              </a>
-            )}
+            </div>
           </div>
         </div>
       </div>

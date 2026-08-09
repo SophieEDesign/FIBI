@@ -22,6 +22,7 @@ type EditablePlace = {
   place_id: string
   source_url: string
   source_platform: string
+  video_url: string
   image_url: string
 }
 
@@ -40,6 +41,7 @@ function emptyPlace(order: number): EditablePlace {
     place_id: '',
     source_url: '',
     source_platform: '',
+    video_url: '',
     image_url: '',
   }
 }
@@ -59,6 +61,7 @@ function fromDbPlace(p: TravelGuidePlace): EditablePlace {
     place_id: p.place_id || '',
     source_url: p.source_url || '',
     source_platform: p.source_platform || '',
+    video_url: p.video_url || '',
     image_url: p.image_url || '',
   }
 }
@@ -207,6 +210,7 @@ export default function AdminGuideEditorPage() {
             place_id: p.place_id || null,
             source_url: p.source_url || null,
             source_platform: p.source_platform || null,
+            video_url: p.video_url || null,
             image_url: p.image_url || null,
           })),
         }),
@@ -260,6 +264,21 @@ export default function AdminGuideEditorPage() {
             </Link>
             <h1 className="mt-2 text-2xl font-bold text-gray-900">Edit guide</h1>
             <p className="text-sm text-gray-500 capitalize mt-1">Status: {guide.status}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {[
+                guide.published_at
+                  ? `Published ${new Date(guide.published_at).toLocaleDateString('en-GB')}`
+                  : null,
+                guide.updated_at
+                  ? `Updated ${new Date(guide.updated_at).toLocaleDateString('en-GB')}`
+                  : null,
+                guide.created_at
+                  ? `Created ${new Date(guide.created_at).toLocaleDateString('en-GB')}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             {guide.status === 'published' && (
@@ -581,26 +600,15 @@ export default function AdminGuideEditorPage() {
                 </div>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-3 border-t border-gray-100 pt-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Source &amp; reference
+                </p>
                 <div>
-                  <label className={labelClass}>Source URL</label>
+                  <label className={labelClass}>Platform</label>
                   <input
                     className={inputClass}
-                    value={place.source_url}
-                    onChange={(e) =>
-                      setPlaces((prev) =>
-                        prev.map((p, i) =>
-                          i === index ? { ...p, source_url: e.target.value } : p
-                        )
-                      )
-                    }
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Source platform</label>
-                  <input
-                    className={inputClass}
-                    placeholder="TikTok, Instagram, YouTube…"
+                    placeholder="TikTok, Instagram, Web…"
                     value={place.source_platform}
                     onChange={(e) =>
                       setPlaces((prev) =>
@@ -612,6 +620,42 @@ export default function AdminGuideEditorPage() {
                       )
                     }
                   />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Shown as “Found on …” on the public guide.
+                  </p>
+                </div>
+                <div>
+                  <label className={labelClass}>Video URL</label>
+                  <input
+                    className={inputClass}
+                    placeholder="TikTok / Reel / YouTube — original link only"
+                    value={place.video_url}
+                    onChange={(e) =>
+                      setPlaces((prev) =>
+                        prev.map((p, i) =>
+                          i === index ? { ...p, video_url: e.target.value } : p
+                        )
+                      )
+                    }
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Reference URL</label>
+                  <input
+                    className={inputClass}
+                    placeholder="Article, blog, or Maps link (optional)"
+                    value={place.source_url}
+                    onChange={(e) =>
+                      setPlaces((prev) =>
+                        prev.map((p, i) =>
+                          i === index ? { ...p, source_url: e.target.value } : p
+                        )
+                      )
+                    }
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Separate from the video — used for “Read more” when both are set.
+                  </p>
                 </div>
               </div>
 

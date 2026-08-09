@@ -39,6 +39,22 @@ export function sourceCtaLabel(platform: string | null | undefined): string {
   return 'View original'
 }
 
+export function videoCtaLabel(platform: string | null | undefined): string {
+  const p = (platform || '').toLowerCase()
+  if (p.includes('tiktok')) return 'Watch the TikTok'
+  if (p.includes('instagram')) return 'Watch the Reel'
+  if (p.includes('youtube')) return 'See video'
+  return 'Watch the video'
+}
+
+export function foundOnLabel(platform: string | null | undefined): string {
+  const p = (platform || '').toLowerCase()
+  if (p.includes('tiktok')) return 'Found on TikTok'
+  if (p.includes('instagram')) return 'Found on Instagram'
+  if (p.includes('youtube')) return 'Found on YouTube'
+  return 'Found on the web'
+}
+
 export type GuideCard = Pick<
   TravelGuide,
   | 'id'
@@ -204,6 +220,7 @@ export function guidePlaceToSavedItemFields(place: TravelGuidePlace) {
   const lat = place.latitude
   const lng = place.longitude
   const url =
+    place.video_url?.trim() ||
     place.source_url?.trim() ||
     (place.place_id
       ? `https://www.google.com/maps/place/?q=place_id:${place.place_id}`
@@ -211,7 +228,9 @@ export function guidePlaceToSavedItemFields(place: TravelGuidePlace) {
 
   return {
     url,
-    platform: place.source_platform?.trim() || 'Web',
+    platform:
+      place.source_platform?.trim() ||
+      (place.video_url?.trim() ? 'TikTok' : 'Web'),
     title: place.name,
     description: place.description,
     thumbnail_url: place.image_url,

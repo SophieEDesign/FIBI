@@ -17,6 +17,7 @@ type PlaceInput = {
   place_id?: string | null
   source_url?: string | null
   source_platform?: string | null
+  video_url?: string | null
   image_url?: string | null
 }
 
@@ -98,6 +99,7 @@ export async function PUT(
         typeof p.source_platform === 'string'
           ? p.source_platform.trim() || null
           : null,
+      video_url: typeof p.video_url === 'string' ? p.video_url.trim() || null : null,
       image_url: typeof p.image_url === 'string' ? p.image_url.trim() || null : null,
     }
   })

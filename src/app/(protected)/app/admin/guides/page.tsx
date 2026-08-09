@@ -160,6 +160,7 @@ export default function AdminGuidesPage() {
                   <th className="px-4 py-3 text-left font-medium text-gray-500">Title</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">Destination</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-500">Published</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-500">Updated</th>
                 </tr>
               </thead>
@@ -180,6 +181,11 @@ export default function AdminGuidesPage() {
                     <td className="px-4 py-3 capitalize text-gray-600">{g.status}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {[g.destination_name, g.country].filter(Boolean).join(', ') || '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {g.published_at
+                        ? new Date(g.published_at).toLocaleDateString('en-GB')
+                        : '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {g.updated_at
