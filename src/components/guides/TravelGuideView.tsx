@@ -7,6 +7,7 @@ import SiteFooter from '@/components/SiteFooter'
 import GuideMap from '@/components/guides/GuideMap'
 import GuidePlaceCard from '@/components/guides/GuidePlaceCard'
 import GuideCardLink from '@/components/guides/GuideCardLink'
+import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 import {
   addGuestSave,
@@ -46,6 +47,7 @@ export default function TravelGuideView({
   const [savingAll, setSavingAll] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [introExpanded, setIntroExpanded] = useState(false)
 
   const sections = useMemo(() => groupPlacesBySection(places), [places])
   const locationLabel = [guide.destination_name || guide.city, guide.country]
@@ -53,6 +55,15 @@ export default function TravelGuideView({
     .join(', ')
   const updated = formatGuideDate(guide.updated_at || guide.published_at)
   const destKey = guideDestinationKey(guide)
+  const previewImages = useMemo(
+    () =>
+      places
+        .map((p) => p.image_url)
+        .filter((url): url is string => Boolean(url))
+        .slice(0, 8),
+    [places]
+  )
+  const introLong = (guide.introduction?.length ?? 0) > 160
 
   useEffect(() => {
     const supabase = createClient()
@@ -154,112 +165,154 @@ export default function TravelGuideView({
     }
   }
 
+  const saveAllLabel = savingAll
+    ? 'Saving…'
+    : `Save all ${places.length}`
+
+  let placeIndex = 0
+
   return (
-    <div className="min-h-screen bg-fibi-bg-light flex flex-col">
-      <header className="bg-white/90 border-b border-gray-100 sticky top-0 z-20 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="text-xl font-semibold text-fibi-text-primary">
+    <div className="min-h-screen bg-[color:var(--bg-page)] flex flex-col">
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-indigo-950/40 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+          <Link
+            href="/"
+            className="text-lg font-semibold tracking-[-0.02em] text-white"
+          >
             FIBI
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/travel-guides" className="text-fibi-muted hover:text-fibi-text-primary">
+          <nav className="flex items-center gap-3 text-sm">
+            <Link
+              href="/travel-guides"
+              className="hidden text-white/75 transition-colors hover:text-white sm:inline"
+            >
               Travel Guides
             </Link>
-            <Link href="/add" className="font-medium text-fibi-muted hover:text-fibi-text-primary">
+            <Button href="/add" variant="soft" size="sm" className="!bg-white/15 !text-white hover:!bg-white/25">
               Save a place
-            </Link>
+            </Button>
           </nav>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="relative">
-          <div className="aspect-[21/9] sm:aspect-[2.4/1] max-h-[420px] w-full overflow-hidden bg-gray-200">
+        {/* Full-bleed cinematic hero */}
+        <section className="relative min-h-[78vh] sm:min-h-[88vh]">
+          <div className="absolute inset-0 overflow-hidden bg-indigo-900">
             {guide.cover_image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={guide.cover_image_url}
                 alt=""
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover scale-[1.02]"
               />
             ) : (
-              <div className="h-full w-full bg-gradient-to-br from-gray-300 via-gray-200 to-gray-100" />
+              <div className="h-full w-full bg-fibi-aurora" />
             )}
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-indigo-950 via-indigo-950/55 to-indigo-950/25"
+              aria-hidden
+            />
+            <div className="absolute inset-0 bg-fibi-aurora opacity-40 mix-blend-soft-light" aria-hidden />
           </div>
-          <div className="max-w-3xl mx-auto px-4 -mt-16 sm:-mt-20 relative z-10">
-            <div className="bg-white/95 backdrop-blur-sm border border-gray-100 shadow-soft p-6 sm:p-8">
-              <nav className="text-xs text-fibi-muted mb-4" aria-label="Breadcrumb">
-                <ol className="flex flex-wrap gap-1">
+
+          <div className="relative z-10 flex min-h-[78vh] flex-col justify-end px-4 pb-10 pt-28 sm:min-h-[88vh] sm:px-6 sm:pb-14">
+            <div className="mx-auto w-full max-w-6xl">
+              <nav className="mb-5 text-xs text-white/55" aria-label="Breadcrumb">
+                <ol className="flex flex-wrap items-center gap-1.5">
                   <li>
-                    <Link href="/travel-guides" className="hover:text-fibi-text-primary">
+                    <Link href="/travel-guides" className="hover:text-white">
                       Travel Guides
                     </Link>
                   </li>
                   {destinationHubSlug && destKey && (
                     <>
-                      <li aria-hidden>/</li>
+                      <li aria-hidden className="text-white/30">
+                        /
+                      </li>
                       <li>
                         <Link
                           href={`/travel-guides/in/${destinationHubSlug}`}
-                          className="hover:text-fibi-text-primary"
+                          className="hover:text-white"
                         >
                           {destKey}
                         </Link>
                       </li>
                     </>
                   )}
-                  <li aria-hidden>/</li>
-                  <li className="text-fibi-text-primary truncate max-w-[12rem] sm:max-w-none">
-                    {guide.title}
-                  </li>
                 </ol>
               </nav>
 
-              <h1 className="text-3xl sm:text-4xl font-medium text-fibi-text-primary leading-tight">
+              <div className="mb-5 flex flex-wrap gap-2">
+                {locationLabel && (
+                  <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium uppercase tracking-[0.1em] text-white/90 backdrop-blur-md">
+                    {locationLabel}
+                  </span>
+                )}
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-md">
+                  {places.length} place{places.length === 1 ? '' : 's'}
+                </span>
+                {updated && (
+                  <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/65 backdrop-blur-md">
+                    Updated {updated}
+                  </span>
+                )}
+              </div>
+
+              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.032em] text-white sm:text-5xl md:text-6xl text-balance">
                 {guide.title}
               </h1>
+
               {guide.introduction && (
-                <p className="mt-4 text-fibi-muted leading-relaxed text-base sm:text-lg">
-                  {guide.introduction}
-                </p>
+                <div className="mt-5 max-w-xl">
+                  <p
+                    className={`text-base leading-relaxed text-white/75 sm:text-lg ${
+                      !introExpanded && introLong ? 'line-clamp-2' : ''
+                    }`}
+                  >
+                    {guide.introduction}
+                  </p>
+                  {introLong && (
+                    <button
+                      type="button"
+                      onClick={() => setIntroExpanded((v) => !v)}
+                      className="mt-2 text-sm font-medium text-sky-300 hover:text-sky-200"
+                    >
+                      {introExpanded ? 'Show less' : 'Read more'}
+                    </button>
+                  )}
+                </div>
               )}
-              <p className="mt-4 text-sm text-fibi-muted">
-                {[
-                  locationLabel,
-                  `${places.length} place${places.length === 1 ? '' : 's'}`,
-                  updated ? `Updated ${updated}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
 
               {places.length > 0 && (
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <button
+                <div className="mt-8 flex flex-wrap items-center gap-3">
+                  <Button
                     type="button"
+                    variant="gradient"
+                    size="lg"
                     onClick={handleSaveAll}
                     disabled={savingAll}
-                    className="inline-flex items-center px-5 py-2.5 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60"
                   >
                     {savingAll
                       ? 'Saving…'
-                      : `Add all ${places.length} to a ${guide.destination_name || 'Travel'} Board`}
-                  </button>
+                      : `Add all ${places.length} to a board`}
+                  </Button>
                   {(!userId || isAnon) && (
-                    <Link
+                    <Button
                       href={`/signup?redirect=${encodeURIComponent(`/travel-guides/${guide.slug}`)}`}
-                      className="inline-flex items-center px-5 py-2.5 text-sm font-medium text-fibi-text-primary border border-gray-200"
+                      variant="secondary"
+                      size="lg"
+                      className="!border-white/25 !bg-white/10 !text-white hover:!bg-white/20"
                     >
                       Create a free account
-                    </Link>
+                    </Button>
                   )}
                 </div>
               )}
 
               {(message || error) && (
                 <p
-                  className={`mt-4 text-sm ${error ? 'text-red-600' : 'text-fibi-muted'}`}
+                  className={`mt-4 max-w-xl text-sm ${error ? 'text-red-300' : 'text-white/75'}`}
                   role="status"
                 >
                   {error || message}
@@ -280,101 +333,186 @@ export default function TravelGuideView({
           </div>
         </section>
 
+        {/* Visual strip of place photos */}
+        {previewImages.length >= 3 && (
+          <section className="relative -mt-6 z-10" aria-hidden>
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-3">
+                {previewImages.map((url, i) => (
+                  <div
+                    key={`${url}-${i}`}
+                    className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl border border-white/40 shadow-soft sm:h-32 sm:w-28 sm:rounded-2xl"
+                    style={{ transform: `rotate(${i % 2 === 0 ? -2 : 2}deg)` }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Map */}
         {places.some((p) => p.latitude != null && p.longitude != null) && (
-          <section className="max-w-3xl mx-auto px-4 mt-10">
-            <h2 className="text-lg font-medium text-fibi-text-primary mb-3">Map</h2>
+          <section className="mx-auto max-w-6xl px-4 pt-12 sm:px-6 sm:pt-16">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[color:var(--text-tertiary)]">
+                  Explore
+                </p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-[color:var(--text-primary)] sm:text-3xl">
+                  On the map
+                </h2>
+              </div>
+              <p className="hidden text-sm text-[color:var(--text-secondary)] sm:block">
+                Tap a pin, then save what you love.
+              </p>
+            </div>
             <GuideMap
               places={places}
               selectedPlaceId={selectedPlaceId}
               onSelectPlace={onSelectPlace}
-              className="border border-gray-100"
+              className="overflow-hidden rounded-2xl border border-[color:var(--border-subtle)] shadow-soft"
             />
           </section>
         )}
 
-        {/* Places */}
-        <section className="max-w-3xl mx-auto px-4 mt-12 pb-8">
+        {/* Places — graphic grid */}
+        <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
           {sections.map(({ section, places: sectionPlaces }) => (
-            <div key={section} className="mb-10">
-              <h2 className="text-2xl font-medium text-fibi-text-primary mb-2">{section}</h2>
-              <div>
-                {sectionPlaces.map((place) => (
-                  <GuidePlaceCard
-                    key={place.id}
-                    place={place}
-                    selected={selectedPlaceId === place.id}
-                    saving={savingPlaceId === place.id}
-                    saved={savedPlaceIds.has(place.id)}
-                    onSave={() => handleSavePlace(place)}
-                    onShowOnMap={() => {
-                      setSelectedPlaceId(place.id)
-                      window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }}
-                  />
-                ))}
+            <div key={section} className="mb-16 last:mb-0">
+              <div className="mb-6 flex items-end gap-4 sm:mb-8">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-sky-600">
+                    {sectionPlaces.length} stop{sectionPlaces.length === 1 ? '' : 's'}
+                  </p>
+                  <h2 className="mt-1 text-3xl font-semibold tracking-[-0.028em] text-[color:var(--text-primary)] sm:text-4xl">
+                    {section}
+                  </h2>
+                </div>
+                <div className="hidden h-px flex-1 bg-gradient-to-r from-[color:var(--border-subtle)] to-transparent sm:block" />
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
+                {sectionPlaces.map((place, i) => {
+                  placeIndex += 1
+                  const currentIndex = placeIndex
+                  return (
+                    <GuidePlaceCard
+                      key={place.id}
+                      place={place}
+                      index={currentIndex}
+                      featured={i === 0 && sectionPlaces.length > 2}
+                      selected={selectedPlaceId === place.id}
+                      saving={savingPlaceId === place.id}
+                      saved={savedPlaceIds.has(place.id)}
+                      onSave={() => handleSavePlace(place)}
+                      onShowOnMap={() => {
+                        setSelectedPlaceId(place.id)
+                        const mapEl = document.querySelector('[data-guide-map]')
+                        if (mapEl) {
+                          mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        } else {
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }
+                      }}
+                    />
+                  )
+                })}
               </div>
             </div>
           ))}
 
           {places.length === 0 && (
-            <p className="text-fibi-muted py-12 text-center">
+            <p className="py-16 text-center text-[color:var(--text-secondary)]">
               Places for this guide are coming soon.
             </p>
           )}
 
           {places.length > 0 && (
-            <div className="mt-12 pt-10 border-t border-gray-100 space-y-4">
-              <h2 className="text-2xl font-medium text-fibi-text-primary">
-                Save them for later
-              </h2>
-              <p className="text-fibi-muted leading-relaxed max-w-xl">
-                You don&apos;t need to plan the trip now. Save the places that catch your eye, and
-                FIBI will keep them together until you&apos;re ready to go.
-              </p>
-              <button
-                type="button"
-                onClick={handleSaveAll}
-                disabled={savingAll}
-                className="inline-flex items-center px-5 py-2.5 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60"
-              >
-                {savingAll
-                  ? 'Saving…'
-                  : `Add all ${places.length} to a ${guide.destination_name || 'Travel'} Board`}
-              </button>
+            <div className="relative mt-16 overflow-hidden rounded-3xl bg-indigo-900 px-6 py-12 text-center sm:px-10 sm:py-16">
+              <div className="pointer-events-none absolute inset-0 bg-fibi-aurora opacity-70" aria-hidden />
+              <div className="relative z-10 mx-auto max-w-lg">
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-sky-300">
+                  Keep them close
+                </p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.028em] text-white sm:text-4xl">
+                  Save them for later
+                </h2>
+                <p className="mt-4 text-white/70 leading-relaxed">
+                  No need to plan the trip now. Keep the places that catch your eye
+                  until you&apos;re ready to go.
+                </p>
+                <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="gradient"
+                    size="lg"
+                    onClick={handleSaveAll}
+                    disabled={savingAll}
+                  >
+                    {savingAll
+                      ? 'Saving…'
+                      : `Add all ${places.length} to a ${guide.destination_name || 'Travel'} Board`}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </section>
 
         {/* Related */}
         {related.length > 0 && (
-          <section className="border-t border-gray-100 bg-white/50 py-14">
-            <div className="max-w-3xl mx-auto px-4">
-              <h2 className="text-xl font-medium text-fibi-text-primary mb-8">
-                More guides
-                {destKey ? ` in ${destKey}` : ''}
-              </h2>
-              <div className="grid sm:grid-cols-2 gap-8">
+          <section className="border-t border-[color:var(--border-subtle)] bg-[color:var(--bg-subtle)] py-14 sm:py-20">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-[color:var(--text-tertiary)]">
+                    Keep exploring
+                  </p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-[color:var(--text-primary)] sm:text-3xl">
+                    More guides{destKey ? ` in ${destKey}` : ''}
+                  </h2>
+                </div>
+                {destinationHubSlug && (
+                  <Link
+                    href={`/travel-guides/in/${destinationHubSlug}`}
+                    className="text-sm font-medium text-sky-600 underline-offset-2 hover:underline"
+                  >
+                    All guides for {destKey}
+                  </Link>
+                )}
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6">
                 {related.map((g) => (
                   <GuideCardLink key={g.id} guide={g} />
                 ))}
               </div>
-              {destinationHubSlug && (
-                <p className="mt-8">
-                  <Link
-                    href={`/travel-guides/in/${destinationHubSlug}`}
-                    className="text-sm font-medium text-fibi-text-primary underline underline-offset-2"
-                  >
-                    All guides for {destKey}
-                  </Link>
-                </p>
-              )}
             </div>
           </section>
         )}
       </main>
 
-      <SiteFooter />
+      {/* Mobile sticky save bar */}
+      {places.length > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[color:var(--border-subtle)] bg-white/90 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:hidden">
+          <Button
+            type="button"
+            variant="gradient"
+            size="lg"
+            fullWidth
+            onClick={handleSaveAll}
+            disabled={savingAll}
+          >
+            {saveAllLabel}
+          </Button>
+        </div>
+      )}
+
+      <div className={places.length > 0 ? 'pb-20 sm:pb-0' : undefined}>
+        <SiteFooter />
+      </div>
     </div>
   )
 }

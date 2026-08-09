@@ -117,7 +117,8 @@ export default function GuideMap({
   return (
     <div
       ref={mapRef}
-      className={`w-full h-64 sm:h-80 bg-gray-100 ${className}`}
+      data-guide-map
+      className={`w-full h-72 sm:h-[28rem] bg-[color:var(--bg-inset)] ${className}`}
       role="img"
       aria-label="Map of places in this guide"
     />

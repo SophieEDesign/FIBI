@@ -76,6 +76,8 @@ export function Button({
         <a
           href={href}
           className={classes}
+          target="_blank"
+          rel="noopener noreferrer"
           aria-disabled={disabled || undefined}
           onClick={disabled ? (e) => e.preventDefault() : undefined}
         >

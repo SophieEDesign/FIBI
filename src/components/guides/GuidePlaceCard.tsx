@@ -1,24 +1,30 @@
 'use client'
 
 import type { TravelGuidePlace } from '@/types/database'
-import { foundOnLabel, sourceCtaLabel, videoCtaLabel } from '@/lib/travel-guides-shared'
+import { sourceCtaLabel, videoCtaLabel } from '@/lib/travel-guides-shared'
+import { Button } from '@/components/ui/Button'
 
 interface GuidePlaceCardProps {
   place: TravelGuidePlace
+  index: number
   selected: boolean
   saving: boolean
   saved: boolean
   onSave: () => void
   onShowOnMap: () => void
+  /** Larger tile for the first place in a section */
+  featured?: boolean
 }
 
 export default function GuidePlaceCard({
   place,
+  index,
   selected,
   saving,
   saved,
   onSave,
   onShowOnMap,
+  featured = false,
 }: GuidePlaceCardProps) {
   const location = [place.location_city, place.location_country].filter(Boolean).join(', ')
   const hasCoords =
@@ -27,7 +33,6 @@ export default function GuidePlaceCard({
     !Number.isNaN(Number(place.latitude))
 
   const videoUrl = place.video_url?.trim() || null
-  // If the only source is a social video URL stored in source_url, treat it as video
   const sourceIsVideo =
     !videoUrl &&
     !!place.source_url &&
@@ -38,104 +43,105 @@ export default function GuidePlaceCard({
   const referenceUrl =
     place.source_url && place.source_url !== effectiveVideoUrl ? place.source_url : null
 
+  const platform = (
+    effectiveVideoUrl ? place.source_platform || 'TikTok' : place.source_platform
+  )?.trim()
+
   return (
     <article
       id={`place-${place.id}`}
-      className={`scroll-mt-24 py-8 border-b border-gray-100 last:border-0 ${
-        selected ? 'bg-white/80 -mx-4 px-4 sm:-mx-6 sm:px-6 rounded-lg ring-1 ring-fibi-primary/20' : ''
-      }`}
+      className={`group relative scroll-mt-28 overflow-hidden rounded-2xl border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform,ring] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md ${
+        selected ? 'ring-2 ring-sky-400/50' : ''
+      } ${featured ? 'sm:col-span-2' : ''}`}
     >
-      <div className="grid sm:grid-cols-[200px_1fr] gap-5 sm:gap-8">
-        <div className="aspect-[4/3] sm:aspect-square overflow-hidden bg-gray-100">
-          {place.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={place.image_url}
-              alt={place.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-br from-gray-200 to-gray-100" />
-          )}
+      <div
+        className={`relative overflow-hidden bg-[color:var(--bg-inset)] ${
+          featured ? 'aspect-[16/10] sm:aspect-[2.2/1]' : 'aspect-[4/5] sm:aspect-[5/6]'
+        }`}
+      >
+        {place.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={place.image_url}
+            alt={place.name}
+            className="h-full w-full object-cover transition-transform duration-slow ease-out group-hover:scale-[1.04]"
+          />
+        ) : (
+          <div className="h-full w-full bg-fibi-brand-soft" />
+        )}
+
+        {/* Bottom scrim for title readability */}
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-indigo-950/80 via-indigo-950/25 to-transparent"
+          aria-hidden
+        />
+
+        {/* Number badge */}
+        <div className="absolute left-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-fibi-gradient text-sm font-semibold text-indigo-900 shadow-soft">
+          {String(index).padStart(2, '0')}
         </div>
 
-        <div className="min-w-0 space-y-3">
-          <div>
-            <h3 className="text-xl font-medium text-fibi-text-primary">{place.name}</h3>
-            {location && (
-              <p className="mt-1 text-sm text-fibi-muted">{location}</p>
-            )}
-          </div>
+        {platform && (
+          <span className="absolute right-3 top-3 z-10 rounded-full border border-white/20 bg-white/15 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-white backdrop-blur-md">
+            {platform.replace(/_/g, ' ')}
+          </span>
+        )}
 
-          {place.description && (
-            <div className="text-fibi-muted leading-relaxed whitespace-pre-line">
-              {place.description}
-            </div>
+        <div className="absolute inset-x-0 bottom-0 z-10 p-4 sm:p-5">
+          <h3
+            className={`font-semibold tracking-[-0.02em] text-white ${
+              featured ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'
+            }`}
+          >
+            {place.name}
+          </h3>
+          {location && (
+            <p className="mt-1 text-sm text-white/75">{location}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4 p-4 sm:p-5">
+        {place.description && (
+          <p className="text-[15px] leading-relaxed text-[color:var(--text-secondary)] line-clamp-3 whitespace-pre-line">
+            {place.description}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {effectiveVideoUrl && (
+            <Button href={effectiveVideoUrl} variant="secondary" size="sm">
+              {videoCtaLabel(place.source_platform)}
+            </Button>
           )}
 
-          <div className="pt-2 space-y-3">
-            <p className="text-xs uppercase tracking-wide text-fibi-muted">
-              {foundOnLabel(
-                effectiveVideoUrl
-                  ? place.source_platform || 'TikTok'
-                  : place.source_platform
-              )}
-            </p>
+          {referenceUrl && !effectiveVideoUrl && (
+            <Button href={referenceUrl} variant="ghost" size="sm">
+              {sourceCtaLabel(place.source_platform)}
+            </Button>
+          )}
 
-            <div className="flex flex-wrap gap-3">
-              {effectiveVideoUrl && (
-                <a
-                  href={effectiveVideoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-text-primary border border-gray-200 hover:border-gray-300"
-                >
-                  {videoCtaLabel(place.source_platform)}
-                </a>
-              )}
+          {referenceUrl && effectiveVideoUrl && (
+            <Button href={referenceUrl} variant="ghost" size="sm">
+              Read more
+            </Button>
+          )}
 
-              {referenceUrl && !effectiveVideoUrl && (
-                <a
-                  href={referenceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-muted hover:text-fibi-text-primary"
-                >
-                  {sourceCtaLabel(place.source_platform)}
-                </a>
-              )}
+          {hasCoords && (
+            <Button type="button" variant="soft" size="sm" onClick={onShowOnMap}>
+              See on map
+            </Button>
+          )}
 
-              {referenceUrl && effectiveVideoUrl && (
-                <a
-                  href={referenceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-muted hover:text-fibi-text-primary"
-                >
-                  Read more
-                </a>
-              )}
-
-              {hasCoords && (
-                <button
-                  type="button"
-                  onClick={onShowOnMap}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-fibi-text-primary border border-gray-200 hover:border-gray-300"
-                >
-                  View the place
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={saving || saved}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90 disabled:opacity-60 transition-opacity"
-              >
-                {saved ? 'Saved' : saving ? 'Saving…' : 'Save to FIBI'}
-              </button>
-            </div>
-          </div>
+          <Button
+            type="button"
+            variant={saved ? 'soft' : 'primary'}
+            size="sm"
+            onClick={onSave}
+            disabled={saving || saved}
+          >
+            {saved ? 'Saved' : saving ? 'Saving…' : 'Save place'}
+          </Button>
         </div>
       </div>
     </article>
