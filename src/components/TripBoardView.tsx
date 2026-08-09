@@ -7,11 +7,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import SiteFooter from '@/components/SiteFooter'
 import { getHostname } from '@/lib/utils'
+import { isAnonymousUser } from '@/lib/anonymous-auth'
 
 type BoardMeta = {
   id: string
   name: string
-  notes: string | null
+  public_description: string | null
   cover_image_url: string | null
   start_date: string | null
   end_date: string | null
@@ -107,7 +108,8 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
 
   const handleSaveBoard = async () => {
     setError(null)
-    if (!userId) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || isAnonymousUser(user)) {
       router.push(`/signup?redirect=${encodeURIComponent(`/board/${slug}?save=1`)}`)
       return
     }
@@ -156,7 +158,7 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-8 space-y-6">
         <div>
           <p className="text-xs font-medium text-fibi-muted uppercase tracking-wide">
-            Trip board
+            Travel board
           </p>
           <h1 className="text-3xl font-semibold text-fibi-text-primary mt-1">{board.name}</h1>
           <p className="text-sm text-fibi-muted mt-2">
@@ -165,8 +167,8 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
             {' · '}
             By {board.author_name}
           </p>
-          {board.notes && (
-            <p className="text-fibi-muted mt-3 leading-relaxed">{board.notes}</p>
+          {board.public_description && (
+            <p className="text-fibi-muted mt-3 leading-relaxed">{board.public_description}</p>
           )}
         </div>
 
@@ -219,7 +221,7 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
 
         <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center space-y-3 sticky bottom-4 shadow-md">
           <p className="text-sm text-fibi-muted">
-            Keep this trip board in your FIBI account.
+            Keep these places in your own FIBI library.
           </p>
           <button
             type="button"
@@ -227,7 +229,7 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
             disabled={saving}
             className="w-full sm:w-auto bg-fibi-gradient-cta text-white px-8 py-3.5 rounded-lg font-medium hover:opacity-95 disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save this trip board'}
+            {saving ? 'Adding…' : 'Add this board to FIBI'}
           </button>
           {!userId && (
             <p className="text-xs text-fibi-muted">

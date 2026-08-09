@@ -15,7 +15,7 @@ function getBaseUrl(request: NextRequest): string {
 async function getAuthedClient(request: NextRequest) {
   const authHeader = request.headers.get('authorization')
   const supabaseAuth = await createClient(request)
-  let user: { id: string } | null = null
+  let user: { id: string; is_anonymous?: boolean } | null = null
   let supabase = supabaseAuth
 
   const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
@@ -36,8 +36,8 @@ async function getAuthedClient(request: NextRequest) {
 }
 
 /**
- * POST /api/itinerary/[id]/publish — publish trip as public trip board
- * DELETE /api/itinerary/[id]/publish — unpublish
+ * POST /api/itinerary/[id]/publish — make travel board shareable by link
+ * DELETE /api/itinerary/[id]/publish — make private again
  */
 export async function POST(
   request: NextRequest,
@@ -49,6 +49,12 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (user.is_anonymous) {
+      return NextResponse.json(
+        { error: 'Create an account to share a travel board.' },
+        { status: 403 }
+      )
+    }
 
     const { data: itinerary, error: fetchError } = await supabase
       .from('itineraries')
@@ -57,7 +63,7 @@ export async function POST(
       .single()
 
     if (fetchError || !itinerary) {
-      return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
     if (itinerary.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -91,7 +97,7 @@ export async function POST(
 
     if (updateError || !updated) {
       console.error('Publish error:', updateError)
-      return NextResponse.json({ error: 'Failed to publish' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to share board' }, { status: 500 })
     }
 
     const baseUrl = getBaseUrl(request)
@@ -125,7 +131,7 @@ export async function DELETE(
       .single()
 
     if (fetchError || !itinerary) {
-      return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 })
     }
     if (itinerary.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -137,7 +143,7 @@ export async function DELETE(
       .eq('id', id)
 
     if (updateError) {
-      return NextResponse.json({ error: 'Failed to unpublish' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to make board private' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })

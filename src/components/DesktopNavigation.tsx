@@ -31,7 +31,7 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
             <Link href="/app" className="flex items-center">
               <img
                 src="/FIBI Logo.png"
-                alt="FiBi"
+                alt="FIBI"
                 className="h-7 w-auto"
               />
             </Link>

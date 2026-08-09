@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser } from '@/lib/auth'
+import { allowEnrichAccess } from '@/lib/auth'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -28,8 +28,8 @@ interface AIEnrichmentResponse {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireUser(request)
-    if (auth instanceof NextResponse) return auth
+    const access = await allowEnrichAccess(request)
+    if (access instanceof NextResponse) return access
 
     const body: AIEnrichmentRequest = await request.json()
     const { url, title, description, domain, platform, scrapedContent } = body

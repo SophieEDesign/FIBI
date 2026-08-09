@@ -353,6 +353,12 @@ export default function AdminDashboard() {
             >
               Email log
             </Link>
+            <Link
+              href="/app/admin/guides"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Travel Guides
+            </Link>
           </div>
         </div>
 

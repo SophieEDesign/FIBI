@@ -2,7 +2,7 @@
 
 /**
  * Two-second capture: URL + optional note.
- * Metadata and AI enrich run silently; guests save to localStorage.
+ * Metadata and AI enrich run silently; anonymous auth preferred, guest localStorage as fallback.
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -17,6 +17,8 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { addGuestSave } from '@/lib/guest-saves'
+import { deriveLocationStatus } from '@/lib/location-status'
+import { ensureSaveSession, isAnonymousUser } from '@/lib/anonymous-auth'
 
 type EnrichResult = {
   title: string | null
@@ -53,6 +55,7 @@ export default function QuickSaveForm() {
   const [error, setError] = useState<string | null>(null)
   const [savedToast, setSavedToast] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [isAnonymous, setIsAnonymous] = useState(false)
   const [autoSaveAttempted, setAutoSaveAttempted] = useState(false)
 
   const metadataFetchedRef = useRef(false)
@@ -60,11 +63,13 @@ export default function QuickSaveForm() {
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const itineraryIdParam = searchParams.get('itinerary_id')
 
   useEffect(() => {
     const check = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setIsAuthenticated(!!user)
+      setIsAnonymous(isAnonymousUser(user))
     }
     check()
   }, [supabase])
@@ -180,7 +185,6 @@ export default function QuickSaveForm() {
       }
       setEnrich(result)
 
-      // Silently apply high/medium title
       if (
         data.suggestedTitle &&
         (data.confidence?.title === 'high' || data.confidence?.title === 'medium') &&
@@ -226,7 +230,6 @@ export default function QuickSaveForm() {
     }, 600)
   }
 
-  // When URL arrives via share target, kick off metadata
   useEffect(() => {
     if (url.trim() && !metadataFetchedRef.current) {
       handleUrlChange(url)
@@ -246,7 +249,7 @@ export default function QuickSaveForm() {
           : null
         : null
     const place = enrich?.place
-    return {
+    const fields = {
       url: url.trim(),
       platform: detectPlatform(url.trim()),
       title: finalTitle || null,
@@ -262,6 +265,10 @@ export default function QuickSaveForm() {
       formatted_address: place?.formatted_address || null,
       category,
     }
+    return {
+      ...fields,
+      location_status: deriveLocationStatus(fields),
+    }
   }
 
   const persistSave = async () => {
@@ -275,9 +282,9 @@ export default function QuickSaveForm() {
 
     try {
       const payload = buildPayload()
-      const { data: { user } } = await supabase.auth.getUser()
+      const session = await ensureSaveSession(supabase)
 
-      if (!user) {
+      if (!session) {
         addGuestSave(payload)
         setSavedToast(true)
         setLoading(false)
@@ -285,6 +292,22 @@ export default function QuickSaveForm() {
           router.push('/saved?guest=1')
         }, 600)
         return
+      }
+
+      const { user } = session
+      setIsAuthenticated(true)
+      setIsAnonymous(session.isAnonymous)
+
+      let tripPosition: number | null = null
+      const itineraryId =
+        itineraryIdParam && itineraryIdParam.trim() ? itineraryIdParam.trim() : null
+
+      if (itineraryId) {
+        const { count } = await supabase
+          .from('saved_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('itinerary_id', itineraryId)
+        tripPosition = (count ?? 0) + 1
       }
 
       const { count } = await supabase
@@ -299,8 +322,8 @@ export default function QuickSaveForm() {
         liked: false,
         visited: false,
         planned: false,
-        itinerary_id: null,
-        trip_position: null,
+        itinerary_id: itineraryId,
+        trip_position: tripPosition,
       })
 
       if (insertError) throw insertError
@@ -311,7 +334,11 @@ export default function QuickSaveForm() {
 
       setSavedToast(true)
       setTimeout(() => {
-        router.push('/app')
+        if (itineraryId) {
+          router.push(`/app/calendar?itinerary_id=${encodeURIComponent(itineraryId)}`)
+        } else {
+          router.push('/app')
+        }
         router.refresh()
       }, 600)
     } catch (err) {
@@ -326,7 +353,6 @@ export default function QuickSaveForm() {
     await persistSave()
   }
 
-  // Share-target: wait briefly for enrich, then auto-save once
   useEffect(() => {
     const fromShare = searchParams.get('url') || searchParams.get('text')
     if (!fromShare || autoSaveAttempted || !url.trim() || loading) return
@@ -353,11 +379,11 @@ export default function QuickSaveForm() {
     <div className="min-h-screen bg-fibi-bg-light">
       <header className="bg-white/80 border-b border-gray-100 md:hidden">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href={isAuthenticated ? '/app' : '/'} className="text-xl font-semibold text-fibi-text-primary">
+          <Link href={isAuthenticated && !isAnonymous ? '/app' : '/'} className="text-xl font-semibold text-fibi-text-primary">
             FIBI
           </Link>
           <Link
-            href={isAuthenticated ? '/app' : '/'}
+            href={isAuthenticated && !isAnonymous ? '/app' : '/'}
             className="text-sm text-fibi-muted hover:text-fibi-text-primary"
           >
             Cancel
@@ -450,10 +476,12 @@ export default function QuickSaveForm() {
               {loading ? 'Saving…' : 'Save'}
             </button>
 
-            {!isAuthenticated && (
+            {(!isAuthenticated || isAnonymous) && (
               <p className="text-xs text-fibi-muted text-center">
-                Saved on this device for now.{' '}
-                <Link href="/signup?redirect=/saved" className="text-fibi-primary hover:underline">
+                {isAnonymous
+                  ? 'Your places are saved. '
+                  : 'Saved on this device for now. '}
+                <Link href="/signup?redirect=/app" className="text-fibi-primary hover:underline">
                   Create an account
                 </Link>{' '}
                 to keep them.

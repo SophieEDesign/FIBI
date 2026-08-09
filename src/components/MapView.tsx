@@ -697,7 +697,7 @@ export default function MapView() {
         {/* Header with logo and actions - hidden on desktop since DesktopNavigation provides this */}
         <div className="px-4 pb-3 flex items-center justify-between md:hidden">
           <Link href="/app" className="text-2xl font-bold text-gray-900">
-            FiBi
+            FIBI
           </Link>
           <Link
             href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}

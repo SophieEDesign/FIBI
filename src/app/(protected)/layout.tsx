@@ -2,12 +2,14 @@
 
 import { Suspense, useEffect, useState, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import BottomNavigation from '@/components/BottomNavigation'
 import DesktopNavigation from '@/components/DesktopNavigation'
 import SiteFooter from '@/components/SiteFooter'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import { mergeGuestSavesToAccount, guestSaveCount } from '@/lib/guest-saves'
+import { isAnonymousUser } from '@/lib/anonymous-auth'
 
 function ProtectedLayoutInner({
   children,
@@ -21,8 +23,9 @@ function ProtectedLayoutInner({
   const [isAdmin, setIsAdmin] = useState(false)
   const redirectingRef = useRef(false)
   const mergedGuestRef = useRef(false)
+  const anonymous = isAnonymousUser(user)
 
-  // Merge guest saves once after login
+  // Merge guest saves once after login (including after anonymous session starts)
   useEffect(() => {
     if (!user?.id || mergedGuestRef.current) return
     if (guestSaveCount() === 0) {
@@ -82,6 +85,21 @@ function ProtectedLayoutInner({
   return (
     <>
       <DesktopNavigation user={user} isAdmin={isAdmin} />
+      {anonymous && (
+        <div className="bg-fibi-blue-light/40 border-b border-fibi-blue-light/60">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">
+            <p className="text-fibi-text-primary">
+              Keep your places — create an account when you&apos;re ready.
+            </p>
+            <Link
+              href={`/signup?redirect=${encodeURIComponent(pathname || '/app')}`}
+              className="font-medium text-fibi-primary hover:underline shrink-0"
+            >
+              Create an account
+            </Link>
+          </div>
+        </div>
+      )}
       {children}
       <SiteFooter />
       <BottomNavigation isAdmin={isAdmin} />

@@ -37,6 +37,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
   const [groupBy, setGroupBy] = useState<'none' | 'city' | 'liked' | 'planned'>('city')
   const [searchQuery, setSearchQuery] = useState('')
+  const [libraryTab, setLibraryTab] = useState<'places' | 'map' | 'boards'>('places')
   const supabase = createClient()
   const confirmError = searchParams?.get('confirm') === 'error'
   const confirmExpired = searchParams?.get('confirm') === 'expired'
@@ -299,17 +300,23 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
   const cityGroups = useMemo(() => {
     if (groupBy !== 'city') {
-      return { groups: [{ key: 'all', label: null as string | null, items: orderedItems }], needsPin: [] as SavedItem[] }
+      return { groups: [{ key: 'all', label: null as string | null, items: orderedItems }], needsLocation: [] as SavedItem[] }
     }
     const map = new Map<string, SavedItem[]>()
-    const needsPin: SavedItem[] = []
+    const needsLocation: SavedItem[] = []
     for (const item of orderedItems) {
-      const hasPin = item.latitude != null && item.longitude != null
-      const city = item.location_city?.trim()
-      if (!hasPin && !city) {
-        needsPin.push(item)
+      const status =
+        item.location_status ||
+        (item.latitude != null && item.longitude != null
+          ? 'resolved'
+          : item.place_name || item.location_city
+            ? 'needs_review'
+            : 'unknown')
+      if (status !== 'resolved') {
+        needsLocation.push(item)
         continue
       }
+      const city = item.location_city?.trim()
       const key = city || item.location_country?.trim() || 'Somewhere'
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(item)
@@ -317,8 +324,36 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     const groups = Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, groupItems]) => ({ key, label: key, items: groupItems }))
-    return { groups, needsPin }
+    return { groups, needsLocation }
   }, [orderedItems, groupBy])
+
+  const retentionChips = useMemo(() => {
+    const chips: string[] = []
+    if (items.length === 0) return chips
+    const byCity = new Map<string, number>()
+    let needsLocation = 0
+    for (const item of items) {
+      const status =
+        item.location_status ||
+        (item.latitude != null && item.longitude != null ? 'resolved' : 'unknown')
+      if (status !== 'resolved') needsLocation += 1
+      const city = item.location_city?.trim()
+      if (city) byCity.set(city, (byCity.get(city) || 0) + 1)
+    }
+    const topCity = [...byCity.entries()].sort((a, b) => b[1] - a[1])[0]
+    if (topCity) chips.push(`${topCity[1]} place${topCity[1] === 1 ? '' : 's'} in ${topCity[0]}`)
+    if (needsLocation > 0) {
+      chips.push(
+        `${needsLocation} still need${needsLocation === 1 ? 's' : ''} a location`
+      )
+    }
+    if (itineraries.length > 0) {
+      chips.push(
+        `${itineraries.length} travel board${itineraries.length === 1 ? '' : 's'}`
+      )
+    }
+    return chips.slice(0, 3)
+  }, [items, itineraries])
 
   const activeFiltersCount = filters.categories.length
 
@@ -511,8 +546,48 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Search + Filters */}
+        {/* Library tabs + retention */}
         {items.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <div className="flex gap-1 p-1 rounded-xl bg-gray-100/80 w-fit">
+              {(
+                [
+                  { id: 'places' as const, label: 'Places' },
+                  { id: 'map' as const, label: 'Map' },
+                  { id: 'boards' as const, label: 'Travel boards' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setLibraryTab(tab.id)}
+                  className={`px-3.5 py-1.5 text-sm rounded-lg transition-colors ${
+                    libraryTab === tab.id
+                      ? 'bg-white text-charcoal shadow-sm font-medium'
+                      : 'text-secondary hover:text-charcoal'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {retentionChips.length > 0 && libraryTab !== 'boards' && (
+              <div className="flex flex-wrap gap-2">
+                {retentionChips.map((chip) => (
+                  <span
+                    key={chip}
+                    className="text-xs text-secondary bg-white border border-gray-100 rounded-full px-3 py-1"
+                  >
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search + Filters */}
+        {items.length > 0 && libraryTab === 'places' && (
           <div className="mb-6 md:mb-8 space-y-4">
             <div className="relative">
               <input
@@ -599,12 +674,66 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {!loading && orderedItems.length > 0 && (
-          <LibraryMapPreview items={orderedItems} />
+        {!loading && orderedItems.length > 0 && libraryTab === 'map' && (
+          <div className="mb-8">
+            <LibraryMapPreview items={orderedItems} />
+            <p className="text-sm text-secondary mt-3">
+              <Link href="/app/map" className="text-fibi-primary hover:underline">
+                Open full map
+              </Link>
+            </p>
+          </div>
+        )}
+
+        {!loading && libraryTab === 'boards' && (
+          <div className="mb-8 space-y-3">
+            {itineraries.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+                <h2 className="text-lg font-medium text-charcoal mb-2">No travel boards yet</h2>
+                <p className="text-sm text-secondary mb-4 max-w-sm mx-auto">
+                  Organise saved places into a board for a trip. Share by link when you&apos;re ready.
+                </p>
+                <Link
+                  href="/app/calendar"
+                  className="inline-block bg-charcoal text-white px-5 py-2.5 rounded-xl text-sm font-medium"
+                >
+                  Start a board
+                </Link>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {itineraries.map((board) => {
+                  const placeCount = items.filter((i) => i.itinerary_id === board.id).length
+                  const shared = !!board.published_at
+                  return (
+                    <li key={board.id}>
+                      <Link
+                        href={`/app/calendar?itinerary_id=${encodeURIComponent(board.id)}`}
+                        className="flex items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-sm transition-shadow"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-charcoal truncate">{board.name}</p>
+                          <p className="text-xs text-secondary mt-0.5">
+                            {placeCount} place{placeCount === 1 ? '' : 's'}
+                            {shared ? ' · Shared by link' : ' · Private'}
+                          </p>
+                        </div>
+                        {shared && board.public_slug ? (
+                          <span className="text-xs text-fibi-primary shrink-0">Shareable</span>
+                        ) : (
+                          <span className="text-xs text-secondary shrink-0">Open</span>
+                        )}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
         )}
 
         {/* Empty state */}
-        {!loading && filteredItems.length === 0 && (
+        {!loading && filteredItems.length === 0 && libraryTab === 'places' && (
           <div className="max-w-3xl mx-auto relative">
             {/* Subtle background visual - low opacity map-like pattern */}
             <div
@@ -672,8 +801,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Map + list */}
-        {!loading && orderedItems.length > 0 && (
+        {/* Places list */}
+        {!loading && orderedItems.length > 0 && libraryTab === 'places' && (
           <div className="space-y-8">
             {cityGroups.groups.map((group) => (
               <section key={group.key}>
@@ -786,13 +915,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               </section>
             ))}
 
-            {cityGroups.needsPin.length > 0 && (
+            {cityGroups.needsLocation.length > 0 && (
               <section>
                 <h2 className="text-sm font-medium text-secondary uppercase tracking-wide mb-3">
-                  Needs a pin
+                  Needs a location
                 </h2>
                 <ul className="space-y-2">
-                  {cityGroups.needsPin.map((item) => {
+                  {cityGroups.needsLocation.map((item) => {
                     const displayTitle = item.title || getHostname(item.url)
                     return (
                       <li
@@ -811,7 +940,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           href={`/item/${item.id}`}
                           className="text-xs font-medium text-fibi-primary hover:underline shrink-0"
                         >
-                          Add pin
+                          Add location
                         </Link>
                       </li>
                     )

@@ -6,6 +6,7 @@ import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getHostname, uploadScreenshot, cleanOGTitle, generateHostnameTitle } from '@/lib/utils'
+import { deriveLocationStatus } from '@/lib/location-status'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -704,6 +705,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       const updatePayload = {
         description: description.trim() || null,
         ...locationData,
+        location_status: deriveLocationStatus(locationData),
       }
 
       console.log('ItemDetail: Update payload (full):', JSON.parse(JSON.stringify(updatePayload)))
@@ -793,7 +795,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Link href="/app" className="text-2xl font-bold text-[#1f2937]">
-              FiBi
+              FIBI
             </Link>
             <Link
               href="/app"
@@ -985,6 +987,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                               formatted_address: null,
                               location_city: null,
                               location_country: null,
+                              location_status: 'unknown',
                             })
                             .eq('id', itemId)
                           if (updateError) throw updateError

@@ -107,7 +107,7 @@ export default function GuestSavedPage() {
             {grouped.needsPin.length > 0 && (
               <section>
                 <h2 className="text-sm font-medium text-fibi-muted uppercase tracking-wide mb-3">
-                  Needs a pin
+                  Needs a location
                 </h2>
                 <ul className="space-y-2">
                   {grouped.needsPin.map((s) => (

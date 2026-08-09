@@ -21,6 +21,12 @@ export default function SiteFooter({ showSignIn = false, className = '' }: SiteF
           </p>
           <div className="flex items-center gap-6">
             <Link
+              href="/travel-guides"
+              className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+            >
+              Travel Guides
+            </Link>
+            <Link
               href="/privacy"
               className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
             >

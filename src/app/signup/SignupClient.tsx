@@ -132,8 +132,15 @@ export default function SignupClient() {
         if (!isMounted) return
 
         if (session) {
-          const redirectParam = searchParams.get('redirect')
-          router.replace(redirectParam || '/app')
+          const isAnon = Boolean(
+            (session.user as { is_anonymous?: boolean } | undefined)?.is_anonymous
+          )
+          if (isAnon) {
+            setCheckingAuth(false)
+          } else {
+            const redirectParam = searchParams.get('redirect')
+            router.replace(redirectParam || '/app')
+          }
         } else {
           setCheckingAuth(false)
         }
@@ -175,6 +182,39 @@ export default function SignupClient() {
         setError('Please complete the verification challenge below.')
         setLoading(false)
         return
+      }
+
+      // Convert anonymous session into a permanent account (keeps saved places)
+      if (supabase) {
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        if (currentUser && (currentUser as { is_anonymous?: boolean }).is_anonymous) {
+          const { error: upgradeError } = await supabase.auth.updateUser({
+            email: email.trim(),
+            password,
+          })
+          if (upgradeError) {
+            setError(upgradeError.message || "That didn't work. Try again.")
+            resetTurnstile()
+            setLoading(false)
+            return
+          }
+          try {
+            await supabase
+              .from('profiles')
+              .update({ marketing_opt_in: marketingOptIn })
+              .eq('id', currentUser.id)
+          } catch {
+            // non-blocking
+          }
+          const redirectParam = searchParams.get('redirect')
+          setSuccessMessage('Account ready. Check your email if we ask you to confirm.')
+          setLoading(false)
+          setTimeout(() => {
+            router.push(redirectParam || '/app')
+            router.refresh()
+          }, 800)
+          return
+        }
       }
 
       const res = await fetch('/api/auth/signup', {

@@ -390,7 +390,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(data.error || (isPublished ? 'Failed to unpublish' : 'Failed to publish'))
+        throw new Error(data.error || (isPublished ? 'Failed to stop sharing' : 'Failed to share board'))
       }
       if (isPublished) {
         setItineraries((prev) =>
@@ -1244,8 +1244,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         }`}
                         title={
                           itinerary.published_at
-                            ? 'Unpublish trip board'
-                            : 'Publish as trip board'
+                            ? 'Stop sharing this board'
+                            : 'Share board by link'
                         }
                       >
                         {publishingBoard
@@ -1253,8 +1253,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           : itinerary.published_at
                             ? copied
                               ? 'Link copied'
-                              : 'Published'
-                            : 'Publish board'}
+                              : 'Shared'
+                            : 'Share board'}
                       </button>
                     )}
                     {itinerary.published_at && boardUrl && (

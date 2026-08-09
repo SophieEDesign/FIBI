@@ -11,7 +11,7 @@ import MobileMenu from '@/components/MobileMenu'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import LinkPreview from '@/components/LinkPreview'
 import CollapsibleOptions from '@/components/CollapsibleOptions'
-import ScreenshotUploadSection from '@/components/AddItemForm/ScreenshotUploadSection'
+import ScreenshotUploadSection from '@/components/_unused/AddItemForm/ScreenshotUploadSection'
 
 export default function AddItemForm() {
   const [url, setUrl] = useState('')

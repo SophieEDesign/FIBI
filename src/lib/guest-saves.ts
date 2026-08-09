@@ -3,7 +3,10 @@
  * Merged into saved_items on login/signup.
  */
 
+import { deriveLocationStatus } from '@/lib/location-status'
+
 export const GUEST_SAVES_KEY = 'fibi_guest_saves'
+export const GUEST_PENDING_BOARD_KEY = 'fibi_guest_pending_board'
 
 export interface GuestSave {
   id: string
@@ -21,7 +24,15 @@ export interface GuestSave {
   longitude: number | null
   formatted_address: string | null
   category: string | null
+  location_status?: 'resolved' | 'needs_review' | 'unknown' | null
   created_at: string
+}
+
+export interface GuestPendingBoard {
+  name: string
+  cover_image_url?: string | null
+  /** Guest save ids that should land on this board */
+  saveIds: string[]
 }
 
 function canUseStorage(): boolean {
@@ -49,8 +60,14 @@ export function addGuestSave(
     created_at: save.created_at || new Date().toISOString(),
   }
   const existing = getGuestSaves()
-  existing.unshift(entry)
-  localStorage.setItem(GUEST_SAVES_KEY, JSON.stringify(existing))
+  // Dedupe by place_id or url
+  const filtered = existing.filter((s) => {
+    if (entry.place_id && s.place_id && s.place_id === entry.place_id) return false
+    if (entry.url && s.url && s.url === entry.url) return false
+    return true
+  })
+  filtered.unshift(entry)
+  localStorage.setItem(GUEST_SAVES_KEY, JSON.stringify(filtered))
   return entry
 }
 
@@ -69,38 +86,93 @@ export function guestSaveCount(): number {
   return getGuestSaves().length
 }
 
+export function setGuestPendingBoard(board: GuestPendingBoard): void {
+  if (!canUseStorage()) return
+  localStorage.setItem(GUEST_PENDING_BOARD_KEY, JSON.stringify(board))
+}
+
+export function getGuestPendingBoard(): GuestPendingBoard | null {
+  if (!canUseStorage()) return null
+  try {
+    const raw = localStorage.getItem(GUEST_PENDING_BOARD_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.name || !Array.isArray(parsed.saveIds)) return null
+    return parsed as GuestPendingBoard
+  } catch {
+    return null
+  }
+}
+
+export function clearGuestPendingBoard(): void {
+  if (!canUseStorage()) return
+  localStorage.removeItem(GUEST_PENDING_BOARD_KEY)
+}
+
 /** Insert guest saves into Supabase for the given user, then clear the queue. */
 export async function mergeGuestSavesToAccount(
   userId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: { from: (table: string) => any }
-): Promise<{ merged: number; error?: string }> {
+): Promise<{ merged: number; itinerary_id?: string; error?: string }> {
   const saves = getGuestSaves()
-  if (saves.length === 0) return { merged: 0 }
+  if (saves.length === 0) {
+    clearGuestPendingBoard()
+    return { merged: 0 }
+  }
 
-  const rows = saves.map((s) => ({
-    user_id: userId,
-    url: s.url,
-    platform: s.platform,
-    title: s.title,
-    description: s.description,
-    thumbnail_url: s.thumbnail_url,
-    screenshot_url: null,
-    notes: s.notes,
-    location_country: s.location_country,
-    location_city: s.location_city,
-    place_name: s.place_name,
-    place_id: s.place_id,
-    latitude: s.latitude,
-    longitude: s.longitude,
-    formatted_address: s.formatted_address,
-    category: s.category,
-    liked: false,
-    visited: false,
-    planned: false,
-    itinerary_id: null,
-    trip_position: null,
-  }))
+  const pending = getGuestPendingBoard()
+  let itineraryId: string | null = null
+
+  if (pending?.name && pending.saveIds.length > 0) {
+    const { data: itinerary, error: itineraryError } = await supabase
+      .from('itineraries')
+      .insert({
+        user_id: userId,
+        name: pending.name,
+        cover_image_url: pending.cover_image_url ?? null,
+      })
+      .select('id')
+      .single()
+
+    if (itineraryError) {
+      console.error('mergeGuestSavesToAccount board:', itineraryError)
+    } else {
+      itineraryId = itinerary?.id ?? null
+    }
+  }
+
+  const pendingIds = new Set(pending?.saveIds || [])
+
+  const rows = saves.map((s, index) => {
+    const onBoard = itineraryId && pendingIds.has(s.id)
+    return {
+      user_id: userId,
+      url: s.url,
+      platform: s.platform,
+      title: s.title,
+      description: s.description,
+      thumbnail_url: s.thumbnail_url,
+      screenshot_url: null,
+      notes: s.notes,
+      location_country: s.location_country,
+      location_city: s.location_city,
+      place_name: s.place_name,
+      place_id: s.place_id,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      formatted_address: s.formatted_address,
+      category: s.category,
+      liked: false,
+      visited: false,
+      planned: false,
+      itinerary_id: onBoard ? itineraryId : null,
+      trip_position: onBoard ? index : null,
+      location_status:
+        (s as GuestSave & { location_status?: string }).location_status ||
+        deriveLocationStatus(s),
+    }
+  })
 
   const { error } = await supabase.from('saved_items').insert(rows)
   if (error) {
@@ -109,5 +181,9 @@ export async function mergeGuestSavesToAccount(
   }
 
   clearGuestSaves()
-  return { merged: rows.length }
+  clearGuestPendingBoard()
+  return {
+    merged: rows.length,
+    itinerary_id: itineraryId || undefined,
+  }
 }

@@ -1,5 +1,5 @@
 /**
- * Slug helpers for public trip boards.
+ * Slug helpers for public travel boards.
  */
 
 export function slugify(input: string): string {

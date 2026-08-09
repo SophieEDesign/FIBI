@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createClientWithToken } from '@/lib/supabase/server'
 import { randomBytes } from 'crypto'
+import { isAnonymousUser } from '@/lib/anonymous-auth'
+import type { User } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,13 +15,12 @@ export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
     const supabaseAuth = await createClient(request)
-    let user: { id: string } | null = null
+    let user: User | null = null
     let authError: Error | null = null
     /** Client used for DB queries – cookie-based or token-based so RLS sees the user */
     let supabase = supabaseAuth
 
     // Try cookie-based auth first (RLS works with cookie client)
-    const cookieHeader = request.headers.get('cookie')
     const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
 
     if (cookieUser && !cookieError) {
@@ -46,6 +47,13 @@ export async function POST(request: NextRequest) {
     if (!user || authError) {
       console.error('Share API auth error:', authError)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (isAnonymousUser(user)) {
+      return NextResponse.json(
+        { error: 'Create an account to share a trip.' },
+        { status: 403 }
+      )
     }
 
     const body = await request.json()

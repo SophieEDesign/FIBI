@@ -36,19 +36,17 @@ export async function generateMetadata({
       .single()
 
     if (share) {
-      // Get the itinerary name
-      const { data: itinerary } = await supabase
-        .from('itineraries')
-        .select('name')
-        .eq('id', share.itinerary_id)
-        .single()
+      const { data: metaRows } = await supabase.rpc('get_shared_itinerary_meta', {
+        share_token_param: token,
+      })
+      const itinerary = metaRows?.[0]
 
       if (itinerary) {
         return {
-          title: `${itinerary.name} - Trip board | FIBI`,
+          title: `${itinerary.name} - Shared trip | FIBI`,
           description: `View this shared travel trip: ${itinerary.name}`,
           openGraph: {
-            title: `${itinerary.name} - Trip board`,
+            title: `${itinerary.name} - Shared trip`,
             description: `View this shared travel trip: ${itinerary.name}`,
             type: 'website',
             url: `${siteUrl}/share/itinerary/${token}`,
@@ -57,13 +55,13 @@ export async function generateMetadata({
                 url: `${siteUrl}/hero-image.png`,
                 width: 1200,
                 height: 630,
-                alt: `${itinerary.name} - Trip board`,
+                alt: `${itinerary.name} - Shared trip`,
               },
             ],
           },
           twitter: {
             card: 'summary_large_image',
-            title: `${itinerary.name} - Trip board`,
+            title: `${itinerary.name} - Shared trip`,
             description: `View this shared travel trip: ${itinerary.name}`,
             images: [`${siteUrl}/hero-image.png`],
           },

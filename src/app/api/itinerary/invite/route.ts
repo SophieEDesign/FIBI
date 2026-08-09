@@ -37,6 +37,12 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if ((user as { is_anonymous?: boolean }).is_anonymous) {
+      return NextResponse.json(
+        { error: 'Create an account to invite people.' },
+        { status: 403 }
+      )
+    }
 
     const body = await request.json()
     const itinerary_id = body?.itinerary_id

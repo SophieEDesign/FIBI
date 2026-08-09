@@ -42,8 +42,8 @@ export async function generateMetadata({
 
   if (!loaded) {
     return {
-      title: 'Trip board | FIBI',
-      description: 'A shared trip board on FIBI',
+      title: 'Travel board | FIBI',
+      description: 'A shared travel board on FIBI',
     }
   }
 
@@ -70,7 +70,7 @@ export async function generateMetadata({
     items.find((i: { thumbnail_url?: string | null }) => i.thumbnail_url)?.thumbnail_url ||
     `${siteUrl}/hero-image.png`
 
-  const title = `${board.name} · Trip board | FIBI`
+  const title = `${board.name} · Travel board | FIBI`
 
   return {
     title,

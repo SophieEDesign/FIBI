@@ -1,9 +1,16 @@
 'use client'
 
+/**
+ * Capture-first homepage. Travel boards are an optional share outcome — not discovery.
+ */
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
 import SiteFooter from '@/components/SiteFooter'
+import GuideCardLink from '@/components/guides/GuideCardLink'
+import type { GuideCard } from '@/lib/travel-guides'
 
 const DEMO_PLACES = [
   { name: 'Time Out Market', city: 'Lisbon', category: 'Food' },
@@ -43,13 +50,6 @@ const FLOATING_CARDS = [
     className: 'bottom-[4%] right-[2%] w-[44%] rotate-[-3deg]',
     delay: '1.2s',
   },
-  {
-    label: 'Restaurant from TikTok',
-    sub: 'Food',
-    img: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400&q=80',
-    className: 'top-[38%] left-[-4%] w-[36%] rotate-[-8deg] hidden lg:block',
-    delay: '0.6s',
-  },
 ]
 
 const DEMO_STEPS = [
@@ -59,24 +59,6 @@ const DEMO_STEPS = [
   { id: 'saved', label: 'Saved' },
   { id: 'map', label: 'Map' },
 ] as const
-
-const DISCOVER_PLACES = [
-  {
-    title: 'Calanque d’En-Vau',
-    note: 'Saved from Instagram',
-    img: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
-  },
-  {
-    title: 'Osteria Francescana',
-    note: 'TikTok · Modena',
-    img: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=80',
-  },
-  {
-    title: 'Kyoto tea house',
-    note: 'Shared from Stories',
-    img: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=600&q=80',
-  },
-]
 
 function DestinationCard({
   label,
@@ -131,12 +113,10 @@ function ProductDemo() {
         <DestinationCard key={card.label} {...card} />
       ))}
 
-      {/* Phone frame with stepped product demo */}
       <div className="absolute inset-[12%] sm:inset-[14%] z-10 flex items-center justify-center">
         <div className="relative w-[72%] max-w-[240px] aspect-[9/19] rounded-[1.75rem] bg-fibi-bg-dark shadow-soft-md border-[3px] border-gray-800 overflow-hidden landing-demo-phone">
           <div className="absolute top-2 left-1/2 -translate-x-1/2 w-16 h-1.5 rounded-full bg-gray-700 z-20" />
 
-          {/* Step: Reel */}
           <div
             className={`absolute inset-0 transition-opacity duration-500 ${
               step === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -159,7 +139,6 @@ function ProductDemo() {
             </div>
           </div>
 
-          {/* Step: Share sheet */}
           <div
             className={`absolute inset-0 bg-[#1a1a1a] transition-opacity duration-500 ${
               step === 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -183,15 +162,10 @@ function ProductDemo() {
                   <div className="w-10 h-10 rounded-xl bg-gray-100" />
                   <span className="text-[9px] text-fibi-muted">Messages</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 opacity-40">
-                  <div className="w-10 h-10 rounded-xl bg-gray-100" />
-                  <span className="text-[9px] text-fibi-muted">Mail</span>
-                </div>
               </div>
             </div>
           </div>
 
-          {/* Step: FIBI receiving */}
           <div
             className={`absolute inset-0 bg-fibi-bg-light transition-opacity duration-500 ${
               step === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -211,7 +185,6 @@ function ProductDemo() {
             </div>
           </div>
 
-          {/* Step: Saved destination */}
           <div
             className={`absolute inset-0 bg-fibi-bg-light transition-opacity duration-500 ${
               step === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -237,7 +210,6 @@ function ProductDemo() {
             </div>
           </div>
 
-          {/* Step: Map / trip */}
           <div
             className={`absolute inset-0 bg-fibi-bg-light transition-opacity duration-500 ${
               step === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -258,7 +230,6 @@ function ProductDemo() {
                   { top: '35%', left: '48%' },
                   { top: '55%', left: '32%' },
                   { top: '42%', left: '68%' },
-                  { top: '62%', left: '55%' },
                 ].map((pin, i) => (
                   <span
                     key={i}
@@ -279,7 +250,6 @@ function ProductDemo() {
         </div>
       </div>
 
-      {/* Step labels */}
       <div className="absolute -bottom-1 left-0 right-0 z-20 flex justify-center gap-1.5 sm:gap-2 px-2">
         {DEMO_STEPS.map((s, i) => (
           <button
@@ -301,15 +271,15 @@ function ProductDemo() {
   )
 }
 
-function TripBoardMock() {
+function TravelBoardMock() {
   return (
     <div className="rounded-2xl bg-white shadow-soft-md border border-gray-100 overflow-hidden">
       <div className="px-5 pt-5 pb-3 border-b border-gray-100">
-        <p className="text-xs font-medium text-fibi-muted uppercase tracking-wide">Trip board</p>
+        <p className="text-xs font-medium text-fibi-muted uppercase tracking-wide">Travel board</p>
         <h3 className="text-xl font-semibold text-fibi-text-primary mt-1 font-heading">
           Lisbon long weekend
         </h3>
-        <p className="text-sm text-fibi-muted mt-0.5">6 places · Saved from TikTok</p>
+        <p className="text-sm text-fibi-muted mt-0.5">6 places · Ready to send to friends</p>
       </div>
       <div
         className="h-36 sm:h-44 relative"
@@ -322,8 +292,6 @@ function TripBoardMock() {
           { top: '45%', left: '55%' },
           { top: '38%', left: '30%' },
           { top: '58%', left: '48%' },
-          { top: '22%', left: '62%' },
-          { top: '65%', left: '35%' },
         ].map((pin, i) => (
           <span
             key={i}
@@ -347,7 +315,53 @@ function TripBoardMock() {
   )
 }
 
-export default function LandingPage() {
+function HeroPasteSave() {
+  const [url, setUrl] = useState('')
+  const router = useRouter()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = url.trim()
+    if (!trimmed) {
+      router.push('/add')
+      return
+    }
+    router.push(`/add?url=${encodeURIComponent(trimmed)}`)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto lg:mx-0 space-y-3">
+      <label htmlFor="hero-url" className="sr-only">
+        Paste a travel link
+      </label>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          id="hero-url"
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Paste a TikTok, Instagram or web link"
+          className="flex-1 px-4 py-3.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-fibi-primary/30 focus:border-fibi-primary"
+        />
+        <button
+          type="submit"
+          className="bg-fibi-gradient-cta text-white px-6 py-3.5 rounded-lg font-medium hover:opacity-95 transition-all shadow-md whitespace-nowrap"
+        >
+          Save
+        </button>
+      </div>
+      <p className="text-xs text-fibi-muted text-center lg:text-left">
+        No account needed to start.
+      </p>
+    </form>
+  )
+}
+
+export default function LandingPage({
+  teaserGuides = [],
+}: {
+  teaserGuides?: GuideCard[]
+}) {
   const { isInstallable, promptInstall } = usePWAInstall()
   const [showShareTip, setShowShareTip] = useState(false)
 
@@ -356,7 +370,7 @@ export default function LandingPage() {
     if (isInstallable) {
       await promptInstall()
     } else {
-      window.location.href = '/add'
+      window.location.href = '/how-to'
     }
   }
 
@@ -364,7 +378,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-fibi-bg-light text-fibi-text-primary">
       <header className="border-b border-gray-200/60 sticky top-0 z-30 bg-fibi-bg-light/95 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center">
+          <Link href="/" className="flex items-center gap-2">
             <img src="/FIBI Logo.png" alt="FIBI" className="h-8 w-auto" />
           </Link>
           <Link
@@ -377,13 +391,12 @@ export default function LandingPage() {
       </header>
 
       <main>
-        {/* 1. Hero */}
         <section className="relative overflow-hidden">
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                'radial-gradient(ellipse 90% 70% at 75% 15%, rgba(46,155,214,0.22), transparent 55%), radial-gradient(ellipse 60% 50% at 10% 85%, rgba(242,199,121,0.2), transparent 50%), radial-gradient(ellipse 40% 40% at 50% 50%, rgba(232,165,124,0.08), transparent)',
+                'radial-gradient(ellipse 90% 70% at 75% 15%, rgba(46,155,214,0.18), transparent 55%), radial-gradient(ellipse 60% 50% at 10% 85%, rgba(242,199,121,0.16), transparent 50%)',
             }}
           />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-20 lg:pt-20 lg:pb-28">
@@ -396,30 +409,19 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-semibold text-fibi-text-primary leading-[1.15] text-balance">
-                  Turn your travel scrolling into actual trips.
+                  See it. Save it. Go there.
                 </h1>
                 <p className="text-base sm:text-lg text-fibi-muted leading-relaxed max-w-md mx-auto lg:mx-0">
-                  See somewhere you love on TikTok, Instagram or anywhere else? Share it straight
-                  to FIBI. We&apos;ll save the place, organise it and keep it ready for when
-                  you&apos;re ready to go.
+                  Your private travel memory, built from everywhere you browse — TikTok,
+                  Instagram and the web.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 pt-1 justify-center lg:justify-start">
-                  <Link
-                    href="/add"
-                    className="bg-fibi-gradient-cta text-white px-7 py-3.5 rounded-lg font-medium hover:opacity-95 transition-all shadow-md text-center"
-                  >
-                    Start saving places
-                  </Link>
-                  <a
-                    href="#how"
-                    className="bg-white text-fibi-text-primary px-7 py-3.5 rounded-lg font-medium border border-gray-200 hover:border-fibi-primary/40 transition-all text-center"
-                  >
-                    See how FIBI works
-                  </a>
-                </div>
-                <p className="text-sm text-fibi-muted italic">Beautifully. Simply. Calmly.</p>
+                <HeroPasteSave />
                 <p className="text-sm text-fibi-muted">
-                  No account needed to start. Install later to share in one tap.
+                  Or{' '}
+                  <a href="#how" className="text-fibi-primary hover:underline">
+                    see how FIBI works
+                  </a>
+                  .
                 </p>
               </div>
 
@@ -430,105 +432,84 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 2. Travel brain mosaic */}
         <section className="relative border-t border-gray-100/80">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 lg:py-20">
             <div className="max-w-xl mb-10 text-center mx-auto space-y-3">
               <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-                Your entire travel brain, in one place.
+                Places you already found, kept properly.
               </h2>
               <p className="text-fibi-muted leading-relaxed">
-                All those places you&apos;ve been screenshotting finally have somewhere calm to go.
+                That café you saved. The beach you meant to visit. All in one calm library — with a map when you need it.
               </p>
             </div>
           </div>
           <div className="relative w-full overflow-hidden bg-[#d4cfc8]">
             <img
               src="/hero-image.png"
-              alt="Saved travel places and destinations collected in FIBI"
+              alt="Saved travel places organised in FIBI"
               className="w-full h-auto max-h-[70vh] object-cover object-center"
             />
           </div>
         </section>
 
-        {/* 3. Discover */}
         <section className="border-t border-gray-100 py-16 lg:py-20 bg-white/50">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              <div className="space-y-4 text-center lg:text-left">
-                <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-                  Inspiration you already found, kept as places.
-                </h2>
-                <p className="text-fibi-muted leading-relaxed max-w-md mx-auto lg:mx-0">
-                  Scroll your saves like a feed. Open a place when you need it. The discovery
-                  happened on TikTok or Instagram — FIBI just holds onto it.
-                </p>
-              </div>
-              <div className="relative h-[340px] sm:h-[380px] flex items-center justify-center">
-                {DISCOVER_PLACES.map((place, i) => (
-                  <div
-                    key={place.title}
-                    className="absolute w-[200px] sm:w-[220px]"
-                    style={{
-                      transform: `translate(${(i - 1) * 48}px, ${(i - 1) * 28}px) rotate(${
-                        (i - 1) * 4
-                      }deg)`,
-                      zIndex: i + 1,
-                    }}
-                  >
-                    <div
-                      className="rounded-2xl overflow-hidden shadow-soft-md border border-white bg-white landing-float"
-                      style={{ animationDelay: `${i * 0.35}s` }}
-                    >
-                      <div className="relative aspect-[3/4]">
-                        <img
-                          src={place.img}
-                          alt=""
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                          <p className="text-white text-sm font-semibold">{place.title}</p>
-                          <p className="text-white/75 text-xs mt-0.5">{place.note}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 4. Plan */}
-        <section className="border-t border-gray-100 py-16 lg:py-20">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div className="order-2 lg:order-1 max-w-md mx-auto w-full">
-                <TripBoardMock />
+                <TravelBoardMock />
               </div>
               <div className="order-1 lg:order-2 space-y-4 text-center lg:text-left">
                 <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-                  Saved places becoming a trip.
+                  Send a board to friends when you&apos;re ready.
                 </h2>
                 <p className="text-fibi-muted leading-relaxed max-w-md mx-auto lg:mx-0">
-                  Gather what you love into a trip board. Publish it when you want friends to see
-                  the map and the list — no account needed to look.
+                  Travel boards stay private by default. When a collection is useful, share it by
+                  link — for companions, not for scrolling strangers.
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 5. Map */}
-        <section className="border-t border-gray-100 py-16 lg:py-20 bg-white/50">
+        <section className="border-t border-gray-100 py-16 lg:py-20 bg-white/40">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-xl mx-auto text-center space-y-3 mb-10">
               <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-                See everything you&apos;ve saved around the world.
+                Looking for inspiration?
               </h2>
               <p className="text-fibi-muted leading-relaxed">
-                Pins for the places with a location. A list underneath when you want the detail.
+                Explore travel guides created by FIBI, then save the places you love straight into
+                your own Travel Boards.
+              </p>
+            </div>
+
+            {teaserGuides.length > 0 ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+                {teaserGuides.slice(0, 4).map((g) => (
+                  <GuideCardLink key={g.id} guide={g} />
+                ))}
+              </div>
+            ) : null}
+
+            <div className="text-center">
+              <Link
+                href="/travel-guides"
+                className="inline-flex items-center px-5 py-2.5 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90"
+              >
+                Explore Travel Guides
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-gray-100 py-16 lg:py-20">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <div className="max-w-xl mx-auto text-center space-y-3 mb-10">
+              <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
+                See everything you&apos;ve saved on a map.
+              </h2>
+              <p className="text-fibi-muted leading-relaxed">
+                Pins for places with a location. A list when you want the detail.
               </p>
             </div>
             <div
@@ -538,88 +519,27 @@ export default function LandingPage() {
                   'linear-gradient(160deg, #BEE9FF 0%, #E8F4F8 35%, #F7F8FA 70%, #F2C879 100%)',
               }}
             >
-              <svg
-                className="absolute inset-0 w-full h-full opacity-30"
-                viewBox="0 0 800 320"
-                preserveAspectRatio="none"
-                aria-hidden
-              >
-                <path
-                  d="M40 180 Q120 80 220 140 T420 120 T620 160 T760 100"
-                  fill="none"
-                  stroke="#2E9BD6"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M60 240 Q200 200 320 220 T560 200 T740 240"
-                  fill="none"
-                  stroke="#B985C9"
-                  strokeWidth="1"
-                />
-              </svg>
               {[
-                { top: '28%', left: '18%', label: 'Lisbon', delay: '0s' },
-                { top: '42%', left: '48%', label: 'Rome', delay: '0.3s' },
-                { top: '35%', left: '72%', label: 'Tokyo', delay: '0.6s' },
-                { top: '58%', left: '32%', label: 'Marrakech', delay: '0.9s' },
-                { top: '48%', left: '62%', label: 'Bali', delay: '1.1s' },
-                { top: '22%', left: '55%', label: 'Reykjavík', delay: '0.45s' },
+                { top: '28%', left: '18%', label: 'Lisbon' },
+                { top: '42%', left: '48%', label: 'Rome' },
+                { top: '35%', left: '72%', label: 'Tokyo' },
+                { top: '58%', left: '32%', label: 'Marrakech' },
               ].map((pin) => (
                 <div
                   key={pin.label}
                   className="absolute flex flex-col items-center"
                   style={{ top: pin.top, left: pin.left }}
                 >
-                  <div className="landing-float" style={{ animationDelay: pin.delay }}>
-                    <span className="block w-3 h-3 rounded-full bg-fibi-primary border-2 border-white shadow-sm mx-auto" />
-                    <span className="mt-1 block text-[10px] font-medium text-fibi-text-primary bg-white/90 px-1.5 py-0.5 rounded shadow-soft">
-                      {pin.label}
-                    </span>
-                  </div>
+                  <span className="block w-3 h-3 rounded-full bg-fibi-primary border-2 border-white shadow-sm" />
+                  <span className="mt-1 block text-[10px] font-medium text-fibi-text-primary bg-white/90 px-1.5 py-0.5 rounded shadow-soft">
+                    {pin.label}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* 6. Trips / calendar / share */}
-        <section className="border-t border-gray-100 py-16 lg:py-20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="max-w-xl mx-auto text-center space-y-3 mb-12">
-              <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-                From random inspiration to an organised trip.
-              </h2>
-              <p className="text-fibi-muted leading-relaxed">
-                You already discover the places. FIBI helps you keep them usable.
-              </p>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
-              <div className="space-y-2 text-center sm:text-left">
-                <p className="text-sm font-medium text-fibi-primary">Trips</p>
-                <h3 className="text-lg font-semibold text-fibi-text-primary">Itineraries</h3>
-                <p className="text-sm text-fibi-muted leading-relaxed">
-                  Group saves into a trip. Dates when you want them — or leave it loose.
-                </p>
-              </div>
-              <div className="space-y-2 text-center sm:text-left">
-                <p className="text-sm font-medium text-fibi-primary">Calendar</p>
-                <h3 className="text-lg font-semibold text-fibi-text-primary">See the shape</h3>
-                <p className="text-sm text-fibi-muted leading-relaxed">
-                  Glance at what you&apos;ve planned across days, without another spreadsheet.
-                </p>
-              </div>
-              <div className="space-y-2 text-center sm:text-left">
-                <p className="text-sm font-medium text-fibi-primary">Share</p>
-                <h3 className="text-lg font-semibold text-fibi-text-primary">Trip boards</h3>
-                <p className="text-sm text-fibi-muted leading-relaxed">
-                  Publish a board or invite collaborators. Friends can view — and save a copy.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 7. Compact how */}
         <section id="how" className="scroll-mt-24 border-t border-gray-100 py-16 lg:py-20 bg-white/60">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center space-y-10">
             <div className="space-y-3">
@@ -627,15 +547,15 @@ export default function LandingPage() {
                 See it → Save it → Go there.
               </h2>
               <p className="text-fibi-muted">
-                One calm path from a scroll to a place you can actually visit.
+                TikTok or Instagram to FIBI to an organised place — then a trip or map when you need it.
               </p>
             </div>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-2">
               {[
                 { n: '01', t: 'See it', d: 'Somewhere you love' },
-                { n: '02', t: 'Share it', d: 'Straight to FIBI' },
-                { n: '03', t: 'FIBI saves it', d: 'Ready when you are' },
+                { n: '02', t: 'Save it', d: 'Paste or share to FIBI' },
+                { n: '03', t: 'Go there', d: 'Map, trip, board' },
               ].map((step, i) => (
                 <div key={step.n} className="flex items-center gap-2 sm:gap-3">
                   <div
@@ -668,15 +588,15 @@ export default function LandingPage() {
                 <div className="max-w-md mx-auto text-left text-sm text-fibi-muted leading-relaxed bg-white border border-gray-100 rounded-xl p-4 shadow-soft space-y-2">
                   <p>
                     Install FIBI to your home screen. Next time you find a place, tap Share and
-                    choose FIBI — the link lands ready to keep.
+                    choose FIBI.
                   </p>
-                  <p>Or paste a URL on the save screen. Same result, either way.</p>
+                  <p>Or paste a URL above. Same result, either way.</p>
                   <button
                     type="button"
                     onClick={handleInstallClick}
                     className="text-fibi-primary font-medium hover:underline"
                   >
-                    Install FIBI
+                    How to install
                   </button>
                 </div>
               )}
@@ -684,36 +604,19 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Soft install (demoted) */}
-        <section className="border-t border-gray-100 py-12">
-          <div className="max-w-xl mx-auto px-4 sm:px-6 text-center space-y-3">
-            <p className="text-sm text-fibi-muted leading-relaxed">
-              Want the share sheet? Install FIBI once — then the next TikTok goes straight in.
-            </p>
-            <button
-              type="button"
-              onClick={handleInstallClick}
-              className="text-sm font-medium text-fibi-text-primary border border-gray-200 bg-white px-5 py-2.5 rounded-lg hover:border-fibi-primary/40 transition-all"
-            >
-              Install FIBI
-            </button>
-          </div>
-        </section>
-
-        {/* 8. Final CTA */}
         <section className="border-t border-gray-100 py-16 lg:py-24">
           <div className="max-w-xl mx-auto px-4 sm:px-6 text-center space-y-6">
             <h2 className="text-2xl lg:text-3xl text-fibi-text-primary text-balance">
-              Your next trip is probably already in your camera roll.
+              Start with one place.
             </h2>
             <p className="text-fibi-muted">
-              Start with one place. Create an account when you want them kept for good.
+              Create an account when you want your places kept for good.
             </p>
             <Link
               href="/add"
               className="inline-block bg-fibi-gradient-cta text-white px-8 py-3.5 rounded-lg font-medium hover:opacity-95 transition-all shadow-md"
             >
-              Start saving places
+              Save a place
             </Link>
           </div>
         </section>

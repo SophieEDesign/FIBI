@@ -19,31 +19,18 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
     }
 
-    // Find the active (non-revoked) share
-    const { data: share, error: shareError } = await supabase
-      .from('itinerary_shares')
-      .select('itinerary_id, revoked_at, share_type')
-      .eq('share_token', token)
-      .is('revoked_at', null)
-      .single()
+    // Token-scoped RPCs only — no broad itinerary SELECT via "has any share"
+    const { data: metaRows, error: metaError } = await supabase.rpc(
+      'get_shared_itinerary_meta',
+      { share_token_param: token }
+    )
 
-    if (shareError || !share) {
+    if (metaError || !metaRows?.length) {
       return NextResponse.json({ error: 'Share not found or revoked' }, { status: 404 })
     }
 
-    // Get the itinerary (no auth check needed - RLS will allow public read via share)
-    const { data: itinerary, error: itineraryError } = await supabase
-      .from('itineraries')
-      .select('id, name, start_date, end_date, cover_image_url, created_at')
-      .eq('id', share.itinerary_id)
-      .single()
+    const itinerary = metaRows[0]
 
-    if (itineraryError || !itinerary) {
-      return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
-    }
-
-    // Get all items in this itinerary using the database function
-    // This function bypasses RLS and only returns items for valid, active shares
     const { data: items, error: itemsError } = await supabase.rpc('get_shared_itinerary_items', {
       share_token_param: token,
     })
@@ -65,7 +52,7 @@ export async function GET(
         created_at: itinerary.created_at,
       },
       items: itemsData,
-      share_type: share.share_type || 'copy',
+      share_type: itinerary.share_type || 'copy',
     })
   } catch (error: any) {
     console.error('Error fetching shared itinerary:', error)
