@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import DOMPurify from 'dompurify'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
 import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
@@ -80,6 +81,7 @@ function toDatetimeLocalValue(iso: string | null): string {
 }
 
 export default function EmailCampaignDetailClient({ campaignId }: { campaignId: string }) {
+  const router = useRouter()
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [templates, setTemplates] = useState<TemplateOption[]>([])
   const [segments, setSegments] = useState<SegmentOption[]>([])
@@ -89,6 +91,7 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -307,6 +310,37 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
     await load()
   }
 
+  const copyCampaign = async () => {
+    if (!campaign) return
+    setCopying(true)
+    setActionMessage(null)
+    setSaveError(null)
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(`/api/admin/emails/campaigns/${campaign.id}/copy`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setSaveError(data.error || 'Could not copy campaign')
+        return
+      }
+      const newId = data.campaign?.id as string | undefined
+      if (newId) {
+        router.push(`/app/admin/emails/campaigns/${newId}`)
+        return
+      }
+      setActionMessage('Campaign copied.')
+      await load()
+    } catch {
+      setSaveError('That didn\'t work. Try again.')
+    } finally {
+      setCopying(false)
+    }
+  }
+
   if (loading) {
     return <div className="text-gray-500 text-sm">Loading campaign…</div>
   }
@@ -364,6 +398,14 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={copyCampaign}
+              disabled={copying}
+              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+            >
+              {copying ? 'Copying…' : 'Copy campaign'}
+            </button>
             {canEdit && (
               <button
                 type="button"

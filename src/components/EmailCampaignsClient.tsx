@@ -103,6 +103,7 @@ export default function EmailCampaignsClient() {
   const [scheduledAt, setScheduledAt] = useState('')
   const [saving, setSaving] = useState(false)
   const [sendingId, setSendingId] = useState<string | null>(null)
+  const [copyingId, setCopyingId] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
 
@@ -417,6 +418,34 @@ export default function EmailCampaignsClient() {
       body: JSON.stringify({ status: 'cancelled' }),
     })
     await refresh()
+  }
+
+  const copyCampaign = async (id: string) => {
+    setCopyingId(id)
+    setError(null)
+    try {
+      const headers = await getAdminAuthHeaders()
+      const res = await fetch(`/api/admin/emails/campaigns/${id}/copy`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || 'Could not copy campaign')
+        return
+      }
+      const newId = data.campaign?.id as string | undefined
+      if (newId) {
+        router.push(`/app/admin/emails/campaigns/${newId}`)
+        return
+      }
+      await refresh()
+    } catch {
+      setError('Could not copy campaign')
+    } finally {
+      setCopyingId(null)
+    }
   }
 
   const onSelectTemplate = (slug: string) => {
@@ -844,6 +873,14 @@ export default function EmailCampaignsClient() {
                       >
                         Open
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => copyCampaign(c.id)}
+                        disabled={copyingId === c.id}
+                        className="underline text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                      >
+                        {copyingId === c.id ? 'Copying…' : 'Copy'}
+                      </button>
                       {(c.status === 'draft' || c.status === 'scheduled' || c.status === 'failed') && (
                         <button
                           type="button"
