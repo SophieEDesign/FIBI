@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
 
@@ -10,56 +10,23 @@ export type RequireAdminResult =
 
 /**
  * Verify the current request is from an authenticated user with role = 'admin'.
- * Accepts either cookies (createClient(request)) or Authorization: Bearer <token>.
- * Bearer token is more reliable when cookies are blocked (e.g. Vercel Deployment Protection).
+ * Accepts either cookies or Authorization: Bearer <token> via requireUser.
  */
 export async function requireAdmin(request?: NextRequest): Promise<RequireAdminResult> {
-  const authHeader = request?.headers.get('Authorization')
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
 
-  let user: User | null = null
-  let authError: Error | null = null
-  let supabaseForProfile: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createClientWithToken> | null = null
-
-  if (token) {
-    const supabase = createClientWithToken(token)
-    const result = await supabase.auth.getUser(token)
-    user = result.data.user
-    authError = result.error ?? null
-    if (user) supabaseForProfile = supabase
-  }
-
-  if (!user && request) {
-    const supabase = await createClient(request)
-    const result = await supabase.auth.getUser()
-    user = result.data.user
-    authError = result.error ?? null
-    if (user) supabaseForProfile = supabase
-  }
-
-  if (!user && supabaseForProfile === null) {
-    const supabase = await createClient()
-    const result = await supabase.auth.getUser()
-    user = result.data.user
-    authError = result.error ?? null
-    if (user) supabaseForProfile = supabase
-  }
-
-  if (!user || authError || !supabaseForProfile) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const { data: profile, error: profileError } = await supabaseForProfile
+  const { data: profile, error: profileError } = await auth.supabase
     .from('profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', auth.userId)
     .single()
 
   if (profileError || !profile || profile.role !== 'admin') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  return { user, userId: user.id }
+  return { user: auth.user, userId: auth.userId }
 }
 
 /**

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import { applyCookiesToResponse, requestCookieMethods } from '@/lib/supabase/cookies'
 
 /** Build redirect to login using request origin (works on preview and production). */
 function getLoginRedirect(request: NextRequest): NextResponse {
@@ -25,59 +26,23 @@ async function signOut(request: NextRequest) {
   const loginUrl = new URL('/login', origin)
   const response = NextResponse.redirect(loginUrl)
 
-  // Parse Cookie header once so we can clear Supabase auth cookies regardless of whether
-  // signOut() calls getAll() (cookieNames from getAll can stay empty otherwise).
-  const cookieHeader = request.headers.get('cookie') || ''
-  const authCookieNamesToClear: string[] = []
-  if (cookieHeader) {
-    cookieHeader.split(';').forEach((cookie) => {
-      const trimmed = cookie.trim()
-      if (!trimmed) return
-      const eq = trimmed.indexOf('=')
-      if (eq === -1) return
-      const name = trimmed.substring(0, eq).trim()
-      if (name && name.startsWith('sb-') && name.includes('auth-token')) {
-        authCookieNamesToClear.push(name)
-      }
-    })
-  }
+  const authCookieNamesToClear = request.cookies
+    .getAll()
+    .map((c) => c.name)
+    .filter((name) => name.startsWith('sb-') && name.includes('auth-token'))
 
   const supabase = createServerClient(url, key, {
-    cookies: {
-      getAll() {
-        const out: Array<{ name: string; value: string }> = []
-        if (cookieHeader) {
-          cookieHeader.split(';').forEach((cookie) => {
-            const trimmed = cookie.trim()
-            if (!trimmed) return
-            const eq = trimmed.indexOf('=')
-            if (eq === -1) return
-            const name = trimmed.substring(0, eq).trim()
-            let value = trimmed.substring(eq + 1).trim()
-            if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-              value = value.slice(1, -1)
-            }
-            try {
-              value = decodeURIComponent(value)
-            } catch {
-              // keep value
-            }
-            if (name) out.push({ name, value })
-          })
-        }
-        return out
-      },
-      setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, { path: '/', ...options })
-        })
-      },
-    },
+    cookies: requestCookieMethods(request, (cookiesToSet) => {
+      applyCookiesToResponse(response, cookiesToSet.map(({ name, value, options }) => ({
+        name,
+        value,
+        options: { path: '/', ...options },
+      })))
+    }),
   })
 
   await supabase.auth.signOut()
 
-  // Force-clear every Supabase auth cookie by name so the next request sees no session.
   const clearOptions = { path: '/', maxAge: 0 }
   for (const name of authCookieNamesToClear) {
     response.cookies.set(name, '', clearOptions)

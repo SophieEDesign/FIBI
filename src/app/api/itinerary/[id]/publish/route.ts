@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
+import { isAnonymousUser } from '@/lib/anonymous-auth'
 import { slugify } from '@/lib/slugify'
 
 export const dynamic = 'force-dynamic'
@@ -12,29 +13,6 @@ function getBaseUrl(request: NextRequest): string {
   return origin.replace(/\/$/, '')
 }
 
-async function getAuthedClient(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  const supabaseAuth = await createClient(request)
-  let user: { id: string; is_anonymous?: boolean } | null = null
-  let supabase = supabaseAuth
-
-  const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-  if (cookieUser && !cookieError) {
-    user = cookieUser
-    supabase = supabaseAuth
-  } else if (authHeader?.startsWith('Bearer ')) {
-    const accessToken = authHeader.substring(7)
-    const { data: { user: tokenUser }, error: tokenError } =
-      await supabaseAuth.auth.getUser(accessToken)
-    if (tokenUser && !tokenError) {
-      user = tokenUser
-      supabase = createClientWithToken(accessToken)
-    }
-  }
-
-  return { user, supabase }
-}
-
 /**
  * POST /api/itinerary/[id]/publish — make travel board shareable by link
  * DELETE /api/itinerary/[id]/publish — make private again
@@ -45,11 +23,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const { user, supabase } = await getAuthedClient(request)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (user.is_anonymous) {
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
+    if (isAnonymousUser(user)) {
       return NextResponse.json(
         { error: 'Create an account to share a travel board.' },
         { status: 403 }
@@ -119,10 +96,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const { user, supabase } = await getAuthedClient(request)
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const { data: itinerary, error: fetchError } = await supabase
       .from('itineraries')

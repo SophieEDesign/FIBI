@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,26 +18,10 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
     }
 
-    const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
-    let user: { id: string; email?: string } | null = null
-    let supabase = supabaseAuth
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const accessToken = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(accessToken)
-      if (tokenUser && !tokenError) {
-        user = tokenUser
-        supabase = createClientWithToken(accessToken)
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const { data: share, error: shareError } = await supabase
       .from('itinerary_shares')

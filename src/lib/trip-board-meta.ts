@@ -117,10 +117,16 @@ export function formatTripDates(itinerary: Itinerary): string | null {
   return `Until ${fmtYear(itinerary.end_date!)}`
 }
 
-/** Boards = no dates; Trips = has dates; Shared = published. */
-export function matchesTripFilter(itinerary: Itinerary, filter: TripBoardFilter): boolean {
+/** Boards = no dates; Trips = has dates; Shared = not owned by current user (collaborator). */
+export function matchesTripFilter(
+  itinerary: Itinerary,
+  filter: TripBoardFilter,
+  currentUserId?: string | null
+): boolean {
   if (filter === 'all') return true
-  if (filter === 'shared') return !!itinerary.published_at
+  if (filter === 'shared') {
+    return !!currentUserId && itinerary.user_id !== currentUserId
+  }
   if (filter === 'trips') return !!(itinerary.start_date || itinerary.end_date)
   // boards: inspiration collections without dates
   return !itinerary.start_date && !itinerary.end_date

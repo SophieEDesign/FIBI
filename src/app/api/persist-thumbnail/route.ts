@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
 import {
   isHostedThumbnailUrl,
   persistAndUpdateItemThumbnail,
@@ -17,11 +16,7 @@ export async function POST(request: NextRequest) {
     const auth = await requireUser(request)
     if (auth instanceof NextResponse) return auth
 
-    const authHeader = request.headers.get('Authorization')
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
-    const supabase = token
-      ? createClientWithToken(token)
-      : await createClient(request)
+    const { supabase, userId } = auth
 
     const body = await request.json().catch(() => null)
     const itemId = typeof body?.itemId === 'string' ? body.itemId.trim() : ''
@@ -38,7 +33,7 @@ export async function POST(request: NextRequest) {
       .from('saved_items')
       .select('id, user_id, thumbnail_url')
       .eq('id', itemId)
-      .eq('user_id', auth.userId)
+      .eq('user_id', userId)
       .maybeSingle()
 
     if (itemError || !item) {
@@ -56,13 +51,13 @@ export async function POST(request: NextRequest) {
           .from('saved_items')
           .update({ thumbnail_url: imageUrl })
           .eq('id', itemId)
-          .eq('user_id', auth.userId)
+          .eq('user_id', userId)
       }
       return NextResponse.json({ thumbnail_url: imageUrl, already_hosted: true })
     }
 
     const durableUrl = await persistAndUpdateItemThumbnail(supabase, {
-      userId: auth.userId,
+      userId,
       itemId,
       imageUrl,
     })

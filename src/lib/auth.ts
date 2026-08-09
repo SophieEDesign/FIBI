@@ -1,51 +1,50 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createClient, createClientWithToken } from '@/lib/supabase/server'
-import type { User } from '@supabase/supabase-js'
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 import { clientIp, rateLimit } from '@/lib/rate-limit'
 import { isAnonymousUser } from '@/lib/anonymous-auth'
 
 export type RequireUserResult =
-  | { user: User; userId: string }
+  | { user: User; userId: string; supabase: SupabaseClient }
   | NextResponse
 
 /**
  * Verify the request is from an authenticated user.
- * Accepts either cookies (createClient(request)) or Authorization: Bearer <token>.
+ * Accepts Authorization: Bearer <token> first, then request cookies, then RSC cookies.
+ * Returns an RLS-bound Supabase client for the resolved identity.
  */
 export async function requireUser(request?: NextRequest): Promise<RequireUserResult> {
   const authHeader = request?.headers.get('Authorization')
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null
 
-  let user: User | null = null
-
   if (token) {
     const supabase = createClientWithToken(token)
-    const result = await supabase.auth.getUser(token)
-    user = result.data.user
+    const { data, error } = await supabase.auth.getUser(token)
+    if (data.user && !error) {
+      return { user: data.user, userId: data.user.id, supabase }
+    }
   }
 
-  if (!user && request) {
+  if (request) {
     const supabase = await createClient(request)
-    const result = await supabase.auth.getUser()
-    user = result.data.user
+    const { data, error } = await supabase.auth.getUser()
+    if (data.user && !error) {
+      return { user: data.user, userId: data.user.id, supabase }
+    }
   }
 
-  if (!user) {
-    const supabase = await createClient()
-    const result = await supabase.auth.getUser()
-    user = result.data.user
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getUser()
+  if (data.user && !error) {
+    return { user: data.user, userId: data.user.id, supabase }
   }
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  return { user, userId: user.id }
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 }
 
 export type EnrichAccessResult =
-  | { mode: 'user'; user: User; userId: string }
+  | { mode: 'user'; user: User; userId: string; supabase: SupabaseClient }
   | { mode: 'guest'; guestKey: string }
   | NextResponse
 
@@ -66,7 +65,12 @@ export async function allowEnrichAccess(request: NextRequest): Promise<EnrichAcc
         { status: 429, headers: { 'Retry-After': String(limited.retryAfterSec) } }
       )
     }
-    return { mode: 'user', user: auth.user, userId: auth.userId }
+    return {
+      mode: 'user',
+      user: auth.user,
+      userId: auth.userId,
+      supabase: auth.supabase,
+    }
   }
 
   const ip = clientIp(request)

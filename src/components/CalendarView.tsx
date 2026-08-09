@@ -33,9 +33,12 @@ import {
   type TripBoardFilter,
 } from '@/lib/trip-board-meta'
 import { useRouter, useSearchParams } from 'next/navigation'
+import type { User } from '@supabase/supabase-js'
 
 interface CalendarViewProps {
-  user: any
+  user: User
+  initialItineraries?: Itinerary[]
+  initialItems?: SavedItem[]
 }
 
 interface CalendarDay {
@@ -45,15 +48,19 @@ interface CalendarDay {
   isToday: boolean
 }
 
-export default function CalendarView({ user }: CalendarViewProps) {
-  const [items, setItems] = useState<SavedItem[]>([])
-  const [itineraries, setItineraries] = useState<Itinerary[]>([])
+export default function CalendarView({
+  user,
+  initialItineraries,
+  initialItems,
+}: CalendarViewProps) {
+  const [items, setItems] = useState<SavedItem[]>(initialItems ?? [])
+  const [itineraries, setItineraries] = useState<Itinerary[]>(initialItineraries ?? [])
   // Start on the trips landing; deep links still set selection via URL.
   const [selectedItineraryId, setSelectedItineraryIdState] = useState<string | null>(null)
   const setSelectedItineraryId = (id: string | null) => {
     setSelectedItineraryIdState(id)
   }
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!(initialItems && initialItineraries))
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draggedItem, setDraggedItem] = useState<SavedItem | null>(null)
@@ -148,13 +155,17 @@ export default function CalendarView({ user }: CalendarViewProps) {
   )
 
   useEffect(() => {
-    if (user) {
-      console.log('CalendarView: User available, loading data', { userId: user.id })
-      loadItems()
-      loadItineraries()
-    } else {
+    if (!user) {
       console.log('CalendarView: No user available yet')
+      return
     }
+    // Server already provided the initial list — skip blank loading flash.
+    if (initialItems && initialItineraries) {
+      return
+    }
+    console.log('CalendarView: User available, loading data', { userId: user.id })
+    loadItems()
+    loadItineraries()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
@@ -1137,7 +1148,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const hasPlacesNoTrips = !loading && items.length > 0 && itineraries.length === 0
 
   const filteredItineraries = useMemo(
-    () => itineraries.filter((t) => matchesTripFilter(t, tripBoardFilter)),
+    () => itineraries.filter((t) => matchesTripFilter(t, tripBoardFilter, user?.id)),
     [itineraries, tripBoardFilter]
   )
 

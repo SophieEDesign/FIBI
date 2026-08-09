@@ -11,6 +11,16 @@ function isProtectedPath(pathname: string): boolean {
 }
 
 export async function middleware(req: NextRequest) {
+  // Never exchange PKCE on /app — send the code straight to the callback route.
+  const code = req.nextUrl.searchParams.get('code')
+  if (code && req.nextUrl.pathname === '/app') {
+    const callbackUrl = new URL('/auth/callback', req.url)
+    req.nextUrl.searchParams.forEach((value, key) => {
+      callbackUrl.searchParams.set(key, value)
+    })
+    return NextResponse.redirect(callbackUrl)
+  }
+
   if (!isProtectedPath(req.nextUrl.pathname)) {
     return NextResponse.next()
   }
@@ -38,5 +48,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*', '/item/:path*', '/profile/:path*'],
+  matcher: ['/app', '/app/:path*', '/item/:path*', '/profile/:path*'],
 }

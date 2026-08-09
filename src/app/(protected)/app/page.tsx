@@ -1,8 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useEffect, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense } from 'react'
 import { useAuth } from '@/lib/useAuth'
 import HomeGrid from '@/components/HomeGrid'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
@@ -15,17 +14,9 @@ import SharingTutorial from '@/components/SharingTutorial'
 function AppHomeContent() {
   const { user, loading } = useAuth()
   const searchParams = useSearchParams()
-  const router = useRouter()
-
-  // Handle code parameter (from email confirmation)
-  useEffect(() => {
-    const code = searchParams.get('code')
-    if (code) {
-      router.replace(`/auth/callback?code=${encodeURIComponent(code)}`)
-    }
-  }, [searchParams, router])
 
   // Auth redirect is handled by (protected) layout; no redirect here to avoid loop
+  // Auth codes must be exchanged on /auth/callback (not forwarded from /app)
 
   if (loading) {
     return (

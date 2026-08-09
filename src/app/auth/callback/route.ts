@@ -1,5 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  applyCookiesToResponse,
+  requestCookieMethods,
+  type CookieToSet,
+} from '@/lib/supabase/cookies'
 
 /**
  * Prefer the request URL origin (www.fibi.world vs fibi.world).
@@ -18,15 +23,6 @@ function getRedirectOrigin(request: NextRequest): string {
   }
 
   return origin
-}
-
-function applyCookies(
-  response: NextResponse,
-  cookies: { name: string; value: string; options?: Record<string, unknown> }[]
-) {
-  cookies.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, options)
-  })
 }
 
 export async function GET(request: NextRequest) {
@@ -59,17 +55,12 @@ export async function GET(request: NextRequest) {
   if (code) {
     // Collect session cookies so we can attach them to the redirect response.
     // Returning NextResponse.redirect() after cookies().set() can drop the session.
-    const pendingCookies: { name: string; value: string; options?: Record<string, unknown> }[] = []
+    const pendingCookies: CookieToSet[] = []
 
     const supabase = createServerClient(supabaseUrl, supabaseKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
-          pendingCookies.push(...cookiesToSet)
-        },
-      },
+      cookies: requestCookieMethods(request, (cookiesToSet) => {
+        pendingCookies.push(...cookiesToSet)
+      }),
     })
 
     const { error, data } = await supabase.auth.exchangeCodeForSession(code)
@@ -78,7 +69,7 @@ export async function GET(request: NextRequest) {
       if (type === 'recovery') {
         const resetUrl = new URL('/reset-password', origin)
         const res = NextResponse.redirect(resetUrl)
-        applyCookies(res, pendingCookies)
+        applyCookiesToResponse(res, pendingCookies)
         return res
       }
 
@@ -96,9 +87,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const cookieHeader = request.headers.get('cookie') || ''
-      const match = cookieHeader.match(/redirect_after_login=([^;]+)/)
-      const redirectPath = match ? decodeURIComponent(match[1].trim()) : null
+      const redirectCookie = request.cookies.get('redirect_after_login')?.value
+      const redirectPath = redirectCookie ? decodeURIComponent(redirectCookie) : null
       const safePath =
         redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//')
           ? redirectPath
@@ -108,7 +98,7 @@ export async function GET(request: NextRequest) {
       if (!safePath) redirectUrl.searchParams.set('confirmed', 'true')
 
       const res = NextResponse.redirect(redirectUrl)
-      applyCookies(res, pendingCookies)
+      applyCookiesToResponse(res, pendingCookies)
       res.cookies.set('redirect_after_login', '', { path: '/', maxAge: 0 })
       return res
     }

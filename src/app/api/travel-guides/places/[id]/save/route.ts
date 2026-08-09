@@ -1,61 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 import { isAnonymousUser } from '@/lib/anonymous-auth'
 import { guidePlaceToSavedItemFields } from '@/lib/travel-guides'
 import { persistAndUpdateItemThumbnail } from '@/lib/persist-thumbnail'
 import type { TravelGuidePlace } from '@/types/database'
-import type { User } from '@supabase/supabase-js'
+import type { SupabaseClient, User } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
 async function requireSignedInUser(request: NextRequest): Promise<
-  | { user: User; supabase: Awaited<ReturnType<typeof createClient>> }
+  | { user: User; supabase: SupabaseClient }
   | NextResponse
 > {
-  const authHeader = request.headers.get('authorization')
-  let user: User | null = null
-  let supabase = await createClient(request)
-
-  // Prefer Bearer — cookie auth is unreliable on public pages where middleware
-  // does not refresh the session.
-  if (authHeader?.startsWith('Bearer ')) {
-    const accessToken = authHeader.substring(7)
-    const { data: { user: tokenUser }, error: tokenError } =
-      await supabase.auth.getUser(accessToken)
-    if (tokenUser && !tokenError) {
-      user = tokenUser
-      supabase = createClientWithToken(accessToken)
-    }
-  }
-
-  if (!user) {
-    const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-    }
-  }
-
-  if (!user) {
-    const fallback = await createClient()
-    const { data: { user: fallbackUser }, error: fallbackError } =
-      await fallback.auth.getUser()
-    if (fallbackUser && !fallbackError) {
-      user = fallbackUser
-      supabase = fallback
-    }
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  if (isAnonymousUser(user)) {
+  const auth = await requireUser(request)
+  if (auth instanceof NextResponse) return auth
+  if (isAnonymousUser(auth.user)) {
     return NextResponse.json(
       { error: 'Create an account to keep this place in FIBI.' },
       { status: 403 }
     )
   }
-
-  return { user, supabase }
+  return { user: auth.user, supabase: auth.supabase }
 }
 
 /**

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,59 +11,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Try to get auth token from Authorization header first (more reliable)
-    const authHeader = request.headers.get('authorization')
-    let supabase = await createClient(request)
-    let user = null
-    let authError = null
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabase.auth.getUser(token)
-      user = tokenUser
-      authError = tokenError
-      if (user && !tokenError) {
-        // Use token-scoped client so RLS (auth.uid()) returns the user's items
-        supabase = createClientWithToken(token)
-      }
-    } else {
-      // Fall back to cookie-based auth
-      const cookieHeader = request.headers.get('cookie')
-      console.log('Calendar download - Cookie header present:', !!cookieHeader)
-      console.log('Calendar download - Cookie header length:', cookieHeader?.length || 0)
-      
-      const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
-      user = cookieUser
-      authError = cookieError
-      
-      // If cookie-based auth fails, try without request (uses Next.js cookies())
-      if (!user || authError) {
-        console.log('Calendar download: Request-based auth failed, trying Next.js cookies()')
-        supabase = await createClient()
-        const fallbackAuth = await supabase.auth.getUser()
-        user = fallbackAuth.data.user
-        authError = fallbackAuth.error
-      }
-    }
-
-    console.log('Calendar download - Auth check:', { 
-      hasUser: !!user, 
-      userId: user?.id, 
-      authError: authError?.message,
-      authMethod: authHeader ? 'Bearer token' : 'Cookies'
-    })
-
-    if (!user || authError) {
-      console.error('Calendar download auth error:', authError)
-      console.error('Request cookies:', request.headers.get('cookie')?.substring(0, 200))
-      console.error('Request headers:', {
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer'),
-        userAgent: request.headers.get('user-agent')?.substring(0, 50),
-        hasAuthHeader: !!authHeader,
-      })
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     // Get itinerary_id from query parameters (optional)
     const { searchParams } = new URL(request.url)

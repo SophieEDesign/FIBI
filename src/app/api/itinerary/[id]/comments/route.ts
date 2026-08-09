@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,26 +19,12 @@ export async function GET(
       return NextResponse.json({ error: 'Itinerary ID required' }, { status: 400 })
     }
 
-    const authHeader = request.headers.get('authorization')
     const shareToken = request.nextUrl.searchParams.get('share_token') ?? undefined
-    const supabaseAuth = await createClient(request)
-    let user: { id: string } | null = null
-    let supabase = supabaseAuth
-
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(token)
-      if (tokenUser && !tokenError) {
-        user = tokenUser
-        supabase = createClientWithToken(token)
-      }
-    }
+    const auth = await requireUser(request)
 
     // Authenticated: use RLS as before
-    if (user) {
+    if (!(auth instanceof NextResponse)) {
+      const { supabase } = auth
       const { data: comments, error } = await supabase
         .from('itinerary_comments')
         .select('id, itinerary_id, user_id, body, created_at')
@@ -79,6 +66,7 @@ export async function GET(
 
     // No user: allow read via valid share token (for shared itinerary view)
     if (shareToken && shareToken.trim()) {
+      const supabaseAuth = await createClient(request)
       const { data: sharedComments, error: rpcError } = await supabaseAuth.rpc(
         'get_shared_itinerary_comments',
         { share_token_param: shareToken.trim(), itinerary_id_param: itineraryId }
@@ -90,8 +78,8 @@ export async function GET(
       return NextResponse.json(sharedComments ?? [])
     }
 
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  } catch (error: any) {
+    return auth
+  } catch (error: unknown) {
     console.error('Comments GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -112,26 +100,9 @@ export async function POST(
       return NextResponse.json({ error: 'Itinerary ID required' }, { status: 400 })
     }
 
-    const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
-    let user: { id: string } | null = null
-    let supabase = supabaseAuth
-
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(token)
-      if (tokenUser && !tokenError) {
-        user = tokenUser
-        supabase = createClientWithToken(token)
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     const body = await request.json()
     const commentBody = typeof body?.body === 'string' ? body.body.trim() : ''
@@ -158,7 +129,7 @@ export async function POST(
     }
 
     return NextResponse.json(comment)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Comments POST error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

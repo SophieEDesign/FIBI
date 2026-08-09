@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 import { persistAndUpdateItemThumbnail } from '@/lib/persist-thumbnail'
 
 export const dynamic = 'force-dynamic'
@@ -19,28 +20,10 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
     }
 
-    // Auth: require user (cookies or Bearer)
-    const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
-    let user: { id: string } | null = null
-    let supabase = supabaseAuth
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-      supabase = supabaseAuth
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const accessToken = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(accessToken)
-      if (tokenUser && !tokenError) {
-        user = tokenUser
-        supabase = createClientWithToken(accessToken)
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     // Resolve share and load itinerary + items (use anon-capable client)
     const anon = await createClient()

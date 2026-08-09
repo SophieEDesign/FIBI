@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
 import { isAnonymousUser } from '@/lib/anonymous-auth'
 import { deriveLocationStatus } from '@/lib/location-status'
 import { persistAndUpdateItemThumbnail } from '@/lib/persist-thumbnail'
-import type { User } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,28 +21,9 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid slug' }, { status: 400 })
     }
 
-    const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
-    let user: User | null = null
-    let supabase = supabaseAuth
-
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-      supabase = supabaseAuth
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const accessToken = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } =
-        await supabaseAuth.auth.getUser(accessToken)
-      if (tokenUser && !tokenError) {
-        user = tokenUser
-        supabase = createClientWithToken(accessToken)
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
     if (isAnonymousUser(user)) {
       return NextResponse.json(
         { error: 'Create an account to add this board to FIBI.' },

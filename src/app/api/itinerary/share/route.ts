@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
 import { randomBytes } from 'crypto'
 import { isAnonymousUser } from '@/lib/anonymous-auth'
-import type { User } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,41 +12,9 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
-    let user: User | null = null
-    let authError: Error | null = null
-    /** Client used for DB queries – cookie-based or token-based so RLS sees the user */
-    let supabase = supabaseAuth
-
-    // Try cookie-based auth first (RLS works with cookie client)
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-      supabase = supabaseAuth
-      console.log('Share API - Using cookie-based auth, user:', user.id)
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(token)
-      if (tokenError || !tokenUser) {
-        authError = tokenError || new Error('Bearer token validation failed')
-        console.error('Share API - Bearer token validation failed:', tokenError)
-      } else {
-        user = tokenUser
-        authError = null
-        // Use a client that sends the JWT so RLS (auth.uid()) works on itineraries / itinerary_shares
-        supabase = createClientWithToken(token)
-        console.log('Share API - Using Bearer token, user:', user.id)
-      }
-    } else {
-      authError = cookieError || new Error('No authentication method available')
-    }
-
-    if (!user || authError) {
-      console.error('Share API auth error:', authError)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
 
     if (isAnonymousUser(user)) {
       return NextResponse.json(

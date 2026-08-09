@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createClientWithToken } from '@/lib/supabase/server'
+import { requireUser } from '@/lib/auth'
 import { sendInviteEmail } from '@/lib/email-templates'
+import { isAnonymousUser } from '@/lib/anonymous-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,27 +18,10 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
-    let user: { id: string; email?: string } | null = null
-    let supabase = supabaseAuth
-
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-    } else if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      const { data: { user: tokenUser }, error: tokenError } = await supabaseAuth.auth.getUser(token)
-      if (tokenUser && !tokenError) {
-        user = tokenUser
-        supabase = createClientWithToken(token)
-      }
-    }
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if ((user as { is_anonymous?: boolean }).is_anonymous) {
+    const auth = await requireUser(request)
+    if (auth instanceof NextResponse) return auth
+    const { user, supabase } = auth
+    if (isAnonymousUser(user)) {
       return NextResponse.json(
         { error: 'Create an account to invite people.' },
         { status: 403 }

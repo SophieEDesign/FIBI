@@ -1,28 +1,39 @@
-'use client'
-
+import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import CalendarView from '@/components/CalendarView'
-import { useAuth } from '@/lib/useAuth'
+import type { Itinerary, SavedItem } from '@/types/database'
 
-// Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-export default function CalendarPage() {
-  const { user, loading } = useAuth()
+export default async function CalendarPage() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  // Auth redirect is handled by (protected) layout
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p>Loading calendar…</p>
-        </div>
-      </div>
-    )
+  if (!user) {
+    redirect('/login?redirect=/app/calendar')
   }
 
-  if (!user) return null
+  const [{ data: itineraries }, { data: items }] = await Promise.all([
+    supabase.from('itineraries').select('*').order('created_at', { ascending: false }),
+    supabase.from('saved_items').select('*').order('created_at', { ascending: false }),
+  ])
 
-  return <CalendarView user={user} />
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center text-gray-500">
+          Loading your trips…
+        </div>
+      }
+    >
+      <CalendarView
+        user={user}
+        initialItineraries={(itineraries as Itinerary[]) || []}
+        initialItems={(items as SavedItem[]) || []}
+      />
+    </Suspense>
+  )
 }
-
