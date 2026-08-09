@@ -3,6 +3,7 @@
  * Merged into saved_items on login/signup.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { deriveLocationStatus } from '@/lib/location-status'
 
 export const GUEST_SAVES_KEY = 'fibi_guest_saves'
@@ -112,8 +113,7 @@ export function clearGuestPendingBoard(): void {
 /** Insert guest saves into Supabase for the given user, then clear the queue. */
 export async function mergeGuestSavesToAccount(
   userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: { from: (table: string) => any }
+  supabase: SupabaseClient
 ): Promise<{ merged: number; itinerary_id?: string; error?: string }> {
   const saves = getGuestSaves()
   if (saves.length === 0) {
