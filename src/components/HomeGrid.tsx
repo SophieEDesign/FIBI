@@ -10,6 +10,7 @@ import { signOut } from '@/lib/signout'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 import LibraryMapPreview from '@/components/LibraryMapPreview'
+import { Button } from '@/components/ui/Button'
 
 interface HomeGridProps {
   user: any
@@ -453,14 +454,14 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--bg-subtle)]">
       {/* Header - Mobile only */}
-      <header className="md:hidden bg-white sticky top-0 z-20 shadow-soft">
+      <header className="md:hidden sticky top-0 z-20 border-b border-[color:var(--border-subtle)] bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-charcoal">FIBI</h1>
-              <span className="text-[10px] font-medium text-secondary border border-gray-200 rounded-full px-2 py-0.5 bg-gray-50/80">
+              <h1 className="text-xl font-semibold text-charcoal tracking-tight">FIBI</h1>
+              <span className="text-[10px] font-medium text-secondary border border-[color:var(--border-subtle)] rounded-full px-2 py-0.5 bg-[color:var(--bg-subtle)]">
                 Early Access
               </span>
             </div>
@@ -468,22 +469,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               {items.length > 0 && (
                 <button
                   onClick={() => setShowFilterModal(true)}
-                  className="relative px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
+                  className="relative px-3 py-1.5 text-sm font-medium text-secondary hover:text-[color:var(--text-primary)]"
                 >
                   Filter
                   {activeFiltersCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white text-xs rounded-full flex items-center justify-center">
                       {activeFiltersCount}
                     </span>
                   )}
                 </button>
               )}
-              <Link
-                href="/app/add"
-                className="bg-charcoal text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft"
-              >
+              <Button href="/app/add" size="sm">
                 Add
-              </Link>
+              </Button>
               <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
             </div>
           </div>
@@ -595,7 +593,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search places, cities, notes…"
-                className="w-full px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-charcoal placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-charcoal/15"
+                className="w-full px-4 py-2.5 rounded-full bg-[color:var(--bg-inset)] border border-transparent text-sm text-charcoal placeholder:text-[color:var(--text-tertiary)] focus:outline-none focus:border-[color:var(--border-brand)] focus:shadow-[var(--focus-ring)]"
                 aria-label="Search saved places"
               />
             </div>
@@ -604,10 +602,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <span className="text-sm font-medium text-secondary">Category:</span>
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                  className={`px-3 py-1.5 text-sm rounded-xl ${
+                  className={`px-3 py-1.5 text-sm rounded-full transition-colors duration-fast ${
                     filters.categories.length === 0
-                      ? 'bg-charcoal text-white'
-                      : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                      ? 'bg-accent text-white'
+                      : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-sky-100'
                   }`}
                 >
                   All
@@ -616,10 +614,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   <button
                     key={category}
                     onClick={() => toggleFilter(category)}
-                    className={`px-3 py-1.5 text-sm rounded-xl ${
+                    className={`px-3 py-1.5 text-sm rounded-full transition-colors duration-fast ${
                       filters.categories.includes(category)
-                        ? 'bg-charcoal text-white'
-                        : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                        ? 'bg-accent text-white'
+                        : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-sky-100'
                     }`}
                   >
                     {category}
@@ -693,12 +691,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <p className="text-sm text-secondary mb-4 max-w-sm mx-auto">
                   Organise saved places into a board for a trip. Share by link when you&apos;re ready.
                 </p>
-                <Link
-                  href="/app/calendar"
-                  className="inline-block bg-charcoal text-white px-5 py-2.5 rounded-xl text-sm font-medium"
-                >
+                <Button href="/app/calendar" size="sm">
                   Start a board
-                </Link>
+                </Button>
               </div>
             ) : (
               <ul className="space-y-2">
@@ -760,12 +755,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <p className="text-base text-secondary mb-6 leading-relaxed">
                   Try adjusting your filters to see more results.
                 </p>
-                <button
-                  onClick={clearFilters}
-                  className="inline-block bg-charcoal text-white px-6 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft"
-                >
+                <Button onClick={clearFilters} size="sm">
                   Clear all filters
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="text-center py-14 md:py-20 relative">
@@ -775,12 +767,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <p className="text-base md:text-lg text-secondary mb-8 leading-relaxed max-w-md mx-auto">
                   Save places you don&apos;t want to forget and keep them organised.
                 </p>
-                <Link
-                  href="/app/add"
-                  className="inline-block bg-charcoal text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-soft mb-4"
-                >
+                <Button href="/app/add" size="lg" className="mb-4">
                   Add your first place
-                </Link>
+                </Button>
                 <Link
                   href="/app/calendar"
                   className="block text-sm text-secondary hover:text-charcoal transition-colors"
@@ -880,7 +869,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           <button
                             type="button"
                             onClick={() => handleToggleIcon(item, 'planned')}
-                            className={`p-1.5 rounded-lg ${isPlanned ? 'text-charcoal' : 'text-secondary/50 hover:text-secondary'}`}
+                            className={`p-1.5 rounded-full ${isPlanned ? 'text-orchid-400' : 'text-secondary/50 hover:text-secondary'}`}
                             aria-label={isPlanned ? 'Remove planned' : 'Mark as planned'}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -890,7 +879,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                           <button
                             type="button"
                             onClick={() => handleToggleIcon(item, 'liked')}
-                            className={`p-1.5 rounded-lg ${isLiked ? 'text-charcoal' : 'text-secondary/50 hover:text-secondary'}`}
+                            className={`p-1.5 rounded-full ${isLiked ? 'text-gold-500' : 'text-secondary/50 hover:text-secondary'}`}
                             aria-label={isLiked ? 'Remove liked' : 'Mark as liked'}
                           >
                             <svg className="w-4 h-4" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -955,7 +944,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       {/* Floating Add Button - Mobile only */}
       <Link
         href="/app/add"
-        className="fixed bottom-6 right-6 md:hidden z-30 bg-charcoal text-white w-14 h-14 rounded-2xl shadow-soft-md hover:opacity-90 transition-opacity flex items-center justify-center"
+        className="fixed bottom-6 right-6 md:hidden z-30 bg-accent text-white w-14 h-14 rounded-full shadow-soft-md hover:bg-accent-hover transition-colors duration-fast flex items-center justify-center"
         aria-label="Add place"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -992,10 +981,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   <div className="flex gap-2 min-w-max">
                     <button
                       onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                      className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                         filters.categories.length === 0
-                          ? 'bg-charcoal text-white'
-                          : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                          ? 'bg-accent text-white'
+                          : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-sky-100'
                       }`}
                     >
                       All
@@ -1004,10 +993,10 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       <button
                         key={category}
                         onClick={() => toggleFilter(category)}
-                        className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                           filters.categories.includes(category)
-                            ? 'bg-charcoal text-white'
-                            : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                            ? 'bg-accent text-white'
+                            : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-sky-100'
                         }`}
                       >
                         {category}
@@ -1054,12 +1043,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                     Clear filters
                   </button>
                 )}
-                <button
-                  onClick={() => setShowFilterModal(false)}
-                  className="w-full bg-charcoal text-white py-3 rounded-xl font-medium hover:opacity-90 shadow-soft"
-                >
+                <Button onClick={() => setShowFilterModal(false)} fullWidth>
                   Done
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1319,7 +1305,7 @@ function AddToTripModal({
                     <button
                       onClick={handleCreateItinerary}
                       disabled={!newItineraryName.trim() || creatingItinerary}
-                      className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-2 text-sm font-medium bg-accent text-white rounded-full hover:bg-accent-hover transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {creatingItinerary ? 'Creating…' : 'Start trip'}
                     </button>
@@ -1351,7 +1337,7 @@ function AddToTripModal({
             <button
               onClick={onSave}
               disabled={saving}
-              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors duration-fast disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>

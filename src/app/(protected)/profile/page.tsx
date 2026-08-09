@@ -291,7 +291,7 @@ export default function ProfilePage() {
           
           <div className="flex items-center gap-3 md:gap-4 mb-4">
             {/* Avatar */}
-            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-base md:text-xl font-semibold flex-shrink-0">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-accent text-white flex items-center justify-center text-base md:text-xl font-semibold flex-shrink-0">
               {getInitials(displayName || email || user.email || '')}
             </div>
             
@@ -304,7 +304,7 @@ export default function ProfilePage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={updatingEmail}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="your@email.com"
                     aria-label="Email address"
                   />
@@ -312,7 +312,7 @@ export default function ProfilePage() {
                     <button
                       onClick={handleUpdateEmail}
                       disabled={updatingEmail || !email.trim() || email === user.email}
-                      className="px-4 py-1.5 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-1.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       aria-label="Save email"
                     >
                       {updatingEmail ? 'Saving...' : 'Save'}
@@ -354,13 +354,13 @@ export default function ProfilePage() {
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="Your name"
                 disabled={savingName}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Display name"
               />
               <button
                 onClick={handleSaveDisplayName}
                 disabled={savingName}
-                className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                className="px-4 py-2 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 aria-label="Save display name"
               >
                 {savingName ? 'Saving…' : 'Save'}
@@ -417,7 +417,7 @@ export default function ProfilePage() {
                     onClick={() => setPreferences({ ...preferences, defaultView: view })}
                     className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       preferences.defaultView === view
-                        ? 'bg-gray-900 text-white'
+                        ? 'bg-accent text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                     aria-label={`Set default view to ${view}`}
@@ -441,7 +441,7 @@ export default function ProfilePage() {
                     onClick={() => setPreferences({ ...preferences, defaultHomeFilter: filter })}
                     className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       preferences.defaultHomeFilter === filter
-                        ? 'bg-gray-900 text-white'
+                        ? 'bg-accent text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                     aria-label={`Set default home filter to ${filter}`}
@@ -465,7 +465,7 @@ export default function ProfilePage() {
                     onClick={() => setPreferences({ ...preferences, units: unit })}
                     className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       preferences.units === unit
-                        ? 'bg-gray-900 text-white'
+                        ? 'bg-accent text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                     aria-label={`Set distance units to ${unit === 'km' ? 'kilometers' : 'miles'}`}

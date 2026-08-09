@@ -81,7 +81,7 @@ export default function SocialAuthButtons({ disabled, onError }: SocialAuthButto
         type="button"
         onClick={() => signInWithProvider('google')}
         disabled={busy}
-        className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 border border-gray-300 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+        className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 border border-gray-300 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2"
       >
         <GoogleIcon className="w-5 h-5 shrink-0" />
         {loadingProvider === 'google' ? 'Opening Google…' : 'Continue with Google'}
@@ -91,7 +91,7 @@ export default function SocialAuthButtons({ disabled, onError }: SocialAuthButto
         type="button"
         onClick={() => signInWithProvider('apple')}
         disabled={busy}
-        className="w-full flex items-center justify-center gap-3 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+        className="w-full flex items-center justify-center gap-3 bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2"
       >
         <AppleIcon className="w-5 h-5 shrink-0" />
         {loadingProvider === 'apple' ? 'Opening Apple…' : 'Continue with Apple'}

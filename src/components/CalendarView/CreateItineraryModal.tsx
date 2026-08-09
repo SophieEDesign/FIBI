@@ -46,7 +46,7 @@ export default function CreateItineraryModal({
                 }
               }}
               placeholder="e.g., Weekend Trip, Italy Ideas"
-              className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+              className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-sky-400 text-gray-900 bg-white"
               autoFocus
             />
           </div>
@@ -54,7 +54,7 @@ export default function CreateItineraryModal({
             <button
               onClick={onCreate}
               disabled={!name.trim() || creating}
-              className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-accent text-white py-2 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {creating ? 'Creating…' : 'Start trip'}
             </button>

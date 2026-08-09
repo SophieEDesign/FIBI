@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
+import AdminConfirmDialog from '@/components/admin/AdminConfirmDialog'
 import type { TravelGuide, TravelGuidePlace, TravelGuideStatus } from '@/types/database'
 
 type EditablePlace = {
@@ -70,71 +70,22 @@ export default function AdminGuideEditorPage() {
   const router = useRouter()
   const routeParams = useParams()
   const guideId = typeof routeParams?.id === 'string' ? routeParams.id : null
-  const { user, loading: authLoading } = useAuth()
-  const [adminChecked, setAdminChecked] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-
   const [guide, setGuide] = useState<TravelGuide | null>(null)
   const [places, setPlaces] = useState<EditablePlace[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return {}
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      return { Authorization: `Bearer ${session.access_token}` }
-    }
-    return {}
-  }, [])
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    if (authLoading || !user?.id) {
-      if (!authLoading && !user) {
-        router.replace(`/login?redirect=/app/admin/guides/${guideId || ''}`)
-      }
-      return
-    }
-    let cancelled = false
-    Promise.resolve(
-      createClient()
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-    )
-      .then(({ data, error: roleError }) => {
-        if (cancelled) return
-        setAdminChecked(true)
-        setIsAdmin(!roleError && data?.role === 'admin')
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAdminChecked(true)
-          setIsAdmin(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [authLoading, user, router, guideId])
-
-  useEffect(() => {
-    if (!adminChecked || isAdmin) return
-    router.replace('/app')
-  }, [adminChecked, isAdmin, router])
-
-  useEffect(() => {
-    if (!isAdmin || !guideId) return
+    if (!guideId) return
     let cancelled = false
     ;(async () => {
       setLoading(true)
       try {
-        const headers = await getAuthHeaders()
+        const headers = await getAdminAuthHeaders()
         const res = await fetch(`/api/admin/guides/${guideId}`, {
           credentials: 'include',
           headers,
@@ -153,10 +104,34 @@ export default function AdminGuideEditorPage() {
     return () => {
       cancelled = true
     }
-  }, [isAdmin, guideId, getAuthHeaders])
+  }, [guideId])
 
   const updateGuideField = <K extends keyof TravelGuide>(key: K, value: TravelGuide[K]) => {
     setGuide((g) => (g ? { ...g, [key]: value } : g))
+  }
+
+  const deleteGuide = async () => {
+    if (!guideId) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const headers = await getAdminAuthHeaders()
+      const res = await fetch(`/api/admin/guides/${guideId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers,
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete')
+      }
+      router.push('/app/admin/guides')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work. Try again.")
+      setConfirmDelete(false)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const saveAll = async (statusOverride?: TravelGuideStatus) => {
@@ -165,7 +140,7 @@ export default function AdminGuideEditorPage() {
     setError(null)
     setMessage(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const status = statusOverride || guide.status
 
       const guideRes = await fetch(`/api/admin/guides/${guideId}`, {
@@ -240,15 +215,15 @@ export default function AdminGuideEditorPage() {
     })
   }
 
-  if (authLoading || !adminChecked || loading) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
+      <div className="flex min-h-[40vh] items-center justify-center text-[#8A857A]">
         Loading…
       </div>
     )
   }
 
-  if (!isAdmin || !guide) return null
+  if (!guide) return null
 
   const inputClass =
     'mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:outline-none'
@@ -303,7 +278,7 @@ export default function AdminGuideEditorPage() {
               type="button"
               disabled={saving}
               onClick={() => saveAll('published')}
-              className="px-3 py-2 text-sm bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
+              className="px-3 py-2 text-sm bg-accent text-white hover:bg-accent-hover disabled:opacity-60"
             >
               Publish
             </button>
@@ -314,6 +289,14 @@ export default function AdminGuideEditorPage() {
               className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-60"
             >
               Archive
+            </button>
+            <button
+              type="button"
+              disabled={saving || deleting}
+              onClick={() => setConfirmDelete(true)}
+              className="px-3 py-2 text-sm text-[#9C3226] hover:underline disabled:opacity-60"
+            >
+              Delete
             </button>
           </div>
         </div>
@@ -690,12 +673,23 @@ export default function AdminGuideEditorPage() {
             type="button"
             disabled={saving}
             onClick={() => saveAll('published')}
-            className="px-4 py-2 text-sm bg-gray-900 text-white disabled:opacity-60"
+            className="px-4 py-2 text-sm bg-accent text-white disabled:opacity-60"
           >
             {saving ? 'Saving…' : 'Save & publish'}
           </button>
         </div>
       </div>
+
+      <AdminConfirmDialog
+        open={confirmDelete}
+        title="Delete this guide?"
+        body={`This permanently deletes “${guide.title}” and its places. This cannot be undone.`}
+        confirmLabel="Delete guide"
+        danger
+        busy={deleting}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={deleteGuide}
+      />
     </div>
   )
 }

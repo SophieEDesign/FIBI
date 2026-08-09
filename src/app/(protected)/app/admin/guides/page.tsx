@@ -3,96 +3,43 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/useAuth'
-import { createClient } from '@/lib/supabase/client'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 import type { TravelGuide } from '@/types/database'
+
+type GuideRow = TravelGuide & { views_30d?: number; saves_30d?: number }
 
 export default function AdminGuidesPage() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
-  const [adminChecked, setAdminChecked] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [guides, setGuides] = useState<TravelGuide[]>([])
+  const [guides, setGuides] = useState<GuideRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { user: u } } = await supabase.auth.getUser()
-    if (!u) return {}
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      return { Authorization: `Bearer ${session.access_token}` }
+  const loadGuides = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const headers = await getAdminAuthHeaders()
+      const res = await fetch('/api/admin/guides', { credentials: 'include', headers })
+      if (!res.ok) throw new Error('Failed to load guides')
+      const data = await res.json()
+      setGuides(data.guides || [])
+    } catch {
+      setError("That didn't work. Try again.")
+    } finally {
+      setLoading(false)
     }
-    return {}
   }, [])
 
   useEffect(() => {
-    if (authLoading || !user?.id) {
-      if (!authLoading && !user) {
-        router.replace('/login?redirect=/app/admin/guides')
-      }
-      return
-    }
-    let cancelled = false
-    const client = createClient()
-    Promise.resolve(
-      client
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-    )
-      .then(({ data, error: roleError }) => {
-        if (cancelled) return
-        setAdminChecked(true)
-        setIsAdmin(!roleError && data?.role === 'admin')
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setAdminChecked(true)
-          setIsAdmin(false)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [authLoading, user, router])
-
-  useEffect(() => {
-    if (!adminChecked || isAdmin) return
-    router.replace('/app')
-  }, [adminChecked, isAdmin, router])
-
-  useEffect(() => {
-    if (!isAdmin) return
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const headers = await getAuthHeaders()
-        const res = await fetch('/api/admin/guides', { credentials: 'include', headers })
-        if (!res.ok) throw new Error('Failed to load guides')
-        const data = await res.json()
-        if (!cancelled) setGuides(data.guides || [])
-      } catch {
-        if (!cancelled) setError("That didn't work. Try again.")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [isAdmin, getAuthHeaders])
+    void loadGuides()
+  }, [loadGuides])
 
   const createGuide = async () => {
     setCreating(true)
     setError(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/guides', {
         method: 'POST',
         credentials: 'include',
@@ -108,86 +55,66 @@ export default function AdminGuidesPage() {
     }
   }
 
-  if (authLoading || !adminChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        Loading…
-      </div>
-    )
-  }
-
-  if (!isAdmin) return null
-
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Travel Guides</h1>
-            <p className="mt-2 text-sm text-gray-600">
+            <h1 className="text-2xl font-semibold text-[#17181A]">Travel guides</h1>
+            <p className="mt-1 text-sm text-[#5C574C]">
               Public editorial guides — separate from user Travel Boards.
             </p>
           </div>
-          <div className="flex flex-wrap gap-4 items-center">
-            <Link href="/app/admin" className="text-sm text-gray-600 hover:text-gray-900">
-              Users
-            </Link>
-            <Link href="/app/admin/guides" className="text-sm font-medium text-gray-900">
-              Guides
-            </Link>
-            <button
-              type="button"
-              onClick={createGuide}
-              disabled={creating}
-              className="px-4 py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60"
-            >
-              {creating ? 'Creating…' : 'New guide'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={createGuide}
+            disabled={creating}
+            className="rounded-full bg-[#2E9EE8] px-4 py-2 text-sm font-medium text-white transition-opacity duration-[130ms] hover:opacity-90 disabled:opacity-60"
+          >
+            {creating ? 'Creating…' : 'New guide'}
+          </button>
         </div>
 
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {error && <p className="mb-4 text-sm text-[#9C3226]">{error}</p>}
 
         {loading ? (
-          <p className="text-gray-500">Loading…</p>
+          <p className="text-[#8A857A]">Loading…</p>
         ) : guides.length === 0 ? (
-          <p className="text-gray-600">No guides yet. Create one to get started.</p>
+          <p className="text-[#5C574C]">No guides yet. Create one to get started.</p>
         ) : (
-          <div className="bg-white shadow overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
+          <div className="overflow-hidden rounded-[14px] border border-[#E5E5E5] bg-white shadow-[0_1px_2px_rgba(26,26,24,0.06),0_8px_24px_rgba(46,70,120,0.08)]">
+            <table className="min-w-full divide-y divide-[#E5E5E5] text-sm">
+              <thead className="bg-[#F5F2EC]">
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">Title</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">Status</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">Destination</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">Published</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-500">Updated</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Title</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Status</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Views 30d</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Saves 30d</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Destination</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Updated</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-[#E5E5E5]">
                 {guides.map((g) => (
-                  <tr key={g.id} className="hover:bg-gray-50">
+                  <tr key={g.id} className="hover:bg-[#FAF8F3]">
                     <td className="px-4 py-3">
                       <Link
                         href={`/app/admin/guides/${g.id}`}
-                        className="font-medium text-gray-900 hover:underline"
+                        className="font-medium text-[#17181A] hover:underline"
                       >
                         {g.title}
                       </Link>
                       {g.featured && (
-                        <span className="ml-2 text-xs text-amber-700">Featured</span>
+                        <span className="ml-2 text-xs text-[#8C6500]">Featured</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 capitalize text-gray-600">{g.status}</td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 capitalize text-[#5C574C]">{g.status}</td>
+                    <td className="px-4 py-3 text-[#5C574C]">{g.views_30d ?? 0}</td>
+                    <td className="px-4 py-3 text-[#5C574C]">{g.saves_30d ?? 0}</td>
+                    <td className="px-4 py-3 text-[#5C574C]">
                       {[g.destination_name, g.country].filter(Boolean).join(', ') || '—'}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {g.published_at
-                        ? new Date(g.published_at).toLocaleDateString('en-GB')
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-[#8A857A]">
                       {g.updated_at
                         ? new Date(g.updated_at).toLocaleDateString('en-GB')
                         : '—'}

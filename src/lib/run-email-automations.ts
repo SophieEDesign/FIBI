@@ -220,6 +220,7 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
           template_slug: automation.template_slug,
           automation_id: automation.id,
           status: 'failed',
+          error_detail: err instanceof Error ? err.message : String(err),
         })
       } catch {
         /* ignore */
@@ -306,6 +307,7 @@ export async function runOneOffSend(
           template_slug: templateSlug,
           automation_id: null,
           status: 'failed',
+          error_detail: err instanceof Error ? err.message : String(err),
         })
       } catch {
         /* ignore */
@@ -440,6 +442,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
             template_slug: automation.template_slug,
             automation_id: automation.id,
             status: 'failed',
+            error_detail: msg,
           })
         } catch (logErr) {
           console.error('Failed to log failed send:', logErr)

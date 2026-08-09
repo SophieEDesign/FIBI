@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 import {
   type ConditionsForm,
   conditionsToForm,
@@ -30,18 +30,10 @@ export default function EmailSegmentsClient() {
   const [recipientCount, setRecipientCount] = useState<number | null>(null)
   const [loadingCount, setLoadingCount] = useState(false)
 
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return {}
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) return { Authorization: `Bearer ${session.access_token}` }
-    return {}
-  }, [])
 
   const fetchSegments = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/emails/segments', { credentials: 'include', headers })
       if (!res.ok) {
         setError(res.status === 403 ? 'Access denied' : 'Failed to load segments')
@@ -54,7 +46,7 @@ export default function EmailSegmentsClient() {
     } finally {
       setLoading(false)
     }
-  }, [getAuthHeaders])
+  }, [])
 
   useEffect(() => {
     fetchSegments()
@@ -81,7 +73,7 @@ export default function EmailSegmentsClient() {
     setLoadingCount(true)
     setRecipientCount(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const qs = buildQuery(form.conditions)
       const res = await fetch(`/api/admin/emails/recipients${qs ? `?${qs}` : ''}`, {
         credentials: 'include',
@@ -119,7 +111,7 @@ export default function EmailSegmentsClient() {
     setSaving(true)
     setFormError(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const payload = {
         name: form.name.trim(),
         description: form.description.trim(),
@@ -159,7 +151,7 @@ export default function EmailSegmentsClient() {
 
   const remove = async (id: string) => {
     if (!confirm('Delete this segment?')) return
-    const headers = await getAuthHeaders()
+    const headers = await getAdminAuthHeaders()
     await fetch(`/api/admin/emails/segments/${id}`, {
       method: 'DELETE',
       credentials: 'include',
@@ -190,7 +182,7 @@ export default function EmailSegmentsClient() {
         <button
           type="button"
           onClick={openCreate}
-          className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800"
+          className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover"
         >
           New segment
         </button>
@@ -248,7 +240,7 @@ export default function EmailSegmentsClient() {
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save'}
               </button>

@@ -595,12 +595,17 @@ export default function MapView() {
       console.log('MapView: Creating marker for item:', item.id, { lat, lng, title: item.title })
       const position = new window.google.maps.LatLng(lat, lng)
 
-      // Create custom pin icon (soft, aesthetic)
+      // Sky default; gold = liked/saved; orchid = planned
+      const fillColor = item.liked
+        ? '#E0A800'
+        : item.planned
+          ? '#C888D8'
+          : '#2E9EE8'
       const pinIcon = {
         path: window.google.maps.SymbolPath?.CIRCLE || 0, // CIRCLE = 0
         scale: 8,
-        fillColor: '#8B5CF6', // Soft purple
-        fillOpacity: 0.8,
+        fillColor,
+        fillOpacity: 0.92,
         strokeColor: '#FFFFFF',
         strokeWeight: 2,
         anchor: new window.google.maps.Point(0, 0),
@@ -655,16 +660,16 @@ export default function MapView() {
   return (
     <div className="fixed top-0 left-0 right-0 bottom-0 flex flex-col md:top-16">
       {/* Simple header */}
-      <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-40 md:sticky md:top-16">
+      <div className="bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150 border-b border-[color:var(--border-subtle)] z-40 md:sticky md:top-16">
         {/* Trip filter - Top */}
         <div className="px-4 pt-3 pb-2">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <button
               onClick={() => setSelectedItineraryId(null)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                 selectedItineraryId === null
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                  ? 'bg-accent text-white'
+                  : 'bg-white text-secondary border border-[color:var(--border-default)] hover:bg-[color:var(--bg-subtle)]'
               }`}
             >
               All
@@ -673,10 +678,10 @@ export default function MapView() {
               <button
                 key={itinerary.id}
                 onClick={() => setSelectedItineraryId(itinerary.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-fast ${
                   selectedItineraryId === itinerary.id
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    ? 'bg-accent text-white'
+                    : 'bg-white text-secondary border border-[color:var(--border-default)] hover:bg-[color:var(--bg-subtle)]'
                 }`}
               >
                 {itinerary.name}
@@ -835,7 +840,7 @@ export default function MapView() {
             </p>
             <Link
               href="/app/add"
-              className="inline-block bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors pointer-events-auto"
+              className="inline-block bg-accent text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors pointer-events-auto"
             >
               Add a place with location
             </Link>
@@ -884,7 +889,7 @@ export default function MapView() {
                     }
                   }}
                   placeholder="e.g., Weekend Trip, Italy Ideas"
-                  className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                  className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-sky-400 text-gray-900 bg-white"
                   autoFocus
                 />
               </div>
@@ -892,7 +897,7 @@ export default function MapView() {
                 <button
                   onClick={handleCreateItinerary}
                   disabled={!newItineraryName.trim() || creatingItinerary}
-                  className="flex-1 bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-accent text-white py-2 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creatingItinerary ? 'Creating…' : 'Start trip'}
                 </button>
@@ -1031,7 +1036,7 @@ function MapAddToTripModal({
               <select
                 value={selectedItineraryId || ''}
                 onChange={(e) => onItineraryChange(e.target.value || null)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-sky-400 focus:border-sky-400 bg-white"
               >
                 <option value="">No trip</option>
                 {itineraries.map((itinerary) => (
@@ -1057,14 +1062,14 @@ function MapAddToTripModal({
                       if (e.key === 'Enter' && newItineraryName.trim()) handleCreateItinerary()
                     }}
                     placeholder="Trip name"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-sky-400 focus:border-sky-400"
                     autoFocus
                   />
                   <div className="flex gap-2">
                     <button
                       onClick={handleCreateItinerary}
                       disabled={!newItineraryName.trim() || creatingItinerary}
-                      className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 px-4 py-2 text-sm font-medium bg-accent text-white rounded-full hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {creatingItinerary ? 'Creating…' : 'Start trip'}
                     </button>
@@ -1095,7 +1100,7 @@ function MapAddToTripModal({
             <button
               onClick={onSave}
               disabled={saving}
-              className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>

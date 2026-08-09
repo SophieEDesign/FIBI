@@ -1,0 +1,28 @@
+:root{
+--fw-light:300; /* @kind font */--fw-regular:400; /* @kind font */--fw-medium:500; /* @kind font */--fw-semibold:600; /* @kind font */--fw-bold:700; /* @kind font */
+--lh-tight:1.08; /* @kind font */--lh-snug:1.25; /* @kind font */--lh-normal:1.45; /* @kind font */--lh-relaxed:1.6; /* @kind font */
+--ls-tighter:-0.032em; /* @kind font */--ls-tight:-0.018em; /* @kind font */--ls-normal:-0.006em; /* @kind font */--ls-wide:0.04em; /* @kind font */--ls-caps:0.11em; /* @kind font */
+/* Type ramp — size / line-height / tracking */
+--fs-display:clamp(40px,6vw,64px); /* @kind font */--lh-display:1.04; /* @kind font */
+--fs-h1:40px;--lh-h1:1.1; /* @kind font */
+--fs-h2:30px;--lh-h2:1.16; /* @kind font */
+--fs-h3:22px;--lh-h3:1.25; /* @kind font */
+--fs-h4:18px;--lh-h4:1.35; /* @kind font */
+--fs-body-lg:17px;--lh-body-lg:1.55; /* @kind font */
+--fs-body:15px;--lh-body:1.55; /* @kind font */
+--fs-sm:13px;--lh-sm:1.5; /* @kind font */
+--fs-xs:12px;--lh-xs:1.4; /* @kind font */
+--fs-mono:13px;
+--fs-eyebrow:12px;
+/* Composite roles */
+--type-display:var(--fw-semibold) var(--fs-display)/var(--lh-display) var(--font-sans); /* @kind font */
+--type-h1:var(--fw-semibold) var(--fs-h1)/var(--lh-h1) var(--font-sans); /* @kind font */
+--type-h2:var(--fw-semibold) var(--fs-h2)/var(--lh-h2) var(--font-sans); /* @kind font */
+--type-h3:var(--fw-medium) var(--fs-h3)/var(--lh-h3) var(--font-sans); /* @kind font */
+--type-h4:var(--fw-medium) var(--fs-h4)/var(--lh-h4) var(--font-sans); /* @kind font */
+--type-body:var(--fw-regular) var(--fs-body)/var(--lh-body) var(--font-sans); /* @kind font */
+--type-body-lg:var(--fw-regular) var(--fs-body-lg)/var(--lh-body-lg) var(--font-sans); /* @kind font */
+--type-label:var(--fw-medium) var(--fs-sm)/var(--lh-sm) var(--font-sans); /* @kind font */
+--type-caption:var(--fw-regular) var(--fs-xs)/var(--lh-xs) var(--font-sans); /* @kind font */
+--type-mono:var(--fw-regular) var(--fs-mono)/1.5 var(--font-mono); /* @kind font */
+}

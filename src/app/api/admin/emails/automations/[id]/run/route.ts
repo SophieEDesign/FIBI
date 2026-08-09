@@ -22,10 +22,24 @@ export async function POST(
     }
 
     const result = await runSingleAutomation(id)
+
+    const { getAdminSupabase } = await import('@/lib/admin')
+    const { writeAdminAuditLog } = await import('@/lib/admin-audit')
+    await writeAdminAuditLog(getAdminSupabase(), {
+      actorId: auth.userId,
+      action: 'email.automation_run',
+      targetType: 'email_automation',
+      targetId: id,
+      meta: {
+        sent: result.sent,
+        skipped: result.skipped,
+        failed: result.failed,
+      },
+    })
+
     return NextResponse.json(result)
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('Admin automations run [id]:', err)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -213,7 +213,7 @@ export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
             </div>
             <button
               onClick={() => setShowInstallHelp(false)}
-              className="w-full bg-gray-900 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              className="w-full bg-accent text-white py-2 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors"
             >
               Got it
             </button>

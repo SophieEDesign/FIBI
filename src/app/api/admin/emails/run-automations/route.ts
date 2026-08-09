@@ -66,13 +66,18 @@ export async function POST(request: NextRequest) {
       errors: result.errors,
     }
 
+    const { writeAdminAuditLog } = await import('@/lib/admin-audit')
+    await writeAdminAuditLog(admin, {
+      actorId: auth.userId,
+      action: 'email.automations_run_all',
+      targetType: 'automation_runs',
+      targetId: runRow?.id ?? null,
+      meta: summary,
+    })
+
     return NextResponse.json(summary)
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
-    console.error('[admin/run-automations]', message)
-    return NextResponse.json(
-      { error: 'Internal error', detail: message },
-      { status: 500 }
-    )
+    console.error('[admin/run-automations]', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -28,10 +28,10 @@ export default function CookieConsentBar() {
     <div
       role="dialog"
       aria-label="Cookie consent"
-      className="fixed bottom-0 left-0 right-0 z-50 bg-[#171717] text-white px-4 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.15)]"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-indigo-900 text-white px-4 py-4 shadow-soft-md"
     >
       <div className="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <p className="text-sm text-gray-200">
+        <p className="text-sm text-white/80">
           We use cookies and local storage to keep you signed in and to remember your preferences.
           We do not use advertising or tracking cookies. See our{' '}
           <Link href="/privacy" className="underline hover:no-underline text-white font-medium">
@@ -42,7 +42,7 @@ export default function CookieConsentBar() {
         <button
           type="button"
           onClick={accept}
-          className="shrink-0 px-5 py-2.5 bg-white text-[#171717] text-sm font-medium rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#171717]"
+          className="shrink-0 px-5 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors duration-fast focus:outline-none focus:shadow-[var(--focus-ring)]"
         >
           Accept
         </button>

@@ -114,6 +114,16 @@ export async function POST(
       }
     }
 
+    try {
+      const { getAdminSupabase } = await import('@/lib/admin')
+      await getAdminSupabase().from('travel_guide_saves').insert({
+        guide_id: typedGuide.id,
+        user_id: user.id,
+      })
+    } catch (e) {
+      console.error('guide save attribution', e)
+    }
+
     return NextResponse.json({
       success: true,
       itinerary_id: newItinerary.id,

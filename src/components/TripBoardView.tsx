@@ -227,7 +227,7 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
             type="button"
             onClick={handleSaveBoard}
             disabled={saving}
-            className="w-full sm:w-auto bg-fibi-gradient-cta text-white px-8 py-3.5 rounded-lg font-medium hover:opacity-95 disabled:opacity-50"
+            className="w-full sm:w-auto bg-accent text-white px-8 py-3.5 rounded-full font-medium hover:opacity-95 disabled:opacity-50"
           >
             {saving ? 'Adding…' : 'Add this board to FIBI'}
           </button>

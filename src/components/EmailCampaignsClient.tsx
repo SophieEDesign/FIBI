@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
 import { type ConditionsForm, formToConditions } from '@/lib/email-conditions'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 
 interface Campaign {
   id: string
@@ -103,17 +103,9 @@ export default function EmailCampaignsClient() {
   const [sendingId, setSendingId] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return {}
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) return { Authorization: `Bearer ${session.access_token}` }
-    return {}
-  }, [])
 
   const refresh = useCallback(async () => {
-    const headers = await getAuthHeaders()
+    const headers = await getAdminAuthHeaders()
     const [cRes, tRes, sRes] = await Promise.all([
       fetch('/api/admin/emails/campaigns', { credentials: 'include', headers }),
       fetch('/api/admin/emails/templates', { credentials: 'include', headers }),
@@ -142,7 +134,7 @@ export default function EmailCampaignsClient() {
         name: s.name,
       })))
     }
-  }, [getAuthHeaders])
+  }, [])
 
   useEffect(() => {
     refresh().finally(() => setLoading(false))
@@ -249,7 +241,7 @@ export default function EmailCampaignsClient() {
 
   const previewAudience = async () => {
     setRecipientCount(null)
-    const headers = await getAuthHeaders()
+    const headers = await getAdminAuthHeaders()
     let qs = ''
     if (segmentId) {
       const segRes = await fetch(`/api/admin/emails/segments/${segmentId}`, {
@@ -332,7 +324,7 @@ export default function EmailCampaignsClient() {
     setSaving(true)
     setFormError(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const body: Record<string, unknown> = {
         name: name.trim(),
         template_slug: templateSlug,
@@ -390,10 +382,17 @@ export default function EmailCampaignsClient() {
   }
 
   const sendNow = async (id: string) => {
-    if (!confirm('Send this campaign now?')) return
+    const campaign = campaigns.find((c) => c.id === id)
+    const audience = campaign?.audience_count
+    const ok = window.confirm(
+      audience && audience > 0
+        ? `Send this campaign now to about ${audience} people (marketing opt-in only)?`
+        : 'Send this campaign now to the matched audience (marketing opt-in only)?'
+    )
+    if (!ok) return
     setSendingId(id)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch(`/api/admin/emails/campaigns/${id}/send`, {
         method: 'POST',
         credentials: 'include',
@@ -408,7 +407,7 @@ export default function EmailCampaignsClient() {
   }
 
   const cancelCampaign = async (id: string) => {
-    const headers = await getAuthHeaders()
+    const headers = await getAdminAuthHeaders()
     await fetch(`/api/admin/emails/campaigns/${id}`, {
       method: 'PATCH',
       credentials: 'include',
@@ -443,7 +442,7 @@ export default function EmailCampaignsClient() {
         <button
           type="button"
           onClick={openWizard}
-          className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800"
+          className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover"
         >
           Create campaign
         </button>
@@ -462,7 +461,7 @@ export default function EmailCampaignsClient() {
                     <span
                       className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
                         active
-                          ? 'bg-gray-900 text-white'
+                          ? 'bg-accent text-white'
                           : done
                             ? 'bg-emerald-600 text-white'
                             : 'bg-gray-200 text-gray-600'
@@ -748,7 +747,7 @@ export default function EmailCampaignsClient() {
                 <button
                   type="button"
                   onClick={goNext}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800"
+                  className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover"
                 >
                   Next
                 </button>
@@ -757,7 +756,7 @@ export default function EmailCampaignsClient() {
                   type="button"
                   onClick={createAndMaybeSend}
                   disabled={saving || !!sendingId || !allChecklistOk}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-hover disabled:opacity-50"
                 >
                   {saving || sendingId
                     ? 'Working…'
@@ -784,20 +783,17 @@ export default function EmailCampaignsClient() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campaign</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Segment</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Audience</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Click</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bounce</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unsub</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Opened</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {campaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
                     No campaigns yet. Create one to start.
                   </td>
                 </tr>
@@ -806,15 +802,13 @@ export default function EmailCampaignsClient() {
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
                       {c.name}
-                      {c.scheduled_at && c.status === 'scheduled' && (
-                        <div className="text-xs text-gray-500 font-normal">
-                          {new Date(c.scheduled_at).toLocaleString()}
-                        </div>
-                      )}
                       <div className="text-xs text-gray-400 font-normal font-mono">{c.template_slug}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 max-w-[12rem] truncate">
-                      {c.subject || '—'}
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {segments.find((s) => s.id === c.segment_id)?.name || (c.segment_id ? 'Segment' : 'Custom filters')}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {c.audience_count > 0 ? c.audience_count : c.status === 'draft' ? 'Preview before send' : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span
@@ -824,20 +818,7 @@ export default function EmailCampaignsClient() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {c.sent_count}
-                      {c.audience_count > 0 ? ` / ${c.audience_count}` : ''}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {pct(c.opened_count, c.sent_count)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {pct(c.clicked_count, c.sent_count)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {pct(c.bounced_count, c.sent_count)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {pct(c.unsubscribed_count, c.sent_count)}
+                      {c.sent_count > 0 ? pct(c.opened_count, c.sent_count) : '—'}
                     </td>
                     <td className="px-4 py-3 text-sm text-right space-x-2">
                       {(c.status === 'draft' || c.status === 'scheduled' || c.status === 'failed') && (

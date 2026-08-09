@@ -1019,7 +1019,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                   <select
                     value={selectedItineraryId || ''}
                     onChange={(e) => handleItineraryChange(e.target.value || null)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-transparent bg-white"
                   >
                     <option value="">No trip</option>
                     {itineraries.map((itinerary) => (
@@ -1044,7 +1044,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                         onChange={(e) => setNewItineraryName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && newItineraryName.trim() && handleCreateItinerary()}
                         placeholder="Trip name"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                         autoFocus
                       />
                       <div className="flex gap-2">
@@ -1052,7 +1052,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           type="button"
                           onClick={handleCreateItinerary}
                           disabled={!newItineraryName.trim() || creatingItinerary}
-                          className="flex-1 px-4 py-2 text-sm font-medium bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 px-4 py-2 text-sm font-medium bg-accent text-white rounded-full hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {creatingItinerary ? 'Creating…' : 'Start trip'}
                         </button>
@@ -1116,7 +1116,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                             value={categorySearch}
                             onChange={(e) => setCategorySearch(e.target.value)}
                             placeholder="Search categories..."
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                             autoFocus
                           />
                         </div>
@@ -1138,7 +1138,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                                   }}
                                   className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
                                     isSelected
-                                      ? 'bg-gray-900 text-white'
+                                      ? 'bg-accent text-white'
                                       : 'hover:bg-gray-100 text-gray-700'
                                   }`}
                                 >
@@ -1193,7 +1193,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           }}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                             isSelected
-                              ? 'bg-gray-900 text-white'
+                              ? 'bg-accent text-white'
                               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                           }`}
                         >
@@ -1214,7 +1214,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           }}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                             isSelected
-                              ? 'bg-gray-900 text-white'
+                              ? 'bg-accent text-white'
                               : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                           }`}
                         >
@@ -1232,7 +1232,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                         showCustomCategoryInput
-                          ? 'bg-gray-900 text-white'
+                          ? 'bg-accent text-white'
                           : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                       }`}
                     >
@@ -1252,12 +1252,12 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                           }
                         }}
                         placeholder="Enter custom category..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                       />
                       <button
                         type="button"
                         onClick={handleCustomCategorySave}
-                        className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                        className="px-4 py-2 bg-accent text-white rounded-full hover:bg-accent-hover transition-colors"
                       >
                         Save
                       </button>
@@ -1281,7 +1281,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 onBlur={handleNotesBlur}
                 rows={4}
                 placeholder="Add personal notes..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none text-gray-900 bg-white"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-sky-400 focus:border-transparent resize-none text-gray-900 bg-white"
               />
             </div>
 

@@ -1,63 +1,66 @@
+@import "../styles/tokens/fonts.css";
+@import "../styles/tokens/colors.css";
+@import "../styles/tokens/typography.css";
+@import "../styles/tokens/spacing.css";
+@import "../styles/tokens/radius.css";
+@import "../styles/tokens/elevation.css";
+@import "../styles/tokens/motion.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* FiBi neutrals – calm, organised + inspired */
-  --background: #F7F8FA;
-  --foreground: #111827;
-  --charcoal: #111827;
-  --secondary: #6B7280;
-  --accent: #2E9BD6;
-  /* Brand gradient (Blue → Gold → Coral → Lavender) */
-  --fibi-blue-deep: #2E9BD6;
-  --fibi-blue-mid: #5EC3F2;
-  --fibi-blue-light: #BEE9FF;
-  --fibi-gold: #F2B705;
-  --fibi-sand: #F2C879;
-  --fibi-coral: #E8A57C;
-  --fibi-lavender: #C8A6E8;
-  --fibi-mauve: #B985C9;
-  --fibi-plum: #8C5FAF;
-  /* Supporting UI */
-  --fibi-primary: #2E9BD6;
-  --fibi-accent-purple: #B985C9;
-  --fibi-accent-gold: #F2B705;
-  /* Neutrals */
-  --fibi-bg-light: #F7F8FA;
-  --fibi-bg-dark: #0F1230;
-  --fibi-text-primary: #111827;
-  --fibi-muted: #6B7280;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0F1230;
-    --foreground: #F7F8FA;
-  }
+  /* Backward-compatible aliases used across existing Tailwind classes */
+  --background: var(--bg-page);
+  --foreground: var(--text-primary);
+  --charcoal: var(--neutral-900);
+  --secondary: var(--text-secondary);
+  --fibi-blue-deep: var(--sky-500);
+  --fibi-blue-mid: var(--sky-400);
+  --fibi-blue-light: var(--sky-100);
+  --fibi-gold: var(--gold-500);
+  --fibi-sand: var(--gold-200);
+  --fibi-coral: var(--gold-300);
+  --fibi-lavender: var(--orchid-200);
+  --fibi-mauve: var(--orchid-400);
+  --fibi-plum: var(--orchid-600);
+  --fibi-primary: var(--sky-500);
+  --fibi-accent-purple: var(--orchid-400);
+  --fibi-accent-gold: var(--gold-500);
+  --fibi-bg-light: var(--neutral-50);
+  --fibi-bg-dark: var(--indigo-900);
+  --fibi-text-primary: var(--text-primary);
+  --fibi-muted: var(--text-secondary);
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  font: var(--type-body);
+  letter-spacing: var(--ls-normal);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* H1/H2 → DM Sans (medium / semibold). Body / UI → Inter (set on body). */
 h1 {
-  font-family: var(--font-dm-sans), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 600; /* semibold */
-}
-h2 {
-  font-family: var(--font-dm-sans), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 500; /* medium */
+  font: var(--type-h1);
+  letter-spacing: var(--ls-tight);
 }
 
-/* Better contrast for placeholder text (WCAG-friendly on light bg) */
+h2 {
+  font: var(--type-h2);
+  letter-spacing: var(--ls-tight);
+}
+
 ::placeholder {
-  color: var(--fibi-muted);
+  color: var(--text-tertiary);
   opacity: 1;
+}
+
+::selection {
+  background: var(--sky-200);
+  color: var(--indigo-900);
 }
 
 @layer utilities {
@@ -131,4 +134,3 @@ h2 {
     animation: none;
   }
 }
-

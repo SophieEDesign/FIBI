@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
+import AdminConfirmDialog from '@/components/admin/AdminConfirmDialog'
 
 const TRIGGER_OPTIONS = [
   { value: 'user_confirmed', label: 'User confirmed' },
@@ -84,19 +85,12 @@ export default function EmailAutomationsClient() {
   const [runningId, setRunningId] = useState<string | null>(null)
   const [runResult, setRunResult] = useState<{ sent: number; skipped: number; failed: number; errors?: string[] } | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [confirmRunId, setConfirmRunId] = useState<string | null>(null)
 
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      return { Authorization: `Bearer ${session.access_token}` }
-    }
-    return {}
-  }, [])
 
   const fetchAutomations = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/emails/automations', { credentials: 'include', headers })
       if (!res.ok) {
         setError(res.status === 403 ? 'Access denied' : 'Failed to load automations')
@@ -107,11 +101,11 @@ export default function EmailAutomationsClient() {
     } catch {
       setError('Failed to load automations')
     }
-  }, [getAuthHeaders])
+  }, [])
 
   const fetchTemplates = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/emails/templates', { credentials: 'include', headers })
       if (!res.ok) return
       const data = await res.json()
@@ -119,7 +113,7 @@ export default function EmailAutomationsClient() {
     } catch {
       // ignore
     }
-  }, [getAuthHeaders])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -175,7 +169,7 @@ export default function EmailAutomationsClient() {
     }
     setSaving(true)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const url = editing
         ? `/api/admin/emails/automations/${editing.id}`
         : '/api/admin/emails/automations'
@@ -213,7 +207,7 @@ export default function EmailAutomationsClient() {
     setRunResult(null)
     setRunningId(id)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch(`/api/admin/emails/automations/${id}/run`, {
         method: 'POST',
         credentials: 'include',
@@ -306,7 +300,7 @@ export default function EmailAutomationsClient() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleRun(a.id)}
+                        onClick={() => setConfirmRunId(a.id)}
                         disabled={runningId !== null || !a.is_active}
                         className="text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
                       >
@@ -527,7 +521,7 @@ export default function EmailAutomationsClient() {
             {editing && (
               <button
                 type="button"
-                onClick={() => handleRun(editing.id)}
+                onClick={() => setConfirmRunId(editing.id)}
                 disabled={runningId !== null || !editing.is_active}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
               >
@@ -537,6 +531,24 @@ export default function EmailAutomationsClient() {
           </div>
         </div>
       )}
+
+      <AdminConfirmDialog
+        open={!!confirmRunId}
+        title="Run this automation now?"
+        body={
+          confirmRunId
+            ? `This will evaluate “${automations.find((a) => a.id === confirmRunId)?.name ?? 'this automation'}” against eligible people (marketing opt-in, throttle and template rules apply), then send matching emails. Continue?`
+            : ''
+        }
+        confirmLabel="Run now"
+        busy={runningId !== null}
+        onCancel={() => setConfirmRunId(null)}
+        onConfirm={() => {
+          const id = confirmRunId
+          setConfirmRunId(null)
+          if (id) void handleRun(id)
+        }}
+      />
     </div>
   )
 }

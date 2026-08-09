@@ -471,7 +471,7 @@ export default function QuickSaveForm() {
             <button
               type="submit"
               disabled={loading || !url.trim()}
-              className="w-full bg-fibi-gradient-cta text-white py-3.5 rounded-lg font-medium hover:opacity-95 transition-all shadow-md disabled:opacity-50"
+              className="w-full bg-accent text-white py-3.5 rounded-full font-medium hover:opacity-95 transition-all shadow-md disabled:opacity-50"
             >
               {loading ? 'Saving…' : 'Save'}
             </button>

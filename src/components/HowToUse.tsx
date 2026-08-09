@@ -197,7 +197,7 @@ export default function HowToUse() {
           </section>
 
           {/* CTA */}
-          <section className="bg-gray-900 rounded-lg p-8 md:p-12 text-center">
+          <section className="bg-indigo-900 rounded-2xl p-8 md:p-12 text-center">
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
               Ready to get started?
             </h2>
@@ -207,15 +207,15 @@ export default function HowToUse() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/app/add"
-                className="bg-white text-gray-900 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                className="bg-accent text-white px-6 py-3 rounded-full font-medium hover:bg-accent-hover transition-colors duration-fast"
               >
-                Add Your First Place
+                Add your first place
               </Link>
               <Link
                 href="/app"
-                className="bg-gray-800 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition-colors border border-gray-700"
+                className="bg-transparent text-white px-6 py-3 rounded-full font-medium hover:bg-white/10 transition-colors duration-fast border border-white/30"
               >
-                View Your Places
+                View your places
               </Link>
             </div>
           </section>

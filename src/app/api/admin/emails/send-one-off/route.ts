@@ -48,6 +48,20 @@ export async function POST(request: NextRequest) {
 
     const result = await runOneOffSend(templateSlug, filters)
 
+    const { writeAdminAuditLog } = await import('@/lib/admin-audit')
+    await writeAdminAuditLog(getAdminSupabase(), {
+      actorId: auth.userId,
+      action: 'email.one_off',
+      targetType: 'email_template',
+      targetId: templateSlug,
+      meta: {
+        sent: result.sent,
+        skipped: result.skipped,
+        failed: result.failed,
+        segment_id: typeof body.segment_id === 'string' ? body.segment_id : null,
+      },
+    })
+
     return NextResponse.json({
       sent: result.sent,
       skipped: result.skipped,

@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
 import SiteFooter from '@/components/SiteFooter'
 import GuideCardLink from '@/components/guides/GuideCardLink'
+import { Button } from '@/components/ui/Button'
 import type { GuideCard } from '@/lib/travel-guides-shared'
 
 const DEMO_PLACES = [
@@ -153,7 +154,7 @@ function ProductDemo() {
               <p className="text-[10px] font-medium text-fibi-muted text-center mb-3">Share to</p>
               <div className="flex justify-center gap-3">
                 <div className="flex flex-col items-center gap-1">
-                  <div className="w-10 h-10 rounded-xl bg-fibi-gradient-cta flex items-center justify-center shadow-sm ring-2 ring-fibi-primary ring-offset-1">
+                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shadow-soft ring-2 ring-sky-200 ring-offset-1">
                     <img src="/FIBI Logo.png" alt="" className="h-5 w-auto" />
                   </div>
                   <span className="text-[9px] font-semibold text-fibi-text-primary">FIBI</span>
@@ -258,7 +259,7 @@ function ProductDemo() {
             onClick={() => setStep(i)}
             className={`text-[10px] sm:text-xs px-2 py-1 rounded-md transition-colors ${
               step === i
-                ? 'bg-fibi-text-primary text-white'
+                ? 'bg-accent text-white'
                 : 'bg-white/80 text-fibi-muted border border-gray-200'
             }`}
             aria-current={step === i ? 'step' : undefined}
@@ -341,11 +342,11 @@ function HeroPasteSave() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="Paste a TikTok, Instagram or web link"
-          className="flex-1 px-4 py-3.5 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-fibi-primary/30 focus:border-fibi-primary"
+          className="flex-1 px-4 py-3.5 rounded-full border border-[color:var(--border-subtle)] bg-white text-sm focus:outline-none focus:border-[color:var(--border-brand)] focus:shadow-[var(--focus-ring)]"
         />
         <button
           type="submit"
-          className="bg-fibi-gradient-cta text-white px-6 py-3.5 rounded-lg font-medium hover:opacity-95 transition-all shadow-md whitespace-nowrap"
+          className="bg-accent text-white px-6 py-3.5 rounded-full font-medium hover:bg-accent-hover transition-colors duration-fast shadow-soft whitespace-nowrap"
         >
           Save
         </button>
@@ -376,7 +377,7 @@ export default function LandingPage({
 
   return (
     <div className="min-h-screen bg-fibi-bg-light text-fibi-text-primary">
-      <header className="border-b border-gray-200/60 sticky top-0 z-30 bg-fibi-bg-light/95 backdrop-blur-sm">
+      <header className="border-b border-[color:var(--border-subtle)] sticky top-0 z-30 bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <img src="/FIBI Logo.png" alt="FIBI" className="h-8 w-auto" />
@@ -401,11 +402,7 @@ export default function LandingPage({
       <main>
         <section className="relative overflow-hidden">
           <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                'radial-gradient(ellipse 90% 70% at 75% 15%, rgba(46,155,214,0.18), transparent 55%), radial-gradient(ellipse 60% 50% at 10% 85%, rgba(242,199,121,0.16), transparent 50%)',
-            }}
+            className="absolute inset-0 pointer-events-none bg-fibi-aurora"
           />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-20 lg:pt-20 lg:pb-28">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
@@ -500,12 +497,9 @@ export default function LandingPage({
             ) : null}
 
             <div className="text-center">
-              <Link
-                href="/travel-guides"
-                className="inline-flex items-center px-5 py-2.5 text-sm font-medium bg-fibi-text-primary text-white hover:opacity-90"
-              >
+              <Button href="/travel-guides" size="sm">
                 Explore Travel Guides
-              </Link>
+              </Button>
             </div>
           </div>
         </section>
@@ -620,12 +614,9 @@ export default function LandingPage({
             <p className="text-fibi-muted">
               Create an account when you want your places kept for good.
             </p>
-            <Link
-              href="/add"
-              className="inline-block bg-fibi-gradient-cta text-white px-8 py-3.5 rounded-lg font-medium hover:opacity-95 transition-all shadow-md"
-            >
+            <Button href="/add" size="lg" variant="gradient">
               Save a place
-            </Link>
+            </Button>
           </div>
         </section>
       </main>

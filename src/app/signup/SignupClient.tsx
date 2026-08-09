@@ -342,7 +342,7 @@ export default function SignupClient() {
                   setError(null)
                 }}
                 required
-                className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-sky-400 text-gray-900 bg-white"
                 placeholder="you@example.com"
               />
             </div>
@@ -359,13 +359,13 @@ export default function SignupClient() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full px-4 py-2 pr-11 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                  className="w-full px-4 py-2 pr-11 border border-gray-400 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-sky-400 text-gray-900 bg-white"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((p) => !p)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-1"
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
@@ -396,13 +396,13 @@ export default function SignupClient() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full px-4 py-2 pr-11 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                  className="w-full px-4 py-2 pr-11 border border-gray-400 rounded-lg focus:ring-2 focus:ring-sky-400 focus:border-sky-400 text-gray-900 bg-white"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword((p) => !p)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-1"
                   aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                   tabIndex={-1}
                 >
@@ -426,7 +426,7 @@ export default function SignupClient() {
                 type="checkbox"
                 checked={marketingOptIn}
                 onChange={(e) => setMarketingOptIn(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-sky-400"
                 aria-describedby="marketingOptIn-description"
               />
               <label id="marketingOptIn-description" htmlFor="marketingOptIn" className="text-sm text-gray-600">
@@ -447,7 +447,7 @@ export default function SignupClient() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2"
+              className="w-full bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2"
             >
               {loading ? 'Creating account...' : 'Sign up'}
             </button>

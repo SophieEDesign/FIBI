@@ -1224,7 +1224,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                         </svg>
                       )}
-                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-indigo-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                         Share trip
                       </span>
                     </button>
@@ -1282,7 +1282,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-indigo-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                           Remove trip
                         </span>
                       </button>
@@ -1527,14 +1527,14 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           type="date"
                           value={editTripStart}
                           onChange={(e) => setEditTripStart(e.target.value)}
-                          className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900/20 focus:border-gray-400"
+                          className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-sky-400/20 focus:border-gray-400"
                         />
                         <span className="text-gray-400">–</span>
                         <input
                           type="date"
                           value={editTripEnd}
                           onChange={(e) => setEditTripEnd(e.target.value)}
-                          className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900/20 focus:border-gray-400"
+                          className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-sky-400/20 focus:border-gray-400"
                         />
                         <button
                           type="button"
@@ -1662,7 +1662,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                               onBlur={() => saveTripNotes(tripNotesValue)}
                               placeholder="Add notes about this trip..."
                               rows={3}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent resize-none"
                             />
                             {savingTripNotes && <p className="text-xs text-gray-500 mt-2">Saving…</p>}
                           </div>
@@ -1713,13 +1713,13 @@ export default function CalendarView({ user }: CalendarViewProps) {
                             onChange={(e) => setNewCommentBody(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && postComment()}
                             placeholder="Add a comment..."
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                           />
                           <button
                             type="button"
                             onClick={postComment}
                             disabled={postingComment || !newCommentBody.trim()}
-                            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-4 py-2 bg-accent text-white rounded-full text-sm font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {postingComment ? 'Sending…' : 'Send'}
                           </button>
@@ -1737,7 +1737,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   onClick={() => setTripContentView('board')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     tripContentView === 'board'
-                      ? 'bg-gray-900 text-white'
+                      ? 'bg-accent text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -1747,7 +1747,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   onClick={() => setTripContentView('videos')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     tripContentView === 'videos'
-                      ? 'bg-gray-900 text-white'
+                      ? 'bg-accent text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -1791,7 +1791,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           <select
                             value={boardSort}
                             onChange={(e) => setBoardSort(e.target.value as 'position' | 'title' | 'date-added' | 'category')}
-                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                           >
                             <option value="position">Order on board</option>
                             <option value="title">Title A–Z</option>
@@ -1804,7 +1804,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           <select
                             value={boardGroupBy}
                             onChange={(e) => setBoardGroupBy(e.target.value as 'none' | 'category' | 'location' | 'liked' | 'planned')}
-                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-800 focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                           >
                             <option value="none">None</option>
                             <option value="category">Category</option>
@@ -1901,7 +1901,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   >
                     <span>Location</span>
                     {unplannedLocationFilters.length > 0 && (
-                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-accent text-white rounded-full">
                         {unplannedLocationFilters.length}
                       </span>
                     )}
@@ -1923,7 +1923,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           value={locationSearch}
                           onChange={(e) => setLocationSearch(e.target.value)}
                           placeholder="Search locations..."
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                           autoFocus
                         />
                       </div>
@@ -1935,7 +1935,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           }}
                           className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
                             unplannedLocationFilters.length === 0
-                              ? 'bg-gray-900 text-white'
+                              ? 'bg-accent text-white'
                               : 'hover:bg-gray-100 text-gray-700'
                           }`}
                         >
@@ -1959,7 +1959,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                                 }}
                                 className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
                                   isSelected
-                                    ? 'bg-gray-900 text-white'
+                                    ? 'bg-accent text-white'
                                     : 'hover:bg-gray-100 text-gray-700'
                                 }`}
                               >
@@ -1998,7 +1998,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   >
                     <span>Category</span>
                     {unplannedCategoryFilters.length > 0 && (
-                      <span className="px-1.5 py-0.5 text-xs font-medium bg-gray-900 text-white rounded-full">
+                      <span className="px-1.5 py-0.5 text-xs font-medium bg-accent text-white rounded-full">
                         {unplannedCategoryFilters.length}
                       </span>
                     )}
@@ -2020,7 +2020,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           value={categorySearch}
                           onChange={(e) => setCategorySearch(e.target.value)}
                           placeholder="Search categories..."
-                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                           autoFocus
                         />
                       </div>
@@ -2032,7 +2032,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           }}
                           className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors ${
                             unplannedCategoryFilters.length === 0
-                              ? 'bg-gray-900 text-white'
+                              ? 'bg-accent text-white'
                               : 'hover:bg-gray-100 text-gray-700'
                           }`}
                         >
@@ -2056,7 +2056,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                                 }}
                                 className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 ${
                                   isSelected
-                                    ? 'bg-gray-900 text-white'
+                                    ? 'bg-accent text-white'
                                     : 'hover:bg-gray-100 text-gray-700'
                                 }`}
                               >
@@ -2089,7 +2089,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   {unplannedLocationFilters.map((loc) => (
                     <span
                       key={loc}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-accent text-white rounded-full"
                     >
                       {loc}
                       <button
@@ -2103,7 +2103,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                   {unplannedCategoryFilters.map((cat) => (
                     <span
                       key={cat}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-gray-900 text-white rounded-md"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-accent text-white rounded-full"
                     >
                       {cat}
                       <button
@@ -2290,7 +2290,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           name="shareType"
                           checked={shareType === 'collaborate'}
                           onChange={() => setShareType('collaborate')}
-                          className="mt-1 text-gray-900 focus:ring-gray-900"
+                          className="mt-1 text-gray-900 focus:ring-sky-400"
                         />
                         <div>
                           <span className="font-medium text-gray-900">Collaborate</span>
@@ -2303,7 +2303,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                           name="shareType"
                           checked={shareType === 'copy'}
                           onChange={() => setShareType('copy')}
-                          className="mt-1 text-gray-900 focus:ring-gray-900"
+                          className="mt-1 text-gray-900 focus:ring-sky-400"
                         />
                         <div>
                           <span className="font-medium text-gray-900">Send a copy</span>
@@ -2314,7 +2314,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     <button
                       onClick={handleShareContinue}
                       disabled={loadingShare}
-                      className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full px-4 py-2 bg-accent text-white rounded-full font-medium hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {loadingShare ? (
                         <>
@@ -2340,7 +2340,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                       type="text"
                       value={shareUrl || ''}
                       readOnly
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent"
                       onClick={(e) => {
                         const target = e.target as HTMLInputElement
                         target.select()
@@ -2348,7 +2348,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
                     />
                     <button
                       onClick={handleCopyLink}
-                      className="px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-accent text-white rounded-full font-medium hover:bg-accent-hover transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                       disabled={!shareUrl}
                     >
                       {copied ? (
@@ -2517,7 +2517,7 @@ title: 'Shared trip',
                         }
                       }
                     }}
-                    className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2 bg-accent text-white rounded-full font-medium hover:bg-accent-hover transition-colors flex items-center justify-center gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -2609,7 +2609,7 @@ title: 'Shared trip',
             </p>
             <Link
               href="/app/add"
-              className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+              className="inline-block bg-accent text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors"
             >
               Add your first place
             </Link>

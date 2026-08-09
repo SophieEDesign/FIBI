@@ -1,21 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, DM_Sans } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import CookieConsentBar from '@/components/CookieConsentBar';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
 
 function getSiteUrl(): string {
   if (typeof process !== 'undefined') {
@@ -121,7 +109,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="FIBI" />
         <meta property="fb:app_id" content="25519623950997349" />
       </head>
-      <body className={`${inter.variable} ${dmSans.variable} ${inter.className}`}>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} ${GeistSans.className}`}>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

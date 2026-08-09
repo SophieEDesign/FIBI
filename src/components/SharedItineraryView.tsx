@@ -196,7 +196,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         icon: {
           path: window.google.maps.SymbolPath?.CIRCLE || 0,
           scale: 8,
-          fillColor: '#8B5CF6',
+          fillColor: '#2E9EE8',
           fillOpacity: 0.8,
           strokeColor: '#FFFFFF',
           strokeWeight: 2,
@@ -428,7 +428,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
           <p className="text-sm text-gray-600 mb-6">{error}</p>
           <Link
             href="/"
-            className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+            className="inline-block bg-accent text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors"
           >
             Go to FIBI
           </Link>
@@ -473,7 +473,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                       type="button"
                       onClick={handleJoinCollaborator}
                       disabled={joiningCollaborator}
-                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {joiningCollaborator ? (
                         <>
@@ -490,7 +490,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                   ) : (
                     <Link
                       href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
-                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
                     >
                       Join as collaborator
                     </Link>
@@ -511,7 +511,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                   type="button"
                   onClick={handleAddToAccount}
                   disabled={addingToAccount}
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {addingToAccount ? (
                     <>
@@ -528,7 +528,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               ) : (
                 <Link
                   href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 transition-colors"
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
                 >
                   Add to my account
                 </Link>
@@ -592,7 +592,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               onClick={() => setViewMode('moodboard')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === 'moodboard'
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-accent text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -602,7 +602,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               onClick={() => setViewMode('list')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === 'list'
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-accent text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -612,7 +612,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               onClick={() => setViewMode('map')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === 'map'
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-accent text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -622,7 +622,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
               onClick={() => setViewMode('videos')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 viewMode === 'videos'
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-accent text-white'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -661,7 +661,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                       setSwipeViewerInitialIndex(index)
                       setSwipeViewerOpen(true)
                     }}
-                    className="w-full text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 flex flex-col min-w-0"
+                    className="w-full text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 flex flex-col min-w-0"
                   >
                     <div className="flex-1 min-h-0 relative bg-gray-100 overflow-hidden">
                       {isVideoTypeItem(item) ? (
@@ -841,7 +841,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
           </p>
           <Link
             href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
-            className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+            className="inline-block bg-accent text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors"
           >
             Get started
           </Link>

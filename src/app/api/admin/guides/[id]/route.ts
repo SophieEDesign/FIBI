@@ -98,6 +98,16 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
     updates.status = body.status
+    if (body.status === 'published') {
+      const { data: current } = await admin
+        .from('travel_guides')
+        .select('status, published_at')
+        .eq('id', id)
+        .maybeSingle()
+      if (!current?.published_at) {
+        updates.published_at = new Date().toISOString()
+      }
+    }
   }
 
   if (Object.keys(updates).length === 0) {
@@ -116,6 +126,17 @@ export async function PATCH(
     return NextResponse.json({ error: 'Failed to update guide' }, { status: 500 })
   }
 
+  if (updates.status === 'published') {
+    const { writeAdminAuditLog } = await import('@/lib/admin-audit')
+    await writeAdminAuditLog(admin, {
+      actorId: auth.userId,
+      action: 'guide.publish',
+      targetType: 'travel_guide',
+      targetId: id,
+      meta: { slug: data.slug, title: data.title },
+    })
+  }
+
   return NextResponse.json({ guide: data })
 }
 
@@ -128,12 +149,22 @@ export async function DELETE(
 
   const { id } = await params
   const admin = getAdminSupabase()
+  const { data: existing } = await admin.from('travel_guides').select('slug, title').eq('id', id).maybeSingle()
   const { error } = await admin.from('travel_guides').delete().eq('id', id)
 
   if (error) {
     console.error('Admin delete guide error:', error)
     return NextResponse.json({ error: 'Failed to delete guide' }, { status: 500 })
   }
+
+  const { writeAdminAuditLog } = await import('@/lib/admin-audit')
+  await writeAdminAuditLog(admin, {
+    actorId: auth.userId,
+    action: 'guide.delete',
+    targetType: 'travel_guide',
+    targetId: id,
+    meta: { slug: existing?.slug, title: existing?.title },
+  })
 
   return NextResponse.json({ success: true })
 }

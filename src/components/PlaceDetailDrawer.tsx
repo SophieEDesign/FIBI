@@ -161,7 +161,7 @@ export default function PlaceDetailDrawer({
                 placeholder={canEdit ? 'Add personal notes...' : undefined}
                 readOnly={!canEdit}
                 rows={4}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none ${
+                className={`w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent resize-none ${
                   !canEdit ? 'bg-gray-50 text-gray-700 cursor-default' : ''
                 }`}
               />
@@ -172,7 +172,7 @@ export default function PlaceDetailDrawer({
         <div className="border-t border-gray-200 p-5 bg-gray-50 flex gap-3">
           <Link
             href={`/item/${item.id}`}
-            className="flex-1 bg-gray-900 text-white py-3 px-4 rounded-xl font-medium hover:bg-gray-800 transition-colors text-center"
+            className="flex-1 bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors text-center"
             onClick={onClose}
           >
             View Full Details

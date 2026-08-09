@@ -73,7 +73,7 @@ export default function SharingTutorial() {
 
             <div className="space-y-3">
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
                   1
                 </div>
                 <div>
@@ -83,7 +83,7 @@ export default function SharingTutorial() {
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
                   2
                 </div>
                 <div>
@@ -93,7 +93,7 @@ export default function SharingTutorial() {
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
                   3
                 </div>
                 <div>
@@ -103,7 +103,7 @@ export default function SharingTutorial() {
               </div>
 
               <div className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center text-sm font-semibold">
                   4
                 </div>
                 <div>
@@ -116,7 +116,7 @@ export default function SharingTutorial() {
 
           <button
             onClick={handleDismiss}
-            className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+            className="w-full bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors"
           >
             Got it
           </button>

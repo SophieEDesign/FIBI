@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import DOMPurify from 'dompurify'
-import { createClient } from '@/lib/supabase/client'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
 import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
 import EmailBlockEditor from '@/components/admin/EmailBlockEditor'
 import { type ConditionsForm, formToConditions } from '@/lib/email-conditions'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 
 interface Template {
   id: string
@@ -15,6 +15,7 @@ interface Template {
   subject: string
   html_content?: string
   is_active: boolean
+  opened_30d?: number
   created_at?: string
   updated_at?: string
 }
@@ -44,20 +45,10 @@ export default function EmailTemplatesClient() {
   const [sendingOneOff, setSendingOneOff] = useState(false)
   const [oneOffResult, setOneOffResult] = useState<{ sent: number; skipped: number; failed: number; errors: string[] } | null>(null)
 
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return {}
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      return { Authorization: `Bearer ${session.access_token}` }
-    }
-    return {}
-  }, [])
 
   const fetchTemplates = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/emails/templates', { credentials: 'include', headers })
       if (!res.ok) {
         setError(res.status === 403 ? 'Access denied' : 'Failed to load templates')
@@ -70,11 +61,11 @@ export default function EmailTemplatesClient() {
     } finally {
       setLoading(false)
     }
-  }, [getAuthHeaders])
+  }, [])
 
   const fetchSegments = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/emails/segments', { credentials: 'include', headers })
       if (!res.ok) return
       const data = await res.json()
@@ -82,7 +73,7 @@ export default function EmailTemplatesClient() {
     } catch {
       /* ignore */
     }
-  }, [getAuthHeaders])
+  }, [])
 
   useEffect(() => {
     fetchTemplates()
@@ -134,7 +125,7 @@ export default function EmailTemplatesClient() {
     setRecipientCount(null)
     setOneOffResult(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const qs = buildRecipientsQuery()
       const res = await fetch(`/api/admin/emails/recipients${qs ? `?${qs}` : ''}`, { credentials: 'include', headers })
       if (!res.ok) {
@@ -148,7 +139,7 @@ export default function EmailTemplatesClient() {
     } finally {
       setLoadingRecipients(false)
     }
-  }, [editing?.slug, getAuthHeaders, buildRecipientsQuery])
+  }, [editing?.slug,  buildRecipientsQuery])
 
   const handleSendOneOff = useCallback(async () => {
     const slug = editing?.slug
@@ -160,7 +151,7 @@ export default function EmailTemplatesClient() {
     setOneOffResult(null)
     setFormError(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch('/api/admin/emails/send-one-off', {
         method: 'POST',
         credentials: 'include',
@@ -188,7 +179,7 @@ export default function EmailTemplatesClient() {
     } finally {
       setSendingOneOff(false)
     }
-  }, [editing?.slug, recipientCount, getAuthHeaders, resolveFilters, selectedSegmentId])
+  }, [editing?.slug, recipientCount,  resolveFilters, selectedSegmentId])
 
   const handleEdit = async (t: Template) => {
     setEditing(t)
@@ -207,7 +198,7 @@ export default function EmailTemplatesClient() {
     })
     if (t.html_content === undefined) {
       try {
-        const headers = await getAuthHeaders()
+        const headers = await getAdminAuthHeaders()
         const res = await fetch(`/api/admin/emails/templates/${encodeURIComponent(t.slug)}`, {
           credentials: 'include',
           headers,
@@ -237,7 +228,7 @@ export default function EmailTemplatesClient() {
     }
     setSaving(true)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const url = editing
         ? `/api/admin/emails/templates/${encodeURIComponent(editing.slug)}`
         : '/api/admin/emails/templates'
@@ -277,7 +268,7 @@ export default function EmailTemplatesClient() {
     setSendingTest(true)
     setFormError(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const res = await fetch(`/api/admin/emails/templates/${encodeURIComponent(slug)}/send-test`, {
         method: 'POST',
         credentials: 'include',
@@ -507,8 +498,8 @@ export default function EmailTemplatesClient() {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Opened 30d</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
@@ -524,8 +515,8 @@ export default function EmailTemplatesClient() {
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{t.name}</td>
                   <td className="px-6 py-4 text-sm font-mono text-gray-500">{t.slug}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{t.subject}</td>
                   <td className="px-6 py-4 text-sm">{t.is_active ? 'Yes' : 'No'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{t.opened_30d ?? 0}</td>
                   <td className="px-6 py-4 text-sm text-right">
                     <button
                       type="button"

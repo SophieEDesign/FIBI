@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import TravelGuideView from '@/components/guides/TravelGuideView'
+import GuideViewBeacon from '@/components/guides/GuideViewBeacon'
 import {
   destinationSlug,
   getPublishedGuideBySlug,
@@ -176,6 +177,7 @@ export default async function TravelGuidePage({
         related={related}
         destinationHubSlug={hub}
       />
+      <GuideViewBeacon slug={guide.slug} />
     </>
   )
 }

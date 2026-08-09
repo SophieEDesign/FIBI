@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
 
 interface DesktopNavigationProps {
   user: any
@@ -19,14 +20,19 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
     return pathname?.startsWith(path)
   }
 
-  // Don't show if no user
   if (!user) return null
 
+  const navClass = (active: boolean) =>
+    `px-4 py-2 rounded-full text-sm font-medium transition-colors duration-fast ease-standard ${
+      active
+        ? 'bg-accent text-white'
+        : 'text-secondary hover:bg-[color:var(--bg-inset)] hover:text-[color:var(--text-primary)]'
+    }`
+
   return (
-    <nav className="hidden md:block bg-white sticky top-0 z-30 shadow-soft">
+    <nav className="hidden md:block sticky top-0 z-30 border-b border-[color:var(--border-subtle)] bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5">
         <div className="flex items-center justify-between h-12">
-          {/* Logo + Early Access */}
           <div className="flex items-center gap-3">
             <Link href="/app" className="flex items-center">
               <img
@@ -35,80 +41,59 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
                 className="h-7 w-auto"
               />
             </Link>
-            <span className="text-[10px] font-medium text-secondary border border-gray-200 rounded-full px-2 py-0.5 bg-gray-50/80">
+            <span className="text-[10px] font-medium text-secondary border border-[color:var(--border-subtle)] rounded-full px-2 py-0.5 bg-[color:var(--bg-subtle)]">
               Early Access
             </span>
             <a
               href="mailto:feedback@fibi.app?subject=FIBI%20Feedback"
-              className="text-xs text-secondary hover:text-charcoal transition-colors hidden sm:inline"
+              className="text-xs text-secondary hover:text-[color:var(--text-primary)] transition-colors duration-fast hidden sm:inline"
             >
               Send feedback
             </a>
           </div>
 
-          {/* Main Navigation: Places, Trips, Profile */}
           <div className="flex items-center space-x-1">
             <Link
               href="/app"
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                isActive('/app') || isActive('/')
-                  ? 'bg-charcoal text-white'
-                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
-              }`}
+              className={navClass(isActive('/app') || isActive('/'))}
             >
               Places
             </Link>
             <Link
               href="/app/calendar"
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                isActive('/app/calendar')
-                  ? 'bg-charcoal text-white'
-                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
-              }`}
+              className={navClass(isActive('/app/calendar'))}
             >
               Trips
             </Link>
             <Link
               href="/app/map"
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                isActive('/app/map')
-                  ? 'bg-charcoal text-white'
-                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
-              }`}
+              className={navClass(isActive('/app/map'))}
             >
               Map
             </Link>
             <Link
               href="/profile"
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                isActive('/profile')
-                  ? 'bg-charcoal text-white'
-                  : 'text-secondary hover:bg-gray-100 hover:text-charcoal'
-              }`}
+              className={navClass(isActive('/profile'))}
             >
               Profile
             </Link>
             {isAdmin && (
               <Link
                 href="/app/admin"
-                className="px-4 py-2 rounded-xl text-sm font-medium text-secondary hover:bg-gray-100 hover:text-charcoal transition-colors"
+                className={navClass(isActive('/app/admin'))}
               >
                 Admin
               </Link>
             )}
           </div>
 
-          {/* Actions */}
           <div className="flex items-center space-x-4">
-            <Link
-              href="/app/add"
-              className="bg-charcoal text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft transition-opacity"
-            >
+            <Button href="/app/add" size="sm">
               Add place
-            </Link>
+            </Button>
             <a
               href="/api/auth/signout"
-              className="text-secondary hover:text-charcoal text-sm font-medium transition-colors"
+              className="text-secondary hover:text-[color:var(--text-primary)] text-sm font-medium transition-colors duration-fast"
             >
               Sign out
             </a>
@@ -118,4 +103,3 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
     </nav>
   )
 }
-

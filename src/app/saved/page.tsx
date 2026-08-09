@@ -84,7 +84,7 @@ export default function GuestSavedPage() {
             <p className="text-fibi-muted">No saved places yet. Start with something you love.</p>
             <Link
               href="/add"
-              className="inline-block bg-fibi-gradient-cta text-white px-6 py-3 rounded-lg font-medium"
+              className="inline-block bg-accent text-white px-6 py-3 rounded-full font-medium"
             >
               Try a save
             </Link>
@@ -126,7 +126,7 @@ export default function GuestSavedPage() {
             </p>
             <Link
               href="/signup?redirect=/app"
-              className="inline-block bg-fibi-gradient-cta text-white px-6 py-3 rounded-lg font-medium"
+              className="inline-block bg-accent text-white px-6 py-3 rounded-full font-medium"
             >
               Create an account
             </Link>

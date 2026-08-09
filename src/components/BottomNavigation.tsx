@@ -17,18 +17,18 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
     return pathname?.startsWith(path)
   }
 
+  const itemClass = (active: boolean) =>
+    `flex flex-col items-center justify-center flex-1 h-full transition-colors duration-fast ease-standard ${
+      active ? 'text-accent' : 'text-[color:var(--text-tertiary)]'
+    }`
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white z-40 md:hidden shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-[color:var(--border-subtle)] bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150 shadow-soft">
       <div className="max-w-7xl mx-auto px-2">
         <div className="flex items-center justify-around h-16">
-          {/* Places */}
           <Link
             href="/app"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActive('/app') || isActive('/')
-                ? 'text-[#1f2937]'
-                : 'text-[#6b7280]'
-            }`}
+            className={itemClass(isActive('/app') || isActive('/'))}
             aria-label="Places"
             aria-current={isActive('/app') || isActive('/') ? 'page' : undefined}
           >
@@ -46,14 +46,9 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             <span className="text-xs font-medium">Places</span>
           </Link>
 
-          {/* Trips */}
           <Link
             href="/app/calendar"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActive('/app/calendar')
-                ? 'text-[#1f2937]'
-                : 'text-[#6b7280]'
-            }`}
+            className={itemClass(isActive('/app/calendar'))}
             aria-label="Trips"
             aria-current={isActive('/app/calendar') ? 'page' : undefined}
           >
@@ -71,14 +66,9 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             <span className="text-xs font-medium">Trips</span>
           </Link>
 
-          {/* Map */}
           <Link
             href="/app/map"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActive('/app/map')
-                ? 'text-[#1f2937]'
-                : 'text-[#6b7280]'
-            }`}
+            className={itemClass(isActive('/app/map'))}
             aria-label="Map"
             aria-current={isActive('/app/map') ? 'page' : undefined}
           >
@@ -96,15 +86,10 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             <span className="text-xs font-medium">Map</span>
           </Link>
 
-          {/* Admin - only when user is admin */}
           {isAdmin && (
             <Link
               href="/app/admin"
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                isActive('/app/admin')
-                  ? 'text-[#1f2937]'
-                  : 'text-[#6b7280]'
-              }`}
+              className={itemClass(isActive('/app/admin'))}
               aria-label="Admin"
               aria-current={isActive('/app/admin') ? 'page' : undefined}
             >
@@ -123,14 +108,9 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
             </Link>
           )}
 
-          {/* Profile */}
           <Link
             href="/profile"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActive('/profile')
-                ? 'text-[#1f2937]'
-                : 'text-[#6b7280]'
-            }`}
+            className={itemClass(isActive('/profile'))}
             aria-label="Profile"
             aria-current={isActive('/profile') ? 'page' : undefined}
           >
@@ -152,4 +132,3 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
     </nav>
   )
 }
-

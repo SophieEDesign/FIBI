@@ -1,28 +1,23 @@
 import type { Config } from "tailwindcss";
 
-/** FiBi brand palette – primary gradient (Blue → Gold → Coral → Lavender) + supporting + neutrals */
+/** Brand ramps from the FIBI design system (src/styles/tokens). */
 const fibi = {
-  // Primary gradient – Ocean Blue → Sky Blue
-  "blue-deep": "#2E9BD6",
-  "blue-mid": "#5EC3F2",
-  "blue-light": "#BEE9FF",
-  // Sunset Gold → Soft Coral
-  gold: "#F2B705",
-  sand: "#F2C879",
-  coral: "#E8A57C",
-  // Lavender → Plum
-  lavender: "#C8A6E8",
-  mauve: "#B985C9",
-  plum: "#8C5FAF",
-  // Supporting (UI)
-  primary: "#2E9BD6", // Primary Action Blue – buttons, links
-  "accent-purple": "#B985C9", // Soft Accent Purple – highlights
-  "accent-gold": "#F2B705", // Warm Accent – CTA moments
-  // Neutrals
-  "bg-light": "#F7F8FA",
-  "bg-dark": "#0F1230",
-  "text-primary": "#111827",
-  muted: "#6B7280",
+  "blue-deep": "#2E9EE8",
+  "blue-mid": "#58B8F8",
+  "blue-light": "#E4F4FE",
+  gold: "#E0A800",
+  sand: "#FBEAB0",
+  coral: "#F6D477",
+  lavender: "#EDD3F5",
+  mauve: "#C888D8",
+  plum: "#95509F",
+  primary: "#2E9EE8",
+  "accent-purple": "#C888D8",
+  "accent-gold": "#E0A800",
+  "bg-light": "#FAFAFA",
+  "bg-dark": "#101028",
+  "text-primary": "#171717",
+  muted: "#525252",
 } as const;
 
 const config: Config = {
@@ -34,36 +29,78 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
-        heading: ["var(--font-dm-sans)", "var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        heading: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "monospace"],
       },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        charcoal: "var(--charcoal)",
-        secondary: "var(--secondary)",
-        accent: "var(--accent)",
+        background: "var(--bg-page)",
+        foreground: "var(--text-primary)",
+        charcoal: "var(--neutral-900)",
+        secondary: "var(--text-secondary)",
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          soft: "var(--accent-soft)",
+        },
+        sky: {
+          50: "#F1F9FE",
+          100: "#E4F4FE",
+          200: "#C0E7FD",
+          300: "#8FD5FB",
+          400: "#58B8F8",
+          500: "#2E9EE8",
+          600: "#1B80C7",
+          700: "#14639B",
+        },
+        orchid: {
+          200: "#EDD3F5",
+          400: "#C888D8",
+          500: "#B36BC6",
+          600: "#95509F",
+        },
+        gold: {
+          200: "#FBEAB0",
+          400: "#F0C23A",
+          500: "#E0A800",
+        },
+        indigo: {
+          700: "#26264C",
+          800: "#1A1A38",
+          900: "#101028",
+          950: "#0A0A1C",
+        },
         fibi,
       },
       backgroundImage: {
-        "fibi-gradient":
-          "linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 25%, #F2B705 50%, #E8A57C 75%, #B985C9 100%)",
-        "fibi-gradient-hero":
-          "linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 35%, #F2B705 65%, #B985C9 100%)",
-        "fibi-gradient-cta":
-          "linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 50%, #F2B705 100%)",
+        "fibi-gradient": "var(--gradient-brand)",
+        "fibi-gradient-hero": "var(--gradient-brand)",
+        "fibi-gradient-cta": "var(--gradient-sky)",
+        "fibi-aurora": "var(--wash-aurora)",
+        "fibi-brand-soft": "var(--gradient-brand-soft)",
       },
       borderRadius: {
         xl: "12px",
-        "2xl": "16px",
+        "2xl": "22px",
+        "3xl": "28px",
       },
       boxShadow: {
-        soft: "0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)",
-        "soft-md": "0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04)",
+        soft: "var(--shadow-sm)",
+        "soft-md": "var(--shadow-md)",
+        pin: "var(--shadow-pin)",
+        glass: "var(--shadow-sm)",
+      },
+      transitionDuration: {
+        fast: "130ms",
+        base: "190ms",
+        slow: "280ms",
+      },
+      transitionTimingFunction: {
+        standard: "cubic-bezier(.2,.6,.2,1)",
+        out: "cubic-bezier(.16,1,.3,1)",
       },
     },
   },
   plugins: [],
 };
 export default config;
-

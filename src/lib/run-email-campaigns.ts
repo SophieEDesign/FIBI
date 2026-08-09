@@ -186,6 +186,7 @@ export async function runCampaignSend(campaignId: string): Promise<RunResult> {
           automation_id: null,
           campaign_id: campaignId,
           status: 'failed',
+          error_detail: err instanceof Error ? err.message : String(err),
         })
       } catch {
         /* ignore */

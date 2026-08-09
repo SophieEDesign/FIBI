@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     let query = admin
       .from('email_logs')
       .select(
-        'id, user_id, recipient_email, template_slug, automation_id, campaign_id, sent_at, status, resend_email_id, opened_at, bounced_at, complained_at, delivered_at, unsubscribed_at',
+        'id, user_id, recipient_email, template_slug, automation_id, campaign_id, sent_at, status, resend_email_id, opened_at, bounced_at, complained_at, delivered_at, unsubscribed_at, error_detail',
         { count: 'exact' }
       )
       .order('sent_at', { ascending: false })
@@ -31,6 +31,10 @@ export async function GET(request: NextRequest) {
 
     if (templateSlug) {
       query = query.eq('template_slug', templateSlug)
+    }
+    const statusFilter = searchParams.get('status')?.trim()
+    if (statusFilter === 'sent' || statusFilter === 'failed') {
+      query = query.eq('status', statusFilter)
     }
 
     const { data: logs, error: logError, count: total } = await query
@@ -107,6 +111,7 @@ export async function GET(request: NextRequest) {
         complained_at: row.complained_at ?? null,
         delivered_at: row.delivered_at ?? null,
         unsubscribed_at: row.unsubscribed_at ?? null,
+        error_detail: (row as { error_detail?: string | null }).error_detail ?? null,
         clicks: clickCounts.get(row.id) ?? 0,
       })
     )

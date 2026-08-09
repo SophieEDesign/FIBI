@@ -22,7 +22,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    return NextResponse.json({ templates: data ?? [] })
+    const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: openedRows } = await admin
+      .from('email_logs')
+      .select('template_slug')
+      .not('opened_at', 'is', null)
+      .gte('sent_at', since30d)
+
+    const opened30d = new Map<string, number>()
+    openedRows?.forEach((r: { template_slug: string }) => {
+      opened30d.set(r.template_slug, (opened30d.get(r.template_slug) ?? 0) + 1)
+    })
+
+    const templates = (data ?? []).map((t) => ({
+      ...t,
+      opened_30d: opened30d.get(t.slug) ?? 0,
+    }))
+
+    return NextResponse.json({ templates })
   } catch (err) {
     console.error('Admin templates GET:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

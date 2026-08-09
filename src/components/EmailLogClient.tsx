@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 
 interface LogEntry {
   id: string
@@ -17,6 +17,7 @@ interface LogEntry {
   bounced_at: string | null
   unsubscribed_at: string | null
   clicks: number
+  error_detail?: string | null
 }
 
 interface Stats {
@@ -37,6 +38,15 @@ function pct(rate: number | null): string {
   return `${(rate * 100).toFixed(1)}%`
 }
 
+function outcomeLabel(row: LogEntry): string {
+  if (row.status === 'failed') return 'Failed'
+  if (row.bounced_at) return 'Bounced'
+  if (row.unsubscribed_at) return 'Unsubscribed'
+  if (row.clicks > 0) return 'Clicked'
+  if (row.opened_at) return 'Opened'
+  return 'Sent'
+}
+
 export default function EmailLogClient() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [total, setTotal] = useState(0)
@@ -44,30 +54,24 @@ export default function EmailLogClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [templateFilter, setTemplateFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'failed'>('all')
   const [page, setPage] = useState(0)
   const limit = 50
-
-  const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return {}
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      return { Authorization: `Bearer ${session.access_token}` }
-    }
-    return {}
-  }, [])
 
   const fetchLog = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAdminAuthHeaders()
       const params = new URLSearchParams()
       params.set('limit', String(limit))
       params.set('offset', String(page * limit))
       if (templateFilter.trim()) params.set('template_slug', templateFilter.trim())
-      const res = await fetch(`/api/admin/emails/log?${params.toString()}`, { credentials: 'include', headers })
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      const res = await fetch(`/api/admin/emails/log?${params.toString()}`, {
+        credentials: 'include',
+        headers,
+      })
       if (!res.ok) {
         setError(res.status === 403 ? 'Access denied' : 'Failed to load email log')
         return
@@ -81,7 +85,7 @@ export default function EmailLogClient() {
     } finally {
       setLoading(false)
     }
-  }, [getAuthHeaders, page, templateFilter])
+  }, [page, templateFilter, statusFilter])
 
   useEffect(() => {
     fetchLog()
@@ -90,8 +94,7 @@ export default function EmailLogClient() {
   const formatDate = (s: string | null) => {
     if (!s) return '—'
     try {
-      const d = new Date(s)
-      return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })
+      return new Date(s).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
     } catch {
       return s
     }
@@ -99,114 +102,136 @@ export default function EmailLogClient() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Email log</h1>
-      <p className="text-sm text-gray-600 mb-4">
-        Sent emails with opens, clicks, bounces, and unsubscribes (when Resend tracking and webhooks are enabled).
+      <h1 className="mb-2 text-2xl font-semibold text-[#17181A]">Email log</h1>
+      <p className="mb-6 text-sm text-[#5C574C]">
+        Opens, clicks, bounces and failures — with the provider error when a send fails.
       </p>
 
       {stats && (
-        <div className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Open rate ({stats.window_days}d)</p>
-            <p className="text-lg font-semibold text-gray-900">{pct(stats.open_rate)}</p>
-            <p className="text-xs text-gray-400">{stats.opened} / {stats.sent}</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Click rate</p>
-            <p className="text-lg font-semibold text-gray-900">{pct(stats.click_rate)}</p>
-            <p className="text-xs text-gray-400">{stats.clicked} clicks</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Bounce rate</p>
-            <p className="text-lg font-semibold text-gray-900">{pct(stats.bounce_rate)}</p>
-            <p className="text-xs text-gray-400">{stats.bounced} bounced</p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <p className="text-xs text-gray-500">Unsub rate</p>
-            <p className="text-lg font-semibold text-gray-900">{pct(stats.unsub_rate)}</p>
-            <p className="text-xs text-gray-400">{stats.unsubscribed} unsubscribed</p>
-          </div>
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ['Open rate', pct(stats.open_rate), `${stats.opened} / ${stats.sent}`],
+            ['Click rate', pct(stats.click_rate), `${stats.clicked} clicks`],
+            ['Bounce rate', pct(stats.bounce_rate), `${stats.bounced} bounced`],
+            ['Unsub rate', pct(stats.unsub_rate), `${stats.unsubscribed} unsubscribed`],
+          ].map(([label, value, sub]) => (
+            <div
+              key={label}
+              className="rounded-[14px] border border-[#E5E5E5] bg-white p-4 shadow-[0_1px_2px_rgba(26,26,24,0.06)]"
+            >
+              <p className="text-xs text-[#8A857A]">{label} ({stats.window_days}d)</p>
+              <p className="text-lg font-semibold text-[#17181A]">{value}</p>
+              <p className="text-xs text-[#8A857A]">{sub}</p>
+            </div>
+          ))}
         </div>
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2">
-          <span className="text-sm text-gray-700">Template:</span>
-          <input
-            type="text"
-            value={templateFilter}
-            onChange={(e) => {
-              setTemplateFilter(e.target.value)
-              setPage(0)
-            }}
-            placeholder="e.g. founding-followup"
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm w-48"
-          />
-        </label>
+        <input
+          type="text"
+          value={templateFilter}
+          onChange={(e) => {
+            setTemplateFilter(e.target.value)
+            setPage(0)
+          }}
+          placeholder="Template slug"
+          className="w-48 rounded-full border border-[#E5E5E5] px-3 py-1.5 text-sm"
+        />
+        <div className="flex gap-1">
+          {(['all', 'sent', 'failed'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setStatusFilter(s)
+                setPage(0)
+              }}
+              className={`rounded-full px-3 py-1.5 text-sm capitalize transition-colors duration-[130ms] ${
+                statusFilter === s
+                  ? 'bg-[#E4F4FE] font-medium text-[#14639B]'
+                  : 'bg-white text-[#5C574C] border border-[#E5E5E5]'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => fetchLog()}
           disabled={loading}
-          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+          className="rounded-full border border-[#E5E5E5] bg-white px-3 py-1.5 text-sm disabled:opacity-50"
         >
           {loading ? 'Loading…' : 'Refresh'}
         </button>
       </div>
 
       {error && (
-        <p className="mb-4 text-sm text-red-600" role="alert">{error}</p>
+        <p className="mb-4 text-sm text-[#9C3226]" role="alert">
+          {error}
+        </p>
       )}
 
       {loading && logs.length === 0 ? (
-        <div className="text-gray-500">Loading…</div>
+        <div className="text-[#8A857A]">Loading…</div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-hidden rounded-[14px] border border-[#E5E5E5] bg-white shadow-[0_1px_2px_rgba(26,26,24,0.06)]">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-[#E5E5E5]">
+              <thead className="bg-[#F5F2EC]">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recipient</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Template</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Opened</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clicks</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bounce</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unsub</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8A857A]">Recipient</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8A857A]">Template</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8A857A]">Sent</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-[#8A857A]">Outcome</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-[#E5E5E5]">
                 {logs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={4} className="px-6 py-4 text-center text-[#8A857A]">
                       No emails in log yet.
                     </td>
                   </tr>
                 ) : (
-                  logs.map((row) => (
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {row.recipient_email ?? row.user_id}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 font-mono">{row.template_slug}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{formatDate(row.sent_at)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={row.status === 'sent' ? 'text-green-600' : 'text-red-600'}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.opened_at ? 'Yes' : '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.clicks}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.bounced_at ? 'Yes' : '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.unsubscribed_at ? 'Yes' : '—'}</td>
-                    </tr>
-                  ))
+                  logs.map((row) => {
+                    const failed = row.status === 'failed' || !!row.bounced_at
+                    return (
+                      <tr
+                        key={row.id}
+                        className={failed ? 'bg-[#FBE7E5]/60' : 'hover:bg-[#FAF8F3]'}
+                      >
+                        <td className="px-4 py-3 text-sm text-[#17181A]">
+                          {row.recipient_email ?? row.user_id}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm text-[#5C574C]">
+                          {row.template_slug}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[#5C574C]">{formatDate(row.sent_at)}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span
+                            className={
+                              failed ? 'font-medium text-[#9C3226]' : 'text-[#17181A]'
+                            }
+                          >
+                            {outcomeLabel(row)}
+                          </span>
+                          {row.error_detail ? (
+                            <p className="mt-0.5 max-w-xs truncate text-xs text-[#9C3226]" title={row.error_detail}>
+                              {row.error_detail}
+                            </p>
+                          ) : null}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
           </div>
           {total > limit && (
-            <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between text-sm text-gray-600">
+            <div className="flex items-center justify-between border-t border-[#E5E5E5] px-6 py-3 text-sm text-[#5C574C]">
               <span>
                 {page * limit + 1}–{Math.min((page + 1) * limit, total)} of {total}
               </span>
@@ -215,7 +240,7 @@ export default function EmailLogClient() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0 || loading}
-                  className="text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                  className="disabled:opacity-50"
                 >
                   Previous
                 </button>
@@ -223,7 +248,7 @@ export default function EmailLogClient() {
                   type="button"
                   onClick={() => setPage((p) => p + 1)}
                   disabled={(page + 1) * limit >= total || loading}
-                  className="text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                  className="disabled:opacity-50"
                 >
                   Next
                 </button>

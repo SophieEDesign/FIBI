@@ -56,7 +56,7 @@ export default function UnsubscribeClient() {
         </p>
         <Link
           href="/app/settings/email"
-          className="inline-block px-5 py-2.5 bg-[#171717] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+          className="inline-block px-5 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors"
         >
           Email preferences
         </Link>
@@ -78,7 +78,7 @@ export default function UnsubscribeClient() {
         </p>
         <Link
           href="/app/settings/email"
-          className="inline-block px-5 py-2.5 border border-gray-300 text-[#171717] text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          className="inline-block px-5 py-2.5 border border-[color:var(--border-default)] text-[color:var(--text-primary)] text-sm font-medium rounded-full hover:bg-[color:var(--bg-subtle)] transition-colors"
         >
           Change preferences later
         </Link>
@@ -103,7 +103,7 @@ export default function UnsubscribeClient() {
         type="button"
         onClick={unsubscribe}
         disabled={status === 'loading' || !token}
-        className="inline-block px-5 py-2.5 bg-[#171717] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+        className="inline-block px-5 py-2.5 bg-accent text-white text-sm font-medium rounded-full hover:bg-accent-hover transition-colors disabled:opacity-50"
       >
         {status === 'loading' ? 'Working…' : 'Unsubscribe'}
       </button>
