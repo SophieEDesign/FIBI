@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
 import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
+import EmailBlockEditor from '@/components/admin/EmailBlockEditor'
 import {
   type ConditionsForm,
   conditionsToForm,
@@ -102,6 +103,8 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
   const [subject, setSubject] = useState('')
   const [previewText, setPreviewText] = useState('')
   const [templateSlug, setTemplateSlug] = useState('')
+  const [htmlContent, setHtmlContent] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
   const [segmentId, setSegmentId] = useState('')
   const [conditions, setConditions] = useState<ConditionsForm>({})
   const [scheduleMode, setScheduleMode] = useState<'draft' | 'later'>('draft')
@@ -134,6 +137,7 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
   ) => {
     if (!slug) {
       setHtmlPreview('')
+      setHtmlContent('')
       return
     }
     const tRes = await fetch(`/api/admin/emails/templates/${encodeURIComponent(slug)}`, {
@@ -142,15 +146,25 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
     })
     if (!tRes.ok) {
       setHtmlPreview('')
+      setHtmlContent('')
       return
     }
     const t = await tRes.json()
     const body = typeof t.html_content === 'string' ? t.html_content : ''
+    setHtmlContent(body)
     const withPre =
       preview?.trim()
         ? `<div style="display:none;font-size:1px;color:#fff;max-height:0;overflow:hidden;">${preview.replace(/</g, '')}</div>${body}`
         : body
     setHtmlPreview(wrapEmailWithLayout(withPre))
+  }
+
+  const refreshWrappedPreview = (body: string, preview: string | null) => {
+    const withPre =
+      preview?.trim()
+        ? `<div style="display:none;font-size:1px;color:#fff;max-height:0;overflow:hidden;">${preview.replace(/</g, '')}</div>${body}`
+        : body
+    setHtmlPreview(wrapEmailWithLayout(withPre || ''))
   }
 
   const load = useCallback(async () => {
@@ -338,6 +352,53 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
       setSaveError('That didn\'t work. Try again.')
     } finally {
       setCopying(false)
+    }
+  }
+
+  const saveEmailContent = async () => {
+    if (!campaign || !canEdit) return
+    if (!templateSlug) {
+      setSaveError('Choose a starting template first, then edit.')
+      return
+    }
+    setSavingEmail(true)
+    setSaveError(null)
+    setActionMessage(null)
+    try {
+      const headers = await getAuthHeaders()
+      const tRes = await fetch(`/api/admin/emails/templates/${encodeURIComponent(templateSlug)}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html_content: htmlContent }),
+      })
+      if (!tRes.ok) {
+        const data = await tRes.json().catch(() => ({}))
+        setSaveError(data.error || 'Could not save email')
+        return
+      }
+
+      if (campaign.template_slug !== templateSlug) {
+        const cRes = await fetch(`/api/admin/emails/campaigns/${campaign.id}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template_slug: templateSlug }),
+        })
+        if (!cRes.ok) {
+          const data = await cRes.json().catch(() => ({}))
+          setSaveError(data.error || 'Email saved, but campaign link failed')
+          return
+        }
+      }
+
+      refreshWrappedPreview(htmlContent, previewText)
+      setActionMessage('Email saved.')
+      await load()
+    } catch {
+      setSaveError('That didn\'t work. Try again.')
+    } finally {
+      setSavingEmail(false)
     }
   }
 
@@ -562,29 +623,22 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
               />
             </label>
 
-            <label className="block">
-              <span className="text-gray-700 font-medium">Template</span>
-              <select
-                value={templateSlug}
-                disabled={!canEdit}
-                onChange={async (e) => {
-                  const slug = e.target.value
-                  setTemplateSlug(slug)
-                  const t = templates.find((x) => x.slug === slug)
-                  if (t?.subject && !subject.trim()) setSubject(t.subject)
-                  const headers = await getAuthHeaders()
-                  await loadPreview(headers, slug, previewText)
-                }}
-                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+              <p className="text-gray-700 font-medium">Email content</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {templateSlug
+                  ? `Using template “${templates.find((t) => t.slug === templateSlug)?.name || templateSlug}”.`
+                  : 'No template linked yet.'}{' '}
+                Edit the body on the Email tab.
+              </p>
+              <button
+                type="button"
+                onClick={() => setTab('email')}
+                className="mt-2 text-sm underline text-gray-700"
               >
-                <option value="">Select…</option>
-                {templates.map((t) => (
-                  <option key={t.slug} value={t.slug}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                Open email editor →
+              </button>
+            </div>
 
             {canEdit && (
               <div className="pt-2 border-t border-gray-100 space-y-3">
@@ -640,39 +694,92 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
               onClick={() => setTab('email')}
               className="mt-4 text-sm underline text-gray-700"
             >
-              View full email →
+              Edit email →
             </button>
-            <p className="mt-6 text-xs text-gray-500">
-              To change the email body design, edit the template under{' '}
-              <Link href="/app/admin/emails/templates" className="underline">
-                Templates
-              </Link>
-              , then save settings here if you switched templates.
-            </p>
           </div>
         </div>
       )}
 
       {tab === 'email' && (
-        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-          <div className="border-b border-gray-100 px-4 py-3 bg-gray-50 text-sm text-gray-600 flex flex-wrap items-center justify-between gap-2">
-            <span>
-              Subject: <span className="text-gray-900 font-medium">{subject || campaign.subject || '—'}</span>
-            </span>
-            {canEdit && (
-              <Link href="/app/admin/emails/templates" className="underline text-gray-700">
-                Edit template content
-              </Link>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-white p-5 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-gray-900">Email</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Optionally start from a template, then edit the body here.
+                </p>
+              </div>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={saveEmailContent}
+                  disabled={savingEmail || !templateSlug}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {savingEmail ? 'Saving…' : 'Save email'}
+                </button>
+              )}
+            </div>
+
+            <label className="block max-w-lg text-sm">
+              <span className="text-gray-700 font-medium">Start from template</span>
+              <select
+                value={templateSlug}
+                disabled={!canEdit}
+                onChange={async (e) => {
+                  const slug = e.target.value
+                  setTemplateSlug(slug)
+                  const t = templates.find((x) => x.slug === slug)
+                  if (t?.subject && !subject.trim()) setSubject(t.subject)
+                  const headers = await getAuthHeaders()
+                  await loadPreview(headers, slug, previewText)
+                }}
+                className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-50"
+              >
+                <option value="">Select a template…</option>
+                {templates.map((t) => (
+                  <option key={t.slug} value={t.slug}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {!templateSlug ? (
+              <p className="text-sm text-gray-500">
+                Choose a template to load content into the editor.
+              </p>
+            ) : (
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">Body</p>
+                <EmailBlockEditor
+                  key={templateSlug}
+                  value={htmlContent}
+                  onChange={(html) => {
+                    setHtmlContent(html)
+                    refreshWrappedPreview(html, previewText)
+                  }}
+                  disabled={!canEdit}
+                />
+              </div>
             )}
           </div>
-          {htmlPreview ? (
-            <div
-              className="p-4 max-h-[70vh] overflow-y-auto bg-[#f3f4f6]"
-              dangerouslySetInnerHTML={{ __html: sanitized }}
-            />
-          ) : (
-            <p className="p-6 text-sm text-gray-500">No template content to preview.</p>
-          )}
+
+          <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+            <div className="border-b border-gray-100 px-4 py-3 bg-gray-50 text-sm text-gray-600">
+              Preview · Subject:{' '}
+              <span className="text-gray-900 font-medium">{subject || campaign.subject || '—'}</span>
+            </div>
+            {htmlPreview ? (
+              <div
+                className="p-4 max-h-[70vh] overflow-y-auto bg-[#f3f4f6]"
+                dangerouslySetInnerHTML={{ __html: sanitized }}
+              />
+            ) : (
+              <p className="p-6 text-sm text-gray-500">Nothing to preview yet.</p>
+            )}
+          </div>
         </div>
       )}
 

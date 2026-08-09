@@ -27,11 +27,7 @@ import VideoEmbedBlock from '@/components/VideoEmbedBlock'
 import { isVideoTypeItem } from '@/components/TripVideoViewer'
 import TripBoardCard from '@/components/TripBoardCard'
 import LibraryMapPreview from '@/components/LibraryMapPreview'
-import {
-  matchesTripFilter,
-  pickFeaturedTrip,
-  type TripBoardFilter,
-} from '@/lib/trip-board-meta'
+import { matchesTripFilter, type TripBoardFilter } from '@/lib/trip-board-meta'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 
@@ -55,11 +51,6 @@ export default function CalendarView({
 }: CalendarViewProps) {
   const [items, setItems] = useState<SavedItem[]>(initialItems ?? [])
   const [itineraries, setItineraries] = useState<Itinerary[]>(initialItineraries ?? [])
-  // Start on the trips landing; deep links still set selection via URL.
-  const [selectedItineraryId, setSelectedItineraryIdState] = useState<string | null>(null)
-  const setSelectedItineraryId = (id: string | null) => {
-    setSelectedItineraryIdState(id)
-  }
   const [loading, setLoading] = useState(!(initialItems && initialItineraries))
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -119,14 +110,25 @@ export default function CalendarView({
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Preselect itinerary from URL (e.g. after saving a guide or shared board)
-  useEffect(() => {
-    const id = searchParams.get('itinerary_id') || searchParams.get('itinerary')
-    if (id && itineraries.some((i) => i.id === id)) {
-      setSelectedItineraryId(id)
-      router.replace('/app/calendar')
+  // URL is the source of truth — avoids remount/race that snapped back to the landing.
+  const selectedItineraryId =
+    searchParams.get('itinerary_id') || searchParams.get('itinerary') || null
+
+  const setSelectedItineraryId = (id: string | null) => {
+    if (id) {
+      router.push(`/app/calendar?itinerary_id=${encodeURIComponent(id)}`, { scroll: false })
+    } else {
+      router.push('/app/calendar', { scroll: false })
     }
-  }, [searchParams, itineraries, router])
+  }
+
+  // Drop stale deep links once itineraries are known
+  useEffect(() => {
+    if (!selectedItineraryId || itineraries.length === 0) return
+    if (!itineraries.some((i) => i.id === selectedItineraryId)) {
+      router.replace('/app/calendar', { scroll: false })
+    }
+  }, [selectedItineraryId, itineraries, router])
 
   // Detect mobile device
   useEffect(() => {
@@ -224,14 +226,6 @@ export default function CalendarView({
         setItineraries([])
       } else {
         setItineraries(data || [])
-        // Validate that the selected itinerary still exists
-        if (selectedItineraryId && data) {
-          const itineraryExists = data.some((it: Itinerary) => it.id === selectedItineraryId)
-          if (!itineraryExists) {
-            // Itinerary no longer exists, reset to "All"
-            setSelectedItineraryId(null)
-          }
-        }
       }
     } catch (error) {
       console.error('Error loading itineraries:', error)
@@ -1149,13 +1143,21 @@ export default function CalendarView({
 
   const filteredItineraries = useMemo(
     () => itineraries.filter((t) => matchesTripFilter(t, tripBoardFilter, user?.id)),
-    [itineraries, tripBoardFilter]
+    [itineraries, tripBoardFilter, user?.id]
   )
 
-  const featuredItinerary = useMemo(
-    () => pickFeaturedTrip(filteredItineraries, items),
-    [filteredItineraries, items]
-  )
+  const featuredItinerary = useMemo(() => {
+    // Prefer an upcoming dated trip; otherwise keep list order (created_at) so the
+    // featured card does not jump when place counts change.
+    const today = new Date()
+    today.setHours(12, 0, 0, 0)
+    const upcoming = filteredItineraries.find((t) => {
+      if (!t.start_date) return false
+      const [y, m, d] = t.start_date.split('-').map(Number)
+      return new Date(y, (m || 1) - 1, d || 1, 12, 0, 0) >= today
+    })
+    return upcoming || filteredItineraries[0] || null
+  }, [filteredItineraries])
 
   const gridItineraries = useMemo(
     () => filteredItineraries.filter((t) => t.id !== featuredItinerary?.id),
@@ -1237,8 +1239,7 @@ export default function CalendarView({
         {!hasPlacesNoTrips && selectedItineraryId !== null && (
           <div className="mb-6 md:mb-8">
             {/* Desktop: horizontal pills */}
-            {!isMobile && (
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="hidden md:flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
                 <button
                   type="button"
                   onClick={() => setSelectedItineraryId(null)}
@@ -1353,12 +1354,10 @@ export default function CalendarView({
                   </svg>
                   New trip
                 </button>
-              </div>
-            )}
+            </div>
 
             {/* Mobile: trip switcher */}
-            {isMobile && (
-              <>
+            <div className="md:hidden">
                 <button
                   type="button"
                   onClick={() => setTripPickerOpen(true)}
@@ -1450,22 +1449,89 @@ export default function CalendarView({
                     </div>
                   </div>
                 )}
-              </>
-            )}
+            </div>
           </div>
         )}
 
-        {!hasPlacesNoTrips && (
+        {!hasPlacesNoTrips && !selectedItineraryId && (
+            /* All trips landing: featured board + visual grid — outside DndContext so taps stay clean */
+            <div className="mb-8 space-y-6">
+              {filteredItineraries.length === 0 ? (
+                <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-white px-6 py-12 text-center shadow-soft">
+                  <p className="text-secondary">
+                    {tripBoardFilter === 'all'
+                      ? 'No trips yet. Create one to get started.'
+                      : 'Nothing in this filter yet.'}
+                  </p>
+                  {tripBoardFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => setTripBoardFilter('all')}
+                      className="mt-3 text-sm font-medium text-accent hover:underline"
+                    >
+                      Show all
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {featuredItinerary && (
+                    <TripBoardCard
+                      itinerary={featuredItinerary}
+                      items={items}
+                      featured
+                      onOpen={() => setSelectedItineraryId(featuredItinerary.id)}
+                    />
+                  )}
+
+                  {gridItineraries.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                      {gridItineraries.map((itinerary) => (
+                        <TripBoardCard
+                          key={itinerary.id}
+                          itinerary={itinerary}
+                          items={items}
+                          onOpen={() => setSelectedItineraryId(itinerary.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {items.some(
+                    (i) =>
+                      i.latitude != null &&
+                      i.longitude != null &&
+                      !Number.isNaN(Number(i.latitude))
+                  ) && (
+                    <section className="pt-2">
+                      <div className="mb-3 flex items-baseline justify-between gap-3">
+                        <h2 className="text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
+                          Your map
+                        </h2>
+                        <Link
+                          href="/app/map"
+                          className="text-sm font-medium text-accent hover:underline"
+                        >
+                          View on map
+                        </Link>
+                      </div>
+                      <LibraryMapPreview items={items} />
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
+        )}
+
+        {!hasPlacesNoTrips && selectedItineraryId && (
         <>
-        {/* Drag and drop context - works on both desktop and mobile */}
+        {/* Drag and drop — only while a trip board is open */}
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-            {/* Trip view: moodboard when a trip is selected, or all places when "All" */}
-          {selectedItineraryId ? (
             <>
               {/* Trip cover hero: reduced height, image only (title moved below) */}
               {(() => {
@@ -1525,7 +1591,6 @@ export default function CalendarView({
                   </div>
                 )
               })()}
-
               {/* Title + Date: below hero, editorial hierarchy */}
               {selectedItineraryId && (() => {
                 const trip = itineraries.find((t) => t.id === selectedItineraryId)
@@ -1878,75 +1943,6 @@ export default function CalendarView({
                 </>
               )}
             </>
-          ) : (
-            /* All trips landing: featured board + visual grid */
-            <div className="mb-8 space-y-6">
-              {filteredItineraries.length === 0 ? (
-                <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-white px-6 py-12 text-center shadow-soft">
-                  <p className="text-secondary">
-                    {tripBoardFilter === 'all'
-                      ? 'No trips yet. Create one to get started.'
-                      : 'Nothing in this filter yet.'}
-                  </p>
-                  {tripBoardFilter !== 'all' && (
-                    <button
-                      type="button"
-                      onClick={() => setTripBoardFilter('all')}
-                      className="mt-3 text-sm font-medium text-accent hover:underline"
-                    >
-                      Show all
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {featuredItinerary && (
-                    <TripBoardCard
-                      itinerary={featuredItinerary}
-                      items={items}
-                      featured
-                      onOpen={() => setSelectedItineraryId(featuredItinerary.id)}
-                    />
-                  )}
-
-                  {gridItineraries.length > 0 && (
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-                      {gridItineraries.map((itinerary) => (
-                        <TripBoardCard
-                          key={itinerary.id}
-                          itinerary={itinerary}
-                          items={items}
-                          onOpen={() => setSelectedItineraryId(itinerary.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {items.some(
-                    (i) =>
-                      i.latitude != null &&
-                      i.longitude != null &&
-                      !Number.isNaN(Number(i.latitude))
-                  ) && (
-                    <section className="pt-2">
-                      <div className="mb-3 flex items-baseline justify-between gap-3">
-                        <h2 className="text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
-                          Your map
-                        </h2>
-                        <Link
-                          href="/app/map"
-                          className="text-sm font-medium text-accent hover:underline"
-                        >
-                          View on map
-                        </Link>
-                      </div>
-                      <LibraryMapPreview items={items} />
-                    </section>
-                  )}
-                </>
-              )}
-            </div>
-          )}
 
           {/* REMOVED: Unplanned section and calendar grid - replaced by trip moodboard / all grid above */}
           {false && (

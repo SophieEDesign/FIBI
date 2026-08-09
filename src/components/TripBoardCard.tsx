@@ -39,7 +39,7 @@ export default function TripBoardCard({
 
   if (featured) {
     return (
-      <article className="overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md">
+      <article className="overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out md:hover:-translate-y-0.5 md:hover:shadow-soft-md">
         <button type="button" onClick={onOpen} className="block w-full text-left">
           <div className="relative aspect-[16/9] overflow-hidden bg-fibi-brand-soft sm:aspect-[2.2/1]">
             {proxiedCover ? (
@@ -133,7 +133,7 @@ export default function TripBoardCard({
   }
 
   return (
-    <article className="group overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md">
+    <article className="group overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out md:hover:-translate-y-0.5 md:hover:shadow-soft-md">
       <button type="button" onClick={onOpen} className="flex h-full w-full flex-col text-left">
         <div className="relative aspect-[4/3] overflow-hidden bg-fibi-brand-soft">
           {proxiedCover ? (
@@ -141,7 +141,7 @@ export default function TripBoardCard({
             <img
               src={proxiedCover}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-slow ease-out group-hover:scale-[1.03]"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-slow ease-out md:group-hover:scale-[1.03]"
             />
           ) : null}
           <div
