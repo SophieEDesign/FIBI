@@ -78,6 +78,7 @@ export default function TravelGuideView({
 
   const resolveAuth = async () => {
     const supabase = createClient()
+    // Prefer getUser() so the session refreshes if needed before we read the token
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -85,8 +86,20 @@ export default function TravelGuideView({
     const anon = isAnonymousUser(user)
     setUserId(id)
     setIsAnon(anon)
-    return { userId: id, isAnon: anon }
+
+    let accessToken: string | null = null
+    if (user && !anon) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      accessToken = session?.access_token ?? null
+    }
+
+    return { userId: id, isAnon: anon, accessToken }
   }
+
+  const authHeaders = (accessToken: string | null): HeadersInit =>
+    accessToken ? { Authorization: `Bearer ${accessToken}` } : {}
 
   const onSelectPlace = useCallback((id: string | null) => {
     setSelectedPlaceId(id)
@@ -135,6 +148,7 @@ export default function TravelGuideView({
       const res = await fetch(`/api/travel-guides/places/${place.id}/save`, {
         method: 'POST',
         credentials: 'include',
+        headers: authHeaders(auth.accessToken),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "That didn't work. Try again.")
@@ -173,6 +187,7 @@ export default function TravelGuideView({
       const res = await fetch(`/api/travel-guides/${guide.slug}/save`, {
         method: 'POST',
         credentials: 'include',
+        headers: authHeaders(auth.accessToken),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "That didn't work. Try again.")

@@ -25,6 +25,13 @@ import CreateItineraryModal from '@/components/CalendarView/CreateItineraryModal
 import VideoFeed from '@/components/VideoFeed'
 import VideoEmbedBlock from '@/components/VideoEmbedBlock'
 import { isVideoTypeItem } from '@/components/TripVideoViewer'
+import TripBoardCard from '@/components/TripBoardCard'
+import LibraryMapPreview from '@/components/LibraryMapPreview'
+import {
+  matchesTripFilter,
+  pickFeaturedTrip,
+  type TripBoardFilter,
+} from '@/lib/trip-board-meta'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface CalendarViewProps {
@@ -41,24 +48,10 @@ interface CalendarDay {
 export default function CalendarView({ user }: CalendarViewProps) {
   const [items, setItems] = useState<SavedItem[]>([])
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
-  // Initialize selectedItineraryId from localStorage if available
-  const [selectedItineraryId, setSelectedItineraryIdState] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('calendar_selected_itinerary_id')
-      return saved === 'null' ? null : saved
-    }
-    return null
-  })
-  // Wrapper to persist to localStorage when itinerary changes
+  // Start on the trips landing; deep links still set selection via URL.
+  const [selectedItineraryId, setSelectedItineraryIdState] = useState<string | null>(null)
   const setSelectedItineraryId = (id: string | null) => {
     setSelectedItineraryIdState(id)
-    if (typeof window !== 'undefined') {
-      if (id === null) {
-        localStorage.removeItem('calendar_selected_itinerary_id')
-      } else {
-        localStorage.setItem('calendar_selected_itinerary_id', id)
-      }
-    }
   }
   const [loading, setLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -110,6 +103,7 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
   const [isUnplannedExpanded, setIsUnplannedExpanded] = useState(false) // Mobile dropdown state
   const [tripPickerOpen, setTripPickerOpen] = useState(false) // Mobile trip switcher overlay
+  const [tripBoardFilter, setTripBoardFilter] = useState<TripBoardFilter>('all')
   const [locationSearch, setLocationSearch] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
   const locationDropdownRef = useRef<HTMLDivElement>(null)
@@ -1142,266 +1136,312 @@ export default function CalendarView({ user }: CalendarViewProps) {
 
   const hasPlacesNoTrips = !loading && items.length > 0 && itineraries.length === 0
 
+  const filteredItineraries = useMemo(
+    () => itineraries.filter((t) => matchesTripFilter(t, tripBoardFilter)),
+    [itineraries, tripBoardFilter]
+  )
+
+  const featuredItinerary = useMemo(
+    () => pickFeaturedTrip(filteredItineraries, items),
+    [filteredItineraries, items]
+  )
+
+  const gridItineraries = useMemo(
+    () => filteredItineraries.filter((t) => t.id !== featuredItinerary?.id),
+    [filteredItineraries, featuredItinerary]
+  )
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[color:var(--bg-subtle)]">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-24 md:pb-12">
         {/* Empty state: user has places but no trips */}
         {hasPlacesNoTrips && (
           <div className="max-w-xl mx-auto text-center py-14 md:py-20">
-            <h2 className="text-2xl md:text-3xl font-medium text-[#1f2937] mb-3 leading-tight">
+            <h2 className="text-2xl md:text-3xl font-medium text-charcoal mb-3 leading-tight tracking-[-0.02em]">
               Start shaping your next trip.
             </h2>
-            <p className="text-base text-[#6b7280] mb-8 leading-relaxed">
+            <p className="text-base text-secondary mb-8 leading-relaxed">
               Group your saved places into a trip. You can add dates later.
             </p>
             <button
               type="button"
               onClick={() => setShowCreateItineraryModal(true)}
-              className="inline-block bg-[#1f2937] text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] transition-opacity"
+              className="inline-block bg-accent text-white px-8 py-3 rounded-full font-medium hover:bg-accent-hover shadow-soft transition-colors duration-fast"
             >
               Create your first trip
             </button>
           </div>
         )}
 
-        {/* Trip selector - prominent section so it's obvious */}
-        {!hasPlacesNoTrips && (
-        <div className="mb-6 md:mb-8">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="flex items-center gap-2 text-sm font-semibold text-[#374151] uppercase tracking-wide">
-              <svg className="w-4 h-4 text-[#1f2937]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0h.5a2.5 2.5 0 002.5-2.5V3.935M12 12a2 2 0 104 0 2 2 0 00-4 0z" />
-              </svg>
-              Your trip
-            </span>
-          </div>
-
-          {/* Desktop: horizontal pill tabs */}
-          {!isMobile && (
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-            <button
-              onClick={() => setSelectedItineraryId(null)}
-              className={`px-4 py-2.5 rounded-2xl text-sm font-medium whitespace-nowrap transition-all ${
-                selectedItineraryId === null
-                  ? 'bg-[#1f2937] text-white shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
-                  : 'bg-white text-[#6b7280] border border-gray-200 hover:border-gray-300 hover:text-[#1f2937]'
-              }`}
-            >
-              All
-            </button>
-            {itineraries.map((itinerary) => (
-              <div key={itinerary.id} className="flex items-center gap-1">
+        {/* Landing intro when browsing all trips */}
+        {!hasPlacesNoTrips && selectedItineraryId === null && itineraries.length > 0 && (
+          <div className="mb-6 md:mb-8">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.02em] text-charcoal">
+                  Trips & boards
+                </h1>
+                <p className="mt-1.5 text-sm sm:text-base text-secondary max-w-md leading-relaxed">
+                  Organise places into boards for trips, weekends away and someday ideas.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateItineraryModal(true)}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-soft hover:bg-accent-hover transition-colors duration-fast"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New
+              </button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+              {(
+                [
+                  { id: 'all' as const, label: 'All' },
+                  { id: 'boards' as const, label: 'Boards' },
+                  { id: 'trips' as const, label: 'Trips' },
+                  { id: 'shared' as const, label: 'Shared' },
+                ] as const
+              ).map((chip) => (
                 <button
-                  onClick={() => setSelectedItineraryId(itinerary.id)}
-                  className={`px-4 py-2.5 rounded-2xl text-sm font-medium whitespace-nowrap transition-all ${
-                    selectedItineraryId === itinerary.id
-                      ? 'bg-[#1f2937] text-white shadow-[0_2px_8px_rgba(0,0,0,0.08)]'
-                      : 'bg-white text-[#6b7280] border border-gray-200 hover:border-gray-300 hover:text-[#1f2937]'
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setTripBoardFilter(chip.id)}
+                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-fast ${
+                    tripBoardFilter === chip.id
+                      ? 'bg-accent text-white'
+                      : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-sky-100'
                   }`}
                 >
-                  {itinerary.name}
+                  {chip.label}
                 </button>
-                {selectedItineraryId === itinerary.id && (
-                  <>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Trip selector - only when a trip is open */}
+        {!hasPlacesNoTrips && selectedItineraryId !== null && (
+          <div className="mb-6 md:mb-8">
+            {/* Desktop: horizontal pills */}
+            {!isMobile && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                <button
+                  type="button"
+                  onClick={() => setSelectedItineraryId(null)}
+                  className="px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap bg-[color:var(--bg-inset)] text-secondary hover:bg-sky-100 transition-colors duration-fast"
+                >
+                  All trips
+                </button>
+                {itineraries.map((itinerary) => (
+                  <div key={itinerary.id} className="flex items-center gap-1">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        handleShareItinerary()
-                      }}
-                      disabled={loadingShare}
-                      className="p-2 rounded-xl text-[#6b7280] hover:bg-gray-100 transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Share trip"
-                    >
-                      {loadingShare ? (
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                        </svg>
-                      )}
-                      <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-indigo-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        Share trip
-                      </span>
-                    </button>
-                    {itinerary.user_id === user?.id && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          void handlePublishTripBoard()
-                        }}
-                        disabled={publishingBoard}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-50 ${
-                          itinerary.published_at
-                            ? 'bg-fibi-blue-light/40 text-fibi-text-primary'
-                            : 'text-[#6b7280] hover:bg-gray-100'
-                        }`}
-                        title={
-                          itinerary.published_at
-                            ? 'Stop sharing this board'
-                            : 'Share board by link'
-                        }
-                      >
-                        {publishingBoard
-                          ? '…'
-                          : itinerary.published_at
-                            ? copied
-                              ? 'Link copied'
-                              : 'Shared'
-                            : 'Share board'}
-                      </button>
-                    )}
-                    {itinerary.published_at && boardUrl && (
-                      <a
-                        href={boardUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-fibi-primary hover:underline px-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        View
-                      </a>
-                    )}
-                    {itinerary.user_id === user?.id && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setShowRemoveItineraryModal(true)
-                        }}
-                        className="p-2 rounded-xl text-[#6b7280] hover:bg-red-50 hover:text-red-600 transition-colors relative group"
-                        title="Remove trip"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-indigo-900 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                          Remove trip
-                        </span>
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-            <button
-              onClick={() => setShowCreateItineraryModal(true)}
-              className="px-4 py-2.5 rounded-2xl text-sm font-medium whitespace-nowrap bg-white text-[#6b7280] border border-dashed border-gray-300 hover:border-[#1f2937] hover:text-[#1f2937] transition-colors flex items-center gap-1.5"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New trip
-            </button>
-          </div>
-          )}
-
-          {/* Mobile: one tappable card that opens trip picker (funky, not dropdown look) */}
-          {isMobile && (
-          <>
-            <button
-              type="button"
-              onClick={() => setTripPickerOpen(true)}
-              className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-white border-2 border-[#1f2937] text-left shadow-[0_4px_14px_rgba(0,0,0,0.06)] active:scale-[0.99] transition-transform"
-              aria-expanded={tripPickerOpen}
-              aria-haspopup="listbox"
-            >
-              <span className="flex items-center gap-3 min-w-0">
-                <span className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#1f2937] text-white flex items-center justify-center" aria-hidden>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0h.5a2.5 2.5 0 002.5-2.5V3.935M12 12a2 2 0 104 0 2 2 0 00-4 0z" />
-                  </svg>
-                </span>
-                <span className="font-semibold text-[#1f2937] truncate">
-                  {selectedItineraryId === null
-                    ? 'All trips'
-                    : itineraries.find((i) => i.id === selectedItineraryId)?.name ?? 'Trip'}
-                </span>
-              </span>
-              <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-[#6b7280]" aria-hidden>
-                <svg className={`w-4 h-4 transition-transform duration-200 ${tripPickerOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </span>
-            </button>
-
-            {/* Mobile trip picker: bottom sheet style, funky cards */}
-            {tripPickerOpen && (
-              <div
-                className="fixed inset-0 z-50 md:hidden"
-                aria-modal="true"
-                role="dialog"
-                aria-label="Choose trip"
-              >
-                <div
-                  className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                  onClick={() => setTripPickerOpen(false)}
-                  aria-hidden
-                />
-                <div
-                  className="absolute bottom-0 left-0 right-0 max-h-[75vh] overflow-y-auto rounded-t-3xl bg-gray-50 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="sticky top-0 pt-4 pb-2 px-4 bg-gray-50 flex justify-center">
-                    <span className="w-10 h-1 rounded-full bg-gray-300" aria-hidden />
-                  </div>
-                  <div className="px-4 pb-8 space-y-2">
-                    <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wider px-1 pb-1">Switch trip</p>
-                    <button
-                      onClick={() => { setSelectedItineraryId(null); setTripPickerOpen(false); }}
-                      className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left font-medium transition-all ${
-                        selectedItineraryId === null
-                          ? 'bg-[#1f2937] text-white shadow-lg ring-2 ring-[#1f2937] ring-offset-2 ring-offset-gray-50'
-                          : 'bg-white border-2 border-gray-200 text-[#374151] hover:border-[#1f2937] active:scale-[0.99]'
+                      onClick={() => setSelectedItineraryId(itinerary.id)}
+                      className={`px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-fast ${
+                        selectedItineraryId === itinerary.id
+                          ? 'bg-accent text-white shadow-soft'
+                          : 'bg-white text-secondary border border-[color:var(--border-subtle)] hover:text-charcoal'
                       }`}
                     >
-                      <span className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                      </span>
-                      All trips
+                      {itinerary.name}
                     </button>
-                    {itineraries.map((itinerary) => {
-                      const isSelected = selectedItineraryId === itinerary.id
-                      return (
+                    {selectedItineraryId === itinerary.id && (
+                      <>
                         <button
-                          key={itinerary.id}
-                          onClick={() => { setSelectedItineraryId(itinerary.id); setTripPickerOpen(false); }}
-                          className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left font-medium transition-all ${
-                            isSelected
-                              ? 'bg-[#1f2937] text-white shadow-lg ring-2 ring-[#1f2937] ring-offset-2 ring-offset-gray-50'
-                              : 'bg-white border-2 border-gray-200 text-[#374151] hover:border-[#1f2937] active:scale-[0.99]'
-                          }`}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleShareItinerary()
+                          }}
+                          disabled={loadingShare}
+                          className="p-2 rounded-xl text-secondary hover:bg-[color:var(--bg-inset)] transition-colors relative group disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Share trip"
                         >
-                          <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/30 to-orange-500/30 flex items-center justify-center flex-shrink-0">
-                            <svg className="w-5 h-5 text-[#1f2937]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0h.5a2.5 2.5 0 002.5-2.5V3.935M12 12a2 2 0 104 0 2 2 0 00-4 0z" /></svg>
-                          </span>
-                          <span className="truncate">{itinerary.name}</span>
+                          {loadingShare ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                            </svg>
+                          )}
                         </button>
-                      )
-                    })}
-                    <button
-                      onClick={() => { setTripPickerOpen(false); setShowCreateItineraryModal(true); }}
-                      className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left font-medium bg-white border-2 border-dashed border-gray-300 text-[#6b7280] hover:border-[#1f2937] hover:text-[#1f2937] active:scale-[0.99] transition-all"
-                    >
-                      <span className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                      </span>
-                      New trip
-                    </button>
+                        {itinerary.user_id === user?.id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              void handlePublishTripBoard()
+                            }}
+                            disabled={publishingBoard}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-50 ${
+                              itinerary.published_at
+                                ? 'bg-sky-100 text-sky-700'
+                                : 'text-secondary hover:bg-[color:var(--bg-inset)]'
+                            }`}
+                            title={
+                              itinerary.published_at
+                                ? 'Stop sharing this board'
+                                : 'Share board by link'
+                            }
+                          >
+                            {publishingBoard
+                              ? '…'
+                              : itinerary.published_at
+                                ? copied
+                                  ? 'Link copied'
+                                  : 'Shared'
+                                : 'Share board'}
+                          </button>
+                        )}
+                        {itinerary.published_at && boardUrl && (
+                          <a
+                            href={boardUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-accent hover:underline px-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View
+                          </a>
+                        )}
+                        {itinerary.user_id === user?.id && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setShowRemoveItineraryModal(true)
+                            }}
+                            className="p-2 rounded-xl text-secondary hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="Remove trip"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
-                </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowCreateItineraryModal(true)}
+                  className="px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap bg-white text-secondary border border-dashed border-[color:var(--border-default)] hover:border-accent hover:text-accent transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New trip
+                </button>
               </div>
             )}
-          </>
-          )}
-        </div>
+
+            {/* Mobile: trip switcher */}
+            {isMobile && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setTripPickerOpen(true)}
+                  className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-[22px] bg-white border border-[color:var(--border-subtle)] text-left shadow-soft active:scale-[0.99] transition-transform"
+                  aria-expanded={tripPickerOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="flex-shrink-0 w-10 h-10 rounded-xl bg-accent text-white flex items-center justify-center" aria-hidden>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0h.5a2.5 2.5 0 002.5-2.5V3.935M12 12a2 2 0 104 0 2 2 0 00-4 0z" />
+                      </svg>
+                    </span>
+                    <span className="font-semibold text-charcoal truncate">
+                      {itineraries.find((i) => i.id === selectedItineraryId)?.name ?? 'Trip'}
+                    </span>
+                  </span>
+                  <span className="flex-shrink-0 w-8 h-8 rounded-full bg-[color:var(--bg-inset)] flex items-center justify-center text-secondary" aria-hidden>
+                    <svg className={`w-4 h-4 transition-transform duration-200 ${tripPickerOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </span>
+                </button>
+
+                {tripPickerOpen && (
+                  <div
+                    className="fixed inset-0 z-50 md:hidden"
+                    aria-modal="true"
+                    role="dialog"
+                    aria-label="Choose trip"
+                  >
+                    <div
+                      className="absolute inset-0 bg-indigo-950/48 backdrop-blur-[3px]"
+                      onClick={() => setTripPickerOpen(false)}
+                      aria-hidden
+                    />
+                    <div
+                      className="absolute bottom-0 left-0 right-0 max-h-[75vh] overflow-y-auto rounded-t-3xl bg-[color:var(--bg-subtle)] shadow-soft-md"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="sticky top-0 pt-4 pb-2 px-4 bg-[color:var(--bg-subtle)] flex justify-center">
+                        <span className="w-10 h-1 rounded-full bg-[color:var(--border-default)]" aria-hidden />
+                      </div>
+                      <div className="px-4 pb-8 space-y-2">
+                        <p className="text-xs font-medium text-[color:var(--text-tertiary)] uppercase tracking-[0.11em] px-1 pb-1">
+                          Switch trip
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedItineraryId(null)
+                            setTripPickerOpen(false)
+                          }}
+                          className="w-full flex items-center gap-4 px-4 py-4 rounded-[22px] text-left font-medium bg-white border border-[color:var(--border-subtle)] text-charcoal active:scale-[0.99] transition-all"
+                        >
+                          All trips
+                        </button>
+                        {itineraries.map((itinerary) => {
+                          const isSelected = selectedItineraryId === itinerary.id
+                          return (
+                            <button
+                              key={itinerary.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedItineraryId(itinerary.id)
+                                setTripPickerOpen(false)
+                              }}
+                              className={`w-full flex items-center gap-4 px-4 py-4 rounded-[22px] text-left font-medium transition-all active:scale-[0.99] ${
+                                isSelected
+                                  ? 'bg-accent text-white shadow-soft'
+                                  : 'bg-white border border-[color:var(--border-subtle)] text-charcoal'
+                              }`}
+                            >
+                              <span className="truncate">{itinerary.name}</span>
+                            </button>
+                          )
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTripPickerOpen(false)
+                            setShowCreateItineraryModal(true)
+                          }}
+                          className="w-full flex items-center gap-4 px-4 py-4 rounded-[22px] text-left font-medium bg-white border border-dashed border-[color:var(--border-default)] text-secondary"
+                        >
+                          New trip
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {!hasPlacesNoTrips && (
@@ -1828,59 +1868,71 @@ export default function CalendarView({ user }: CalendarViewProps) {
               )}
             </>
           ) : (
-            /* All trips: show trip cards so user can pick a trip (not a grid of all places) */
-            <div className="mb-6">
-              {itineraries.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No trips yet. Create a trip to get started.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {itineraries.map((itinerary) => {
-                    const tripPlaces = items.filter((i) => i.itinerary_id === itinerary.id)
-                    const coverUrl =
-                      itinerary.cover_image_url ||
-                      tripPlaces[0]?.screenshot_url ||
-                      tripPlaces[0]?.thumbnail_url ||
-                      null
-                    const placeCount = tripPlaces.length
-                    return (
-                      <button
-                        key={itinerary.id}
-                        type="button"
-                        onClick={() => setSelectedItineraryId(itinerary.id)}
-                        className="text-left rounded-2xl bg-white border-2 border-gray-200 overflow-hidden shadow-sm hover:shadow-md hover:border-[#1f2937] transition-all focus:outline-none focus:ring-2 focus:ring-[#1f2937] focus:ring-offset-2 flex flex-col min-w-0 group"
-                      >
-                        <div className="relative aspect-[3/2] bg-gray-100 min-h-[120px]">
-                          {coverUrl ? (
-                            <img
-                              src={getProxiedImageUrl(coverUrl) || coverUrl}
-                              alt=""
-                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" aria-hidden />
-                          <div className="absolute bottom-3 left-3 right-3">
-                            <h3 className="text-lg font-semibold text-white drop-shadow-md truncate">{itinerary.name}</h3>
-                            {(itinerary.start_date || itinerary.end_date) && (
-                              <p className="text-xs text-white/90 mt-0.5">
-                                {itinerary.start_date && new Date(itinerary.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                                {itinerary.start_date && itinerary.end_date && ' – '}
-                                {itinerary.end_date && new Date(itinerary.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="px-4 py-3 flex-shrink-0 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-sm font-medium text-[#1f2937]">{itinerary.name}</span>
-                          <span className="text-xs text-gray-500">
-                            {placeCount === 0 ? 'No places' : placeCount === 1 ? '1 place' : `${placeCount} places`}
-                          </span>
-                        </div>
-                      </button>
-                    )
-                  })}
+            /* All trips landing: featured board + visual grid */
+            <div className="mb-8 space-y-6">
+              {filteredItineraries.length === 0 ? (
+                <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-white px-6 py-12 text-center shadow-soft">
+                  <p className="text-secondary">
+                    {tripBoardFilter === 'all'
+                      ? 'No trips yet. Create one to get started.'
+                      : 'Nothing in this filter yet.'}
+                  </p>
+                  {tripBoardFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => setTripBoardFilter('all')}
+                      className="mt-3 text-sm font-medium text-accent hover:underline"
+                    >
+                      Show all
+                    </button>
+                  )}
                 </div>
+              ) : (
+                <>
+                  {featuredItinerary && (
+                    <TripBoardCard
+                      itinerary={featuredItinerary}
+                      items={items}
+                      featured
+                      onOpen={() => setSelectedItineraryId(featuredItinerary.id)}
+                    />
+                  )}
+
+                  {gridItineraries.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                      {gridItineraries.map((itinerary) => (
+                        <TripBoardCard
+                          key={itinerary.id}
+                          itinerary={itinerary}
+                          items={items}
+                          onOpen={() => setSelectedItineraryId(itinerary.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {items.some(
+                    (i) =>
+                      i.latitude != null &&
+                      i.longitude != null &&
+                      !Number.isNaN(Number(i.latitude))
+                  ) && (
+                    <section className="pt-2">
+                      <div className="mb-3 flex items-baseline justify-between gap-3">
+                        <h2 className="text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
+                          Your map
+                        </h2>
+                        <Link
+                          href="/app/map"
+                          className="text-sm font-medium text-accent hover:underline"
+                        >
+                          View on map
+                        </Link>
+                      </div>
+                      <LibraryMapPreview items={items} />
+                    </section>
+                  )}
+                </>
               )}
             </div>
           )}

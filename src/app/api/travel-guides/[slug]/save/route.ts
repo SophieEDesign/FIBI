@@ -26,21 +26,35 @@ export async function POST(
     }
 
     const authHeader = request.headers.get('authorization')
-    const supabaseAuth = await createClient(request)
     let user: User | null = null
-    let supabase = supabaseAuth
+    let supabase = await createClient(request)
 
-    const { data: { user: cookieUser }, error: cookieError } = await supabaseAuth.auth.getUser()
-    if (cookieUser && !cookieError) {
-      user = cookieUser
-      supabase = supabaseAuth
-    } else if (authHeader?.startsWith('Bearer ')) {
+    // Prefer Bearer — cookie auth is unreliable on public pages where middleware
+    // does not refresh the session.
+    if (authHeader?.startsWith('Bearer ')) {
       const accessToken = authHeader.substring(7)
       const { data: { user: tokenUser }, error: tokenError } =
-        await supabaseAuth.auth.getUser(accessToken)
+        await supabase.auth.getUser(accessToken)
       if (tokenUser && !tokenError) {
         user = tokenUser
         supabase = createClientWithToken(accessToken)
+      }
+    }
+
+    if (!user) {
+      const { data: { user: cookieUser }, error: cookieError } = await supabase.auth.getUser()
+      if (cookieUser && !cookieError) {
+        user = cookieUser
+      }
+    }
+
+    if (!user) {
+      const fallback = await createClient()
+      const { data: { user: fallbackUser }, error: fallbackError } =
+        await fallback.auth.getUser()
+      if (fallbackUser && !fallbackError) {
+        user = fallbackUser
+        supabase = fallback
       }
     }
 

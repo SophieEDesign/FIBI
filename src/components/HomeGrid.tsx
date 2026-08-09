@@ -5,13 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signOut } from '@/lib/signout'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 import LibraryMapPreview from '@/components/LibraryMapPreview'
 import SavedPlaceCard from '@/components/SavedPlaceCard'
+import TripBoardCard from '@/components/TripBoardCard'
 import { Button } from '@/components/ui/Button'
+import { pickFeaturedTrip } from '@/lib/trip-board-meta'
 
 interface HomeGridProps {
   user: any
@@ -27,6 +29,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [showFirstPlaceFeedback, setShowFirstPlaceFeedback] = useState(false)
   const [showFilterModal, setShowFilterModal] = useState(false)
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
   const [showCalendarModal, setShowCalendarModal] = useState(false)
@@ -37,7 +40,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
-  const [groupBy, setGroupBy] = useState<'none' | 'city' | 'liked' | 'planned'>('city')
+  const [groupBy, setGroupBy] = useState<'none' | 'category' | 'city' | 'liked' | 'planned'>('category')
   const [searchQuery, setSearchQuery] = useState('')
   const [libraryTab, setLibraryTab] = useState<'places' | 'map' | 'boards'>('places')
   const supabase = createClient()
@@ -276,7 +279,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     return list
   }, [items, filters, searchQuery])
 
-  // Order items: sort by liked/planned, optional group (city by default)
+  // Order items: sort by liked/planned when grouping that way
   const orderedItems = useMemo(() => {
     let list = [...filteredItems]
     if (groupBy === 'liked') {
@@ -300,33 +303,62 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     return list
   }, [filteredItems, sortOrder, groupBy])
 
-  const cityGroups = useMemo(() => {
-    if (groupBy !== 'city') {
-      return { groups: [{ key: 'all', label: null as string | null, items: orderedItems }], needsLocation: [] as SavedItem[] }
-    }
-    const map = new Map<string, SavedItem[]>()
+  const placeGroups = useMemo(() => {
     const needsLocation: SavedItem[] = []
-    for (const item of orderedItems) {
-      const status =
-        item.location_status ||
-        (item.latitude != null && item.longitude != null
-          ? 'resolved'
-          : item.place_name || item.location_city
-            ? 'needs_review'
-            : 'unknown')
-      if (status !== 'resolved') {
-        needsLocation.push(item)
-        continue
+
+    if (groupBy === 'category') {
+      const map = new Map<string, SavedItem[]>()
+      for (const item of orderedItems) {
+        const cats = parseItemField(item.category)
+        const key = cats[0]?.trim() || 'Uncategorised'
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push(item)
       }
-      const city = item.location_city?.trim()
-      const key = city || item.location_country?.trim() || 'Somewhere'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(item)
+      const knownOrder = [...CATEGORIES] as string[]
+      const groups = Array.from(map.entries())
+        .sort(([a], [b]) => {
+          if (a === 'Uncategorised') return 1
+          if (b === 'Uncategorised') return -1
+          const ai = knownOrder.indexOf(a)
+          const bi = knownOrder.indexOf(b)
+          if (ai !== -1 && bi !== -1) return ai - bi
+          if (ai !== -1) return -1
+          if (bi !== -1) return 1
+          return a.localeCompare(b)
+        })
+        .map(([key, groupItems]) => ({ key, label: key, items: groupItems }))
+      return { groups, needsLocation }
     }
-    const groups = Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, groupItems]) => ({ key, label: key, items: groupItems }))
-    return { groups, needsLocation }
+
+    if (groupBy === 'city') {
+      const map = new Map<string, SavedItem[]>()
+      for (const item of orderedItems) {
+        const status =
+          item.location_status ||
+          (item.latitude != null && item.longitude != null
+            ? 'resolved'
+            : item.place_name || item.location_city
+              ? 'needs_review'
+              : 'unknown')
+        if (status !== 'resolved') {
+          needsLocation.push(item)
+          continue
+        }
+        const city = item.location_city?.trim()
+        const key = city || item.location_country?.trim() || 'Somewhere'
+        if (!map.has(key)) map.set(key, [])
+        map.get(key)!.push(item)
+      }
+      const groups = Array.from(map.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, groupItems]) => ({ key, label: key, items: groupItems }))
+      return { groups, needsLocation }
+    }
+
+    return {
+      groups: [{ key: 'all', label: null as string | null, items: orderedItems }],
+      needsLocation,
+    }
   }, [orderedItems, groupBy])
 
   const retentionChips = useMemo(() => {
@@ -651,10 +683,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <span className="text-sm font-medium text-secondary">Group:</span>
                 <select
                   value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'city' | 'liked' | 'planned')}
+                  onChange={(e) =>
+                    setGroupBy(
+                      e.target.value as 'none' | 'category' | 'city' | 'liked' | 'planned'
+                    )
+                  }
                   className="px-2.5 py-1.5 text-sm rounded-xl bg-gray-100 text-secondary hover:bg-gray-200 border-0 focus:ring-2 focus:ring-charcoal/20"
                   aria-label="Group by"
                 >
+                  <option value="category">Category</option>
                   <option value="city">City</option>
                   <option value="none">None</option>
                   <option value="liked">Liked</option>
@@ -696,9 +733,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         )}
 
         {!loading && libraryTab === 'boards' && (
-          <div className="mb-8 space-y-3">
+          <div className="mb-8 space-y-5">
             {itineraries.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+              <div className="rounded-[22px] border border-[color:var(--border-subtle)] bg-white px-6 py-12 text-center shadow-soft">
                 <h2 className="text-lg font-medium text-charcoal mb-2">No travel boards yet</h2>
                 <p className="text-sm text-secondary mb-4 max-w-sm mx-auto">
                   Organise saved places into a board for a trip. Share by link when you&apos;re ready.
@@ -708,33 +745,45 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </Button>
               </div>
             ) : (
-              <ul className="space-y-2">
-                {itineraries.map((board) => {
-                  const placeCount = items.filter((i) => i.itinerary_id === board.id).length
-                  const shared = !!board.published_at
-                  return (
-                    <li key={board.id}>
+              (() => {
+                const featured = pickFeaturedTrip(itineraries, items)
+                const rest = itineraries.filter((b) => b.id !== featured?.id)
+                const openBoard = (id: string) => {
+                  router.push(`/app/calendar?itinerary_id=${encodeURIComponent(id)}`)
+                }
+                return (
+                  <>
+                    {featured && (
+                      <TripBoardCard
+                        itinerary={featured}
+                        items={items}
+                        featured
+                        onOpen={() => openBoard(featured.id)}
+                      />
+                    )}
+                    {rest.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                        {rest.map((board) => (
+                          <TripBoardCard
+                            key={board.id}
+                            itinerary={board}
+                            items={items}
+                            onOpen={() => openBoard(board.id)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-center">
                       <Link
-                        href={`/app/calendar?itinerary_id=${encodeURIComponent(board.id)}`}
-                        className="flex items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-sm transition-shadow"
+                        href="/app/calendar"
+                        className="text-sm font-medium text-accent hover:underline"
                       >
-                        <div className="min-w-0">
-                          <p className="font-medium text-charcoal truncate">{board.name}</p>
-                          <p className="text-xs text-secondary mt-0.5">
-                            {placeCount} place{placeCount === 1 ? '' : 's'}
-                            {shared ? ' · Shared by link' : ' · Private'}
-                          </p>
-                        </div>
-                        {shared && board.public_slug ? (
-                          <span className="text-xs text-fibi-primary shrink-0">Shareable</span>
-                        ) : (
-                          <span className="text-xs text-secondary shrink-0">Open</span>
-                        )}
+                        See all trips
                       </Link>
-                    </li>
-                  )
-                })}
-              </ul>
+                    </p>
+                  </>
+                )
+              })()
             )}
           </div>
         )}
@@ -814,7 +863,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         {/* Places grid */}
         {!loading && orderedItems.length > 0 && libraryTab === 'places' && (
           <div className="space-y-8">
-            {cityGroups.groups.map((group) => (
+            {placeGroups.groups.map((group) => (
               <section key={group.key}>
                 {group.label && (
                   <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
@@ -828,7 +877,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       <li key={item.id}>
                         <SavedPlaceCard
                           item={item}
-                          category={itemCategories[0] || null}
+                          category={
+                            groupBy === 'category' ? null : itemCategories[0] || null
+                          }
                           failedScreenshot={failedScreenshotIds.has(item.id)}
                           onScreenshotError={() =>
                             setFailedScreenshotIds((prev) => new Set(prev).add(item.id))
@@ -844,13 +895,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               </section>
             ))}
 
-            {cityGroups.needsLocation.length > 0 && (
+            {placeGroups.needsLocation.length > 0 && (
               <section>
                 <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
                   Needs a location
                 </h2>
                 <ul className="space-y-2">
-                  {cityGroups.needsLocation.map((item) => {
+                  {placeGroups.needsLocation.map((item) => {
                     const displayTitle = item.title || getHostname(item.url)
                     return (
                       <li
@@ -963,10 +1014,15 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <h3 className="text-xs font-medium text-secondary mb-2">Group by</h3>
                 <select
                   value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'city' | 'liked' | 'planned')}
+                  onChange={(e) =>
+                    setGroupBy(
+                      e.target.value as 'none' | 'category' | 'city' | 'liked' | 'planned'
+                    )
+                  }
                   className="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary border-0"
                   aria-label="Group by"
                 >
+                  <option value="category">Category</option>
                   <option value="city">City</option>
                   <option value="none">None</option>
                   <option value="liked">Liked</option>
