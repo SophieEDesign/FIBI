@@ -26,7 +26,7 @@ $intro$,
   'Mallorca',
   'Balearic Islands',
   'Spain',
-  'https://images.unsplash.com/photo-1555881403-64995e224d84?w=1600&q=80',
+  'https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&w=1600&q=80',
   '8 Mallorca Hidden Gems Worth Saving | FIBI',
   'Mountain villages, tiny coves and old fishing ports in Mallorca worth saving to your FIBI Travel Board.',
   'published',
@@ -73,7 +73,7 @@ $d1$,
     'Hidden beaches', 0, 39.8425::float8, 2.7803::float8,
     'Serra de Tramuntana', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'Fornalutx',
@@ -88,7 +88,7 @@ $d2$,
     'Mountain villages', 1, 39.7828::float8, 2.7411::float8,
     'Sóller Valley', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1516483638261-f4dbaf036dbc?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'Banyalbufar',
@@ -103,7 +103,7 @@ $d3$,
     'Mountain villages', 2, 39.6872::float8, 2.5139::float8,
     'West Mallorca', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1533105079780-fdcd5c4fbcf3?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1483683804023-6ccdb62f86ef?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'S''Amarador',
@@ -118,7 +118,7 @@ $d4$,
     'Hidden beaches', 3, 39.3514::float8, 3.1864::float8,
     'Mondragó Natural Park', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'Caló des Borgit',
@@ -133,7 +133,7 @@ $d5$,
     'Hidden beaches', 4, 39.3482::float8, 3.1798::float8,
     'Mondragó', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'Portocolom',
@@ -150,7 +150,7 @@ $d6$,
     'Fishing harbours', 5, 39.4183::float8, 3.2561::float8,
     'East Mallorca', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1493558103817-58b2924bce98?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1493558103817-58b2924bce98?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'Cala Figuera',
@@ -165,7 +165,7 @@ $d7$,
     'Fishing harbours', 6, 39.3314::float8, 3.1711::float8,
     'Santanyí', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1555881403-64995e224d84?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=1200&q=80'
   ),
   (
     'Sant Elm & Sa Dragonera',
@@ -182,7 +182,7 @@ $d8$,
     'West coast', 7, 39.5792::float8, 2.3497::float8,
     'West Mallorca', 'Spain',
     'https://www.illesbalears.travel/en/mallorca/',
-    'Web', 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80'
+    'Web', 'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?auto=format&fit=crop&w=1200&q=80'
   )
 ) AS v(name, description, section, display_order, latitude, longitude, location_city, location_country, source_url, source_platform, image_url)
 WHERE g.slug = 'mallorca-hidden-gems';

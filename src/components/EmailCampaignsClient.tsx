@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
 import { type ConditionsForm, formToConditions } from '@/lib/email-conditions'
 import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
@@ -73,6 +74,7 @@ function statusBadgeClass(status: string): string {
 }
 
 export default function EmailCampaignsClient() {
+  const router = useRouter()
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [templates, setTemplates] = useState<TemplateOption[]>([])
   const [segments, setSegments] = useState<SegmentOption[]>([])
@@ -799,9 +801,21 @@ export default function EmailCampaignsClient() {
                 </tr>
               ) : (
                 campaigns.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
+                  <tr
+                    key={c.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => {
+                      router.push(`/app/admin/emails/campaigns/${c.id}`)
+                    }}
+                  >
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {c.name}
+                      <Link
+                        href={`/app/admin/emails/campaigns/${c.id}`}
+                        className="hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {c.name}
+                      </Link>
                       <div className="text-xs text-gray-400 font-normal font-mono">{c.template_slug}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
@@ -820,7 +834,16 @@ export default function EmailCampaignsClient() {
                     <td className="px-4 py-3 text-sm text-gray-600">
                       {c.sent_count > 0 ? pct(c.opened_count, c.sent_count) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right space-x-2">
+                    <td
+                      className="px-4 py-3 text-sm text-right space-x-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Link
+                        href={`/app/admin/emails/campaigns/${c.id}`}
+                        className="underline text-gray-700 hover:text-gray-900"
+                      >
+                        Open
+                      </Link>
                       {(c.status === 'draft' || c.status === 'scheduled' || c.status === 'failed') && (
                         <button
                           type="button"

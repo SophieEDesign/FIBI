@@ -112,7 +112,15 @@ export function cleanOGTitle(title: string | null | undefined): string | null {
 export function isGenericOgTitle(title: string | null | undefined): boolean {
   if (!title || !title.trim()) return true
   const t = title.trim().toLowerCase()
-  return t === 'instagram' || t === 'facebook' || t === 'meta' || t === 'tiktok' || t === 'youtube'
+  return (
+    t === 'instagram' ||
+    t === 'facebook' ||
+    t === 'meta' ||
+    t === 'tiktok' ||
+    t === 'youtube' ||
+    t === 'tiktok - make your day' ||
+    t === 'make your day'
+  )
 }
 
 /**

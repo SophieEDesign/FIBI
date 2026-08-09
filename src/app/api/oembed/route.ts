@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUrlSafeForFetch } from '@/lib/ssrf'
 import { extractOgMetaFromHtml } from '@/lib/og-meta'
+import {
+  fetchTikTokMetadata,
+  isTikTokUrl,
+  resolveTikTokCanonicalUrl,
+} from '@/lib/tiktok-oembed'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,18 +20,21 @@ interface OEmbedResponse {
 }
 
 function detectPlatformFromUrl(url: string): 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'generic' {
-  const hostname = new URL(url).hostname.toLowerCase()
-  
-  if (hostname.includes('tiktok.com')) return 'tiktok'
-  if (hostname.includes('instagram.com')) return 'instagram'
-  if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube'
-  if (hostname.includes('facebook.com') || hostname.includes('fb.com')) return 'facebook'
+  try {
+    if (isTikTokUrl(url)) return 'tiktok'
+    const hostname = new URL(url).hostname.toLowerCase()
+    if (hostname.includes('instagram.com')) return 'instagram'
+    if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube'
+    if (hostname.includes('facebook.com') || hostname.includes('fb.com')) return 'facebook'
+  } catch {
+    // ignore
+  }
   return 'generic'
 }
 
 /** Facebook serves OG-rich HTML to its own crawler; use that User-Agent when fetching Facebook URLs. */
 const FACEBOOK_CRAWLER_UA = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
-const DEFAULT_FETCH_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+const DEFAULT_FETCH_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 
 function getUserAgentForFetchUrl(url: string): string {
   try {
@@ -43,18 +51,28 @@ function getUserAgentForFetchUrl(url: string): string {
 /** Resolve short/share URLs to canonical URL by following redirects. Same pull-through for TikTok, Instagram, YouTube, Facebook, etc. */
 async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'generic'): Promise<string> {
   if (platform === 'generic') return url
+  if (platform === 'tiktok') {
+    const resolved = await resolveTikTokCanonicalUrl(url)
+    return isUrlSafeForFetch(resolved) ? resolved : url
+  }
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
     const response = await fetch(url, {
-      method: 'HEAD',
+      method: 'GET',
       redirect: 'follow',
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': DEFAULT_FETCH_UA,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
     })
     clearTimeout(timeoutId)
+    try {
+      await response.body?.cancel()
+    } catch {
+      // ignore
+    }
     const finalUrl = response.url
     if (finalUrl && finalUrl !== url && isUrlSafeForFetch(finalUrl)) return finalUrl
   } catch (_) {
@@ -64,107 +82,21 @@ async function resolveCanonicalUrl(url: string, platform: 'tiktok' | 'instagram'
 }
 
 async function fetchTikTokOEmbed(url: string): Promise<OEmbedResponse> {
-  try {
-    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
-    const response = await fetch(oembedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/html, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://www.tiktok.com/',
-        'Origin': 'https://www.tiktok.com',
-      },
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      // Log at debug; 400 is common (TikTok API). Fallback to generic metadata will still run.
-      console.debug(`TikTok oEmbed failed: ${response.status}`, errorText.substring(0, 150))
-      return { error: 'TikTok oEmbed failed' }
-    }
-
-    const data = await response.json()
-    
-    if (data.error) {
-      console.warn('TikTok oEmbed returned error:', data)
-      return { error: 'TikTok oEmbed returned no data' }
-    }
-    // Accept partial responses: title and/or thumbnail_url are still useful even without html
-    
-    // Extract caption from TikTok HTML (WordPress-style extraction)
-    // TikTok oEmbed HTML contains the caption in a <p> tag within a blockquote
-    let captionText: string | undefined
-    
-    // Helper function to decode HTML entities
-    const decodeHtmlEntities = (text: string): string => {
-      return text
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&#x27;/g, "'")
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&#8217;/g, "'")
-        .replace(/&#8216;/g, "'")
-        .replace(/&#8220;/g, '"')
-        .replace(/&#8221;/g, '"')
-        .replace(/&apos;/g, "'")
-    }
-    
-    if (data.html) {
-      // Try multiple patterns to extract caption from HTML
-      // Pattern 1: <blockquote><p>caption text</p></blockquote>
-      // Pattern 2: <p> inside blockquote with various attributes
-      // Pattern 3: Any <p> tag with substantial text (10+ chars)
-      // Pattern 4: Text content directly in blockquote
-      let captionMatch = data.html.match(/<blockquote[^>]*>\s*<p[^>]*>([^<]+)<\/p>/i) ||
-                          data.html.match(/<blockquote[^>]*>\s*<p[^>]*>([\s\S]*?)<\/p>/i) ||
-                          data.html.match(/<p[^>]*class\s*=\s*["'][^"']*caption[^"']*["'][^>]*>([^<]+)<\/p>/i) ||
-                          data.html.match(/<p[^>]*>([^<]{10,})<\/p>/i) ||
-                          data.html.match(/<blockquote[^>]*>([^<]+)<\/blockquote>/i)
-      
-      if (captionMatch && captionMatch[1]) {
-        let extractedText = captionMatch[1].trim()
-        // Remove any remaining HTML tags
-        extractedText = extractedText.replace(/<[^>]*>/g, '')
-        // Decode HTML entities
-        extractedText = decodeHtmlEntities(extractedText)
-        // Clean up whitespace
-        extractedText = extractedText.replace(/\s+/g, ' ').trim()
-        
-        if (extractedText.length > 0) {
-          captionText = extractedText
-        }
-      }
-    }
-    
-    // Fallback: TikTok's title field often contains the caption text
-    // Use it if HTML extraction failed or returned empty
-    if (!captionText && data.title) {
-      let titleText = data.title.trim()
-      // Remove common TikTok prefixes like "TikTok - " or "@username - "
-      titleText = titleText.replace(/^TikTok\s*[-–—]\s*/i, '')
-      titleText = titleText.replace(/^@[\w.-]+\s*[-–—]\s*/i, '')
-      titleText = decodeHtmlEntities(titleText)
-      
-      if (titleText.length > 0) {
-        captionText = titleText
-      }
-    }
-    
-    return {
-      html: data.html || undefined,
-      thumbnail_url: data.thumbnail_url || undefined,
-      author_name: data.author_name || undefined,
-      title: data.title || undefined,
-      provider_name: 'TikTok',
-      caption_text: captionText,
-    }
-  } catch (error) {
-    console.error('TikTok oEmbed error:', error)
-    return { error: 'TikTok oEmbed error' }
+  const data = await fetchTikTokMetadata(url)
+  if (!data) {
+    return { error: 'TikTok oEmbed failed' }
+  }
+  // Title and/or thumbnail are enough — TikTok HTML embeds are optional
+  if (!data.html && !data.image && !data.title && !data.description) {
+    return { error: 'TikTok oEmbed returned no data' }
+  }
+  return {
+    html: data.html || undefined,
+    thumbnail_url: data.image || undefined,
+    author_name: data.author_name || undefined,
+    title: data.title || undefined,
+    provider_name: 'TikTok',
+    caption_text: data.description || undefined,
   }
 }
 
@@ -339,7 +271,15 @@ async function processOEmbedRequest(url: string): Promise<OEmbedResponse> {
   }
 
   // If platform-specific oEmbed succeeded, return it
-  if (oembedData && !oembedData.error && (oembedData.html || oembedData.thumbnail_url)) {
+  // Title/caption alone is enough for TikTok when CDN thumb is missing
+  if (
+    oembedData &&
+    !oembedData.error &&
+    (oembedData.html ||
+      oembedData.thumbnail_url ||
+      oembedData.title ||
+      oembedData.caption_text)
+  ) {
     return oembedData
   }
 

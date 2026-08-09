@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isUrlSafeForFetch } from '@/lib/ssrf'
 import { extractOgMetaFromHtml } from '@/lib/og-meta'
+import { fetchTikTokMetadata, isTikTokUrl } from '@/lib/tiktok-oembed'
 
 interface MetadataResponse {
   title: string | null
@@ -34,15 +35,22 @@ async function resolveCanonicalUrlIfNeeded(url: string): Promise<string> {
     if (!isShortOrRedirect) return url
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 8000)
+    // Prefer GET — TikTok/Meta short links often ignore HEAD redirects
     const response = await fetch(url, {
-      method: 'HEAD',
+      method: 'GET',
       redirect: 'follow',
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
     })
     clearTimeout(timeoutId)
+    try {
+      await response.body?.cancel()
+    } catch {
+      // ignore
+    }
     const finalUrl = response.url
     if (finalUrl && finalUrl !== url && isUrlSafeForFetch(finalUrl)) return finalUrl
   } catch (_) {
@@ -278,6 +286,20 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // TikTok stopped serving og:* to scrapers (shell page only). Use oEmbed for title/thumb.
+      if (isTikTokUrl(url)) {
+        const tiktok = await fetchTikTokMetadata(url)
+        if (tiktok && (tiktok.title || tiktok.description || tiktok.image)) {
+          return NextResponse.json({
+            title: tiktok.title,
+            description: tiktok.description,
+            image: tiktok.image,
+            scrapedContent: tiktok.description,
+          } satisfies MetadataResponse)
+        }
+        // Fall through to HTML scrape as last resort
+      }
+
       const fetchUrl = await resolveCanonicalUrlIfNeeded(url)
       if (!isUrlSafeForFetch(fetchUrl)) {
         return NextResponse.json({
@@ -309,6 +331,24 @@ export async function POST(request: NextRequest) {
       }
 
       const metadata = extractMetadata(html)
+
+      // TikTok shell pages often only have <title>TikTok - Make Your Day</title>
+      if (
+        isTikTokUrl(fetchUrl) &&
+        (!metadata.image ||
+          !metadata.title ||
+          /^tiktok(\s*[-–—]\s*make your day)?$/i.test((metadata.title || '').trim()))
+      ) {
+        const tiktok = await fetchTikTokMetadata(fetchUrl)
+        if (tiktok) {
+          return NextResponse.json({
+            title: tiktok.title || metadata.title,
+            description: tiktok.description || metadata.description,
+            image: tiktok.image || metadata.image,
+            scrapedContent: tiktok.description || metadata.scrapedContent,
+          } satisfies MetadataResponse)
+        }
+      }
 
       if (process.env.NODE_ENV === 'development') {
         console.log('Metadata extraction result:', {
