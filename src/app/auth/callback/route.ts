@@ -1,13 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
- * Get the site URL for redirects
- * Uses the request origin (which is correct for the current request)
- * or falls back to environment variables
+ * Prefer the request URL origin (www.fibi.world vs fibi.world).
+ * Avoid Origin header — often missing on OAuth GET redirects.
  */
 function getRedirectOrigin(request: NextRequest): string {
-  const origin = request.headers.get('origin') || request.nextUrl.origin
+  const origin = request.nextUrl.origin
 
   if (origin.includes('localhost')) {
     if (process.env.NEXT_PUBLIC_SITE_URL) {
@@ -21,6 +20,15 @@ function getRedirectOrigin(request: NextRequest): string {
   return origin
 }
 
+function applyCookies(
+  response: NextResponse,
+  cookies: { name: string; value: string; options?: Record<string, unknown> }[]
+) {
+  cookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, options)
+  })
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
@@ -29,7 +37,6 @@ export async function GET(request: NextRequest) {
   const errorDescription = requestUrl.searchParams.get('error_description')
   const origin = getRedirectOrigin(request)
 
-  // OAuth / magic-link provider cancelled or failed
   if (oauthError) {
     const loginUrl = new URL('/login', origin)
     loginUrl.searchParams.set('error', oauthError)
@@ -39,15 +46,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    const loginUrl = new URL('/login', origin)
+    loginUrl.searchParams.set('error', 'auth_failed')
+    loginUrl.searchParams.set('error_description', 'Auth is not configured')
+    return NextResponse.redirect(loginUrl)
+  }
+
   if (code) {
-    const supabase = await createClient()
+    // Collect session cookies so we can attach them to the redirect response.
+    // Returning NextResponse.redirect() after cookies().set() can drop the session.
+    const pendingCookies: { name: string; value: string; options?: Record<string, unknown> }[] = []
+
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
+          pendingCookies.push(...cookiesToSet)
+        },
+      },
+    })
 
     const { error, data } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.session) {
       if (type === 'recovery') {
         const resetUrl = new URL('/reset-password', origin)
-        return NextResponse.redirect(resetUrl)
+        const res = NextResponse.redirect(resetUrl)
+        applyCookies(res, pendingCookies)
+        return res
       }
 
       // OAuth / magic-link emails are already verified by the provider
@@ -76,16 +108,18 @@ export async function GET(request: NextRequest) {
       if (!safePath) redirectUrl.searchParams.set('confirmed', 'true')
 
       const res = NextResponse.redirect(redirectUrl)
+      applyCookies(res, pendingCookies)
       res.cookies.set('redirect_after_login', '', { path: '/', maxAge: 0 })
       return res
     }
 
-    if (error) {
-      console.error('Auth callback exchange failed:', error.message)
-      const loginUrl = new URL('/login', origin)
-      loginUrl.searchParams.set('error', 'auth_failed')
-      return NextResponse.redirect(loginUrl)
+    console.error('Auth callback exchange failed:', error?.message || 'no session')
+    const loginUrl = new URL('/login', origin)
+    loginUrl.searchParams.set('error', 'auth_failed')
+    if (error?.message) {
+      loginUrl.searchParams.set('error_description', error.message)
     }
+    return NextResponse.redirect(loginUrl)
   }
 
   return NextResponse.redirect(new URL('/login', origin))

@@ -28,7 +28,7 @@
 
 ## 3. Make yourself an admin (optional)
 
-To use the **Admin dashboard** at `/admin`, your profile must have `role = 'admin'`.
+To use the **Admin dashboard**, your profile must have `role = 'admin'`. The UI lives at `/app/admin` (`/admin` redirects there).
 
 1. In the [Supabase Dashboard](https://supabase.com/dashboard), open your project.
 
@@ -41,7 +41,9 @@ SET role = 'admin'
 WHERE id = (SELECT id FROM auth.users WHERE email = 'your@email.com');
 ```
 
-3. Log in again (or refresh) and go to `/admin`. You should see the admin dashboard.
+Note: `profiles.role` cannot be changed through the app (DB trigger). This SQL must be run in the Dashboard (or a migration).
+
+3. Log in again (or refresh) and go to `/app/admin` (or `/admin`). You should see the admin dashboard.
 
 ---
 

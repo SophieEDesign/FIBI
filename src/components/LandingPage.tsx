@@ -381,12 +381,20 @@ export default function LandingPage({
           <Link href="/" className="flex items-center gap-2">
             <img src="/FIBI Logo.png" alt="FIBI" className="h-8 w-auto" />
           </Link>
-          <Link
-            href="/login"
-            className="text-sm font-medium text-fibi-muted hover:text-fibi-text-primary transition-colors"
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-5">
+            <Link
+              href="/travel-guides"
+              className="text-sm font-medium text-fibi-muted hover:text-fibi-text-primary transition-colors"
+            >
+              Travel Guides
+            </Link>
+            <Link
+              href="/login"
+              className="text-sm font-medium text-fibi-muted hover:text-fibi-text-primary transition-colors"
+            >
+              Sign in
+            </Link>
+          </div>
         </div>
       </header>
 

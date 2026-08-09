@@ -42,9 +42,12 @@ export default function LoginClient() {
     if (!checkingAuth) {
       if (errorParam === 'confirmation_failed') {
         setError('Email confirmation failed. Please try signing up again or contact support.')
-      } else if (errorParam === 'auth_failed' || errorParam === 'access_denied') {
-        setError(errorDescription?.replace(/\+/g, ' ') || "That didn't work. Try again.")
-      } else if (errorParam && errorParam !== 'confirmation_failed') {
+      } else if (errorParam === 'auth_failed') {
+        const detail = errorDescription?.replace(/\+/g, ' ').trim()
+        setError(detail || 'Sign-in didn’t finish. Try Google again, or use email.')
+      } else if (errorParam === 'access_denied') {
+        setError('Sign-in was cancelled. You can try again whenever you’re ready.')
+      } else if (errorParam) {
         setError(errorDescription?.replace(/\+/g, ' ') || "That didn't work. Try again.")
       } else if (messageParam === 'confirmed') {
         setSuccessMessage('Your email has been confirmed. You can log in now.')

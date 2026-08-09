@@ -24,6 +24,7 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 | `GET /api/image-proxy` | Proxy images from allowed CDNs | Query `url`. Allowlist + `isUrlSafeForFetch` before redirect |
 | `GET /api/manifest` | PWA manifest | Public |
 | `GET /api/version` | App version | Public |
+| `GET /api/site-meta` | Site meta (GA measurement ID) | Public; service role read of one allowlisted setting |
 
 ### Authenticated (cookie or Bearer)
 
@@ -43,20 +44,27 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 
 | Route | Purpose | Auth |
 |-------|---------|------|
-| `GET/PATCH /api/admin/site-settings` | Site settings | `requireAdmin` |
-| `GET /api/admin/users` | List users | `requireAdmin` |
+| `GET/PATCH /api/admin/site-settings` | Site settings (email footer, GA id) | `requireAdmin` |
+| `GET /api/admin/users` | List users, funnel, insights | `requireAdmin` |
 | `POST /api/admin/send-welcome` | Send welcome email | `requireAdmin` |
 | `POST /api/admin/send-onboarding-nudge` | Send onboarding nudge | `requireAdmin` |
-| `GET/POST /api/admin/founding-followup` | Founding follow-up | `requireAdmin` |
+| `GET/POST /api/admin/founding-followup` | Founding follow-up (eligible list / bulk send) | `requireAdmin` |
 | `GET/POST /api/admin/emails/templates` | Email templates | `requireAdmin` |
 | `GET/PATCH /api/admin/emails/templates/[slug]` | Single template | `requireAdmin` |
 | `POST /api/admin/emails/templates/[slug]/send-test` | Send test email | `requireAdmin` |
 | `GET/POST /api/admin/emails/automations` | Email automations | `requireAdmin` |
 | `PATCH /api/admin/emails/automations/[id]` | Update automation | `requireAdmin` |
-| `POST /api/admin/emails/automations/[id]/run` | Run automation | `requireAdmin` |
+| `POST /api/admin/emails/automations/[id]/run` | Run one automation | `requireAdmin` |
 | `POST /api/admin/emails/run-automations` | Run all automations | `requireAdmin` |
-| `POST /api/email/send` | Send email (admin) | `requireAdmin` |
-| `POST /api/email` | Email (admin) | `requireAdmin` |
+| `GET /api/admin/emails/automation-status` | Last automation run status | `requireAdmin` |
+| `POST /api/admin/emails/send-one-off` | One-off send by template + filters | `requireAdmin` |
+| `GET /api/admin/emails/recipients` | Recipient count/sample for filters | `requireAdmin` |
+| `GET /api/admin/emails/log` | Sent email log + click counts | `requireAdmin` |
+| `GET/POST /api/admin/guides` | List / create travel guides | `requireAdmin` |
+| `GET/PATCH/DELETE /api/admin/guides/[id]` | Guide CRUD | `requireAdmin` |
+| `PUT /api/admin/guides/[id]/places` | Replace guide places | `requireAdmin` |
+| `POST /api/email/send` | Typed welcome/nudge/founding send | `requireAdmin` |
+| `POST /api/email` | Raw Resend send (to/subject/html) | `requireAdmin` |
 
 ### Cron
 
@@ -70,7 +78,7 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 
 - **SSRF**: `metadata` and `oembed` use `isUrlSafeForFetch(url)` before fetching. `image-proxy` uses an allowlist for proxy fetch and `isUrlSafeForFetch` before redirecting the client for non-allowed hosts.
 - **Admin**: Role is read from `profiles.role`. A trigger `enforce_profiles_role_immutable` prevents changing `role` via any UPDATE (migration `039_prevent_profiles_role_escalation.sql`). The first admin must be set via Supabase Dashboard or a migration. No API allows a normal user to set or update `profiles.role`.
-- **Service role**: Used only after `requireAdmin()` in admin routes, or in signup/confirm-email flows that are rate-limited and validated.
+- **Service role**: Used after `requireAdmin()` in admin routes; in signup/confirm-email/resend flows that are rate-limited and validated; in cron (`isCronAuthorized`) and the Resend webhook; and on public `GET /api/site-meta` (reads GA measurement ID only).
 
 ### Error responses
 
