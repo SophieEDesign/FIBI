@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import DOMPurify from 'dompurify'
 import { createClient } from '@/lib/supabase/client'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
+import AudienceConditionsForm from '@/components/admin/AudienceConditionsForm'
+import EmailBlockEditor from '@/components/admin/EmailBlockEditor'
+import { type ConditionsForm, formToConditions } from '@/lib/email-conditions'
 
 interface Template {
   id: string
@@ -16,8 +19,15 @@ interface Template {
   updated_at?: string
 }
 
+interface SegmentOption {
+  id: string
+  name: string
+  conditions: Record<string, unknown>
+}
+
 export default function EmailTemplatesClient() {
   const [templates, setTemplates] = useState<Template[]>([])
+  const [segments, setSegments] = useState<SegmentOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Template | null>(null)
@@ -27,7 +37,8 @@ export default function EmailTemplatesClient() {
   const [saving, setSaving] = useState(false)
   const [sendingTest, setSendingTest] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [oneOffFilters, setOneOffFilters] = useState({ confirmed: false, hasPlace: false, hasItinerary: false })
+  const [oneOffConditions, setOneOffConditions] = useState<ConditionsForm>({})
+  const [selectedSegmentId, setSelectedSegmentId] = useState('')
   const [recipientCount, setRecipientCount] = useState<number | null>(null)
   const [loadingRecipients, setLoadingRecipients] = useState(false)
   const [sendingOneOff, setSendingOneOff] = useState(false)
@@ -35,6 +46,8 @@ export default function EmailTemplatesClient() {
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return {}
     const { data: { session } } = await supabase.auth.getSession()
     if (session?.access_token) {
       return { Authorization: `Bearer ${session.access_token}` }
@@ -59,9 +72,22 @@ export default function EmailTemplatesClient() {
     }
   }, [getAuthHeaders])
 
+  const fetchSegments = useCallback(async () => {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch('/api/admin/emails/segments', { credentials: 'include', headers })
+      if (!res.ok) return
+      const data = await res.json()
+      setSegments(data.segments ?? [])
+    } catch {
+      /* ignore */
+    }
+  }, [getAuthHeaders])
+
   useEffect(() => {
     fetchTemplates()
-  }, [fetchTemplates])
+    fetchSegments()
+  }, [fetchTemplates, fetchSegments])
 
   const slugify = (s: string) =>
     s.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-_]/g, '')
@@ -75,25 +101,35 @@ export default function EmailTemplatesClient() {
     setOneOffResult(null)
   }
 
-  const buildRecipientsQuery = useCallback(() => {
-    const params = new URLSearchParams()
-    if (oneOffFilters.confirmed) params.set('confirmed', '1')
-    if (oneOffFilters.hasPlace) params.set('places_count_gt', '0')
-    if (oneOffFilters.hasItinerary) params.set('itineraries_count_gt', '0')
-    return params.toString()
-  }, [oneOffFilters])
-
-  const buildOneOffFiltersBody = useCallback(() => {
-    const f: Record<string, boolean | number> = {}
-    if (oneOffFilters.confirmed) f.confirmed = true
-    if (oneOffFilters.hasPlace) f.places_count_gt = 0
-    if (oneOffFilters.hasItinerary) f.itineraries_count_gt = 0
+  const resolveFilters = useCallback((): Record<string, unknown> | undefined => {
+    if (selectedSegmentId) {
+      const seg = segments.find((s) => s.id === selectedSegmentId)
+      if (seg?.conditions && Object.keys(seg.conditions).length) return seg.conditions
+      return undefined
+    }
+    const f = formToConditions(oneOffConditions)
     return Object.keys(f).length ? f : undefined
-  }, [oneOffFilters])
+  }, [selectedSegmentId, segments, oneOffConditions])
+
+  const buildRecipientsQuery = useCallback(() => {
+    const filters = resolveFilters() ?? {}
+    const params = new URLSearchParams()
+    if (filters.confirmed === true) params.set('confirmed', '1')
+    if (typeof filters.places_count_gt === 'number') params.set('places_count_gt', String(filters.places_count_gt))
+    if (typeof filters.places_count_lt === 'number') params.set('places_count_lt', String(filters.places_count_lt))
+    if (typeof filters.itineraries_count_gt === 'number')
+      params.set('itineraries_count_gt', String(filters.itineraries_count_gt))
+    if (typeof filters.last_login_days_gt === 'number')
+      params.set('last_login_days_gt', String(filters.last_login_days_gt))
+    if (typeof filters.created_days_gt === 'number') params.set('created_days_gt', String(filters.created_days_gt))
+    if (typeof filters.created_days_lt === 'number') params.set('created_days_lt', String(filters.created_days_lt))
+    if (filters.founding_followup_sent === true) params.set('founding_followup_sent', '1')
+    if (filters.founding_followup_sent === false) params.set('founding_followup_sent', '0')
+    return params.toString()
+  }, [resolveFilters])
 
   const handlePreviewRecipients = useCallback(async () => {
-    const slug = editing?.slug
-    if (!slug) return
+    if (!editing?.slug) return
     setLoadingRecipients(true)
     setRecipientCount(null)
     setOneOffResult(null)
@@ -129,7 +165,11 @@ export default function EmailTemplatesClient() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...headers },
-        body: JSON.stringify({ template_slug: slug, filters: buildOneOffFiltersBody() }),
+        body: JSON.stringify({
+          template_slug: slug,
+          filters: resolveFilters(),
+          segment_id: selectedSegmentId || undefined,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -148,7 +188,7 @@ export default function EmailTemplatesClient() {
     } finally {
       setSendingOneOff(false)
     }
-  }, [editing?.slug, recipientCount, getAuthHeaders, buildOneOffFiltersBody])
+  }, [editing?.slug, recipientCount, getAuthHeaders, resolveFilters, selectedSegmentId])
 
   const handleEdit = async (t: Template) => {
     setEditing(t)
@@ -156,6 +196,8 @@ export default function EmailTemplatesClient() {
     setFormError(null)
     setRecipientCount(null)
     setOneOffResult(null)
+    setOneOffConditions({})
+    setSelectedSegmentId('')
     setForm({
       name: t.name,
       slug: t.slug,
@@ -175,7 +217,7 @@ export default function EmailTemplatesClient() {
           setForm((f) => ({ ...f, html_content: full.html_content ?? '' }))
         }
       } catch {
-        // Keep form as is
+        /* keep */
       }
     }
   }
@@ -256,8 +298,8 @@ export default function EmailTemplatesClient() {
 
   const wrappedForPreview = wrapEmailWithLayout(form.html_content || '')
   const sanitizedPreview = DOMPurify.sanitize(wrappedForPreview, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'div', 'span', 'img', 'table', 'tr', 'td', 'tbody', 'body'],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'style'],
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'div', 'span', 'img', 'table', 'tr', 'td', 'tbody', 'body', 'hr'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'style', 'width', 'height'],
   })
 
   if (loading) {
@@ -270,68 +312,21 @@ export default function EmailTemplatesClient() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Email Templates</h1>
-
-      {/* List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
-          <button
-            type="button"
-            onClick={handleCreate}
-            disabled={creating || !!editing}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50"
-          >
-            Create new
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {templates.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                    No templates yet. Create one to get started.
-                  </td>
-                </tr>
-              ) : (
-                templates.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">{t.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 font-mono">{t.slug}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{t.subject}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{t.is_active ? 'Yes' : 'No'}</td>
-                    <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() => handleEdit(t)}
-                        className="text-sm text-gray-600 hover:text-gray-900"
-                      >
-                        Edit
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Email Templates</h1>
+        <button
+          type="button"
+          onClick={handleCreate}
+          className="px-4 py-2 text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 rounded"
+        >
+          New template
+        </button>
       </div>
 
-      {/* Create / Edit form */}
       {(creating || editing) && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div className="mb-8 bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            {editing ? `Edit: ${editing.name}` : 'Create template'}
+            {editing ? 'Edit template' : 'New template'}
           </h2>
           {formError && (
             <p className="mb-4 text-sm text-red-600" role="alert">{formError}</p>
@@ -342,10 +337,7 @@ export default function EmailTemplatesClient() {
               <input
                 type="text"
                 value={form.name}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, name: e.target.value }))
-                  if (!editing) setForm((f) => ({ ...f, slug: slugify(e.target.value) }))
-                }}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
                 placeholder="e.g. Welcome Email"
               />
@@ -373,14 +365,11 @@ export default function EmailTemplatesClient() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">HTML content</label>
-              <textarea
+              <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
+              <EmailBlockEditor
                 value={form.html_content}
-                onChange={(e) => setForm((f) => ({ ...f, html_content: e.target.value }))}
-                rows={12}
-                className="w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono"
-                placeholder="<h1>Hello</h1><p>Your HTML here...</p>"
-                spellCheck={false}
+                onChange={(html_content) => setForm((f) => ({ ...f, html_content }))}
+                disabled={saving}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -394,6 +383,16 @@ export default function EmailTemplatesClient() {
               <label htmlFor="is_active" className="text-sm text-gray-700">Active</label>
             </div>
           </div>
+
+          {form.html_content && (
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Preview</h3>
+              <div
+                className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 p-4 max-h-96 overflow-y-auto"
+                dangerouslySetInnerHTML={{ __html: sanitizedPreview }}
+              />
+            </div>
+          )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <button
@@ -432,54 +431,43 @@ export default function EmailTemplatesClient() {
             )}
           </div>
 
-          {/* Send one-off to filterable list */}
           {editing && (
             <div className="mt-8 pt-6 border-t border-gray-200">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Send one-off</h3>
               <p className="text-sm text-gray-600 mb-3">
-                Send this template once to users matching the filters below. Recipients are always limited to marketing opt-in.
+                Prefer creating a campaign for scheduled sends. This sends immediately to the audience below.
               </p>
-              <div className="flex flex-wrap gap-4 mb-3">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={oneOffFilters.confirmed}
-                    onChange={(e) => {
-                      setOneOffFilters((f) => ({ ...f, confirmed: e.target.checked }))
+              <label className="block mb-3 max-w-md">
+                <span className="text-sm text-gray-700">Saved segment (optional)</span>
+                <select
+                  value={selectedSegmentId}
+                  onChange={(e) => {
+                    setSelectedSegmentId(e.target.value)
+                    setRecipientCount(null)
+                    setOneOffResult(null)
+                  }}
+                  className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                >
+                  <option value="">Custom filters…</option>
+                  {segments.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {!selectedSegmentId && (
+                <div className="mb-3">
+                  <AudienceConditionsForm
+                    value={oneOffConditions}
+                    onChange={(c) => {
+                      setOneOffConditions(c)
                       setRecipientCount(null)
                       setOneOffResult(null)
                     }}
-                    className="rounded border-gray-300"
                   />
-                  <span className="text-sm text-gray-700">Confirmed only</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={oneOffFilters.hasPlace}
-                    onChange={(e) => {
-                      setOneOffFilters((f) => ({ ...f, hasPlace: e.target.checked }))
-                      setRecipientCount(null)
-                      setOneOffResult(null)
-                    }}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700">Has at least 1 place</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={oneOffFilters.hasItinerary}
-                    onChange={(e) => {
-                      setOneOffFilters((f) => ({ ...f, hasItinerary: e.target.checked }))
-                      setRecipientCount(null)
-                      setOneOffResult(null)
-                    }}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700">Has at least 1 itinerary</span>
-                </label>
-              </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -498,39 +486,61 @@ export default function EmailTemplatesClient() {
                   type="button"
                   onClick={handleSendOneOff}
                   disabled={sendingOneOff}
-                  className="px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 rounded disabled:opacity-50"
                 >
-                  {sendingOneOff ? 'Sending…' : recipientCount !== null ? `Send to ${recipientCount}` : 'Send one-off'}
+                  {sendingOneOff ? 'Sending…' : 'Send now'}
                 </button>
               </div>
               {oneOffResult && (
-                <div className="mt-3 p-3 rounded bg-gray-50 text-sm">
-                  <p className="font-medium text-gray-900">Result: {oneOffResult.sent} sent, {oneOffResult.failed} failed, {oneOffResult.skipped} skipped.</p>
-                  {oneOffResult.errors.length > 0 && (
-                    <ul className="mt-2 list-disc list-inside text-red-600 max-h-24 overflow-y-auto">
-                      {oneOffResult.errors.slice(0, 10).map((err, i) => (
-                        <li key={i}>{err}</li>
-                      ))}
-                      {oneOffResult.errors.length > 10 && (
-                        <li>… and {oneOffResult.errors.length - 10} more</li>
-                      )}
-                    </ul>
-                  )}
-                </div>
+                <p className="mt-3 text-sm text-gray-700">
+                  Sent {oneOffResult.sent}, skipped {oneOffResult.skipped}, failed {oneOffResult.failed}
+                </p>
               )}
             </div>
           )}
-
-          {/* Live preview */}
-          <div className="mt-8">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Live preview</h3>
-            <div
-              className="rounded border border-gray-200 p-4 bg-white min-h-[120px] text-sm prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: sanitizedPreview || '<p class="text-gray-400">Preview will appear here</p>' }}
-            />
-          </div>
         </div>
       )}
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {templates.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">
+                  No templates yet.
+                </td>
+              </tr>
+            ) : (
+              templates.map((t) => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{t.name}</td>
+                  <td className="px-6 py-4 text-sm font-mono text-gray-500">{t.slug}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{t.subject}</td>
+                  <td className="px-6 py-4 text-sm">{t.is_active ? 'Yes' : 'No'}</td>
+                  <td className="px-6 py-4 text-sm text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(t)}
+                      className="text-gray-700 hover:text-gray-900 underline"
+                    >
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

@@ -23,6 +23,18 @@ interface EmailAutomationPanelProps {
   lastRun: LastRun | null
   runResult: { sent: number; skipped: number; failed: number; limitReached?: boolean; errors?: string[] } | null
   onRun: () => void
+  /** Optional 30-day engagement rates from email log stats */
+  engagement?: {
+    open_rate: number | null
+    click_rate: number | null
+    bounce_rate: number | null
+    unsub_rate: number | null
+  } | null
+}
+
+function pct(rate: number | null | undefined): string {
+  if (rate == null) return '—'
+  return `${(rate * 100).toFixed(1)}%`
 }
 
 export default function EmailAutomationPanel({
@@ -30,6 +42,7 @@ export default function EmailAutomationPanel({
   lastRun,
   runResult,
   onRun,
+  engagement,
 }: EmailAutomationPanelProps) {
   const status: 'idle' | 'running' | 'success' | 'failure' = isRunning
     ? 'running'
@@ -110,7 +123,8 @@ export default function EmailAutomationPanel({
         </div>
       )}
       <p className="text-xs text-gray-500">
-        Open rate: — (tracking not enabled)
+        Last 30 days — Open: {pct(engagement?.open_rate)} · Click: {pct(engagement?.click_rate)} · Bounce:{' '}
+        {pct(engagement?.bounce_rate)} · Unsub: {pct(engagement?.unsub_rate)}
       </p>
       <p className="mt-2 text-xs text-gray-500">
         {GUARDRAILS}

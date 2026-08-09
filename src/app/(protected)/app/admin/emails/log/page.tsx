@@ -3,9 +3,9 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import EmailAdminNav from '@/components/admin/EmailAdminNav'
 
 const EmailLogClient = dynamic(() => import('@/components/EmailLogClient'), { ssr: false })
 
@@ -65,26 +65,7 @@ export default function AdminEmailsLogPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex items-center gap-4">
-          <Link
-            href="/app/admin"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            ← Admin
-          </Link>
-          <Link
-            href="/app/admin/emails/templates"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Templates
-          </Link>
-          <Link
-            href="/app/admin/emails/automations"
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
-            Automations
-          </Link>
-        </div>
+        <EmailAdminNav current="/app/admin/emails/log" />
         <EmailLogClient />
       </div>
     </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 
@@ -366,6 +367,16 @@ export default function ProfilePage() {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-1">Used when you share trips or comment</p>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <Link
+              href="/app/settings/email"
+              className="text-sm text-gray-700 hover:text-gray-900 underline"
+            >
+              Email preferences
+            </Link>
+            <p className="text-xs text-gray-500 mt-1">Product updates and tips</p>
           </div>
         </section>
 

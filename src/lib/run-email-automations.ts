@@ -193,6 +193,7 @@ export async function runSingleAutomation(automationId: string): Promise<RunResu
         subject: template.subject,
         html: template.html_content,
         from: FROM_EMAIL,
+        userId: user.id,
       })
       await adminClient.from('email_logs').insert({
         user_id: user.id,
@@ -283,6 +284,7 @@ export async function runOneOffSend(
         subject: template.subject,
         html: template.html_content,
         from: FROM_EMAIL,
+        userId: user.id,
       })
       await adminClient.from('email_logs').insert({
         user_id: user.id,
@@ -409,6 +411,7 @@ export async function runEmailAutomations(): Promise<RunResult> {
           subject: template.subject,
           html: template.html_content,
           from: FROM_EMAIL,
+          userId: user.id,
         })
         await adminClient.from('email_logs').insert({
           user_id: user.id,

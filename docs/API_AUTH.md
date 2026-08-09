@@ -52,6 +52,11 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 | `GET/POST /api/admin/emails/templates` | Email templates | `requireAdmin` |
 | `GET/PATCH /api/admin/emails/templates/[slug]` | Single template | `requireAdmin` |
 | `POST /api/admin/emails/templates/[slug]/send-test` | Send test email | `requireAdmin` |
+| `GET/POST /api/admin/emails/segments` | Named audience segments | `requireAdmin` |
+| `GET/PATCH/DELETE /api/admin/emails/segments/[id]` | Single segment | `requireAdmin` |
+| `GET/POST /api/admin/emails/campaigns` | Marketing campaigns | `requireAdmin` |
+| `GET/PATCH/DELETE /api/admin/emails/campaigns/[id]` | Single campaign | `requireAdmin` |
+| `POST /api/admin/emails/campaigns/[id]/send` | Send campaign now | `requireAdmin` |
 | `GET/POST /api/admin/emails/automations` | Email automations | `requireAdmin` |
 | `PATCH /api/admin/emails/automations/[id]` | Update automation | `requireAdmin` |
 | `POST /api/admin/emails/automations/[id]/run` | Run one automation | `requireAdmin` |
@@ -59,7 +64,9 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 | `GET /api/admin/emails/automation-status` | Last automation run status | `requireAdmin` |
 | `POST /api/admin/emails/send-one-off` | One-off send by template + filters | `requireAdmin` |
 | `GET /api/admin/emails/recipients` | Recipient count/sample for filters | `requireAdmin` |
-| `GET /api/admin/emails/log` | Sent email log + click counts | `requireAdmin` |
+| `GET /api/admin/emails/log` | Sent email log + engagement rates | `requireAdmin` |
+| `POST /api/unsubscribe` | One-click / form marketing unsubscribe | Public (signed token) |
+| `GET/PATCH /api/email-preferences` | Logged-in marketing opt-in toggle | Auth session |
 | `GET/POST /api/admin/guides` | List / create travel guides | `requireAdmin` |
 | `GET/PATCH/DELETE /api/admin/guides/[id]` | Guide CRUD | `requireAdmin` |
 | `PUT /api/admin/guides/[id]/places` | Replace guide places | `requireAdmin` |

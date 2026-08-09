@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { wrapEmailWithLayout } from '@/lib/email-layout'
 import { getEmailFooterAddress } from '@/lib/site-settings'
+import { buildUnsubscribeApiUrl, buildUnsubscribeUrl } from '@/lib/unsubscribe-token'
 
 /**
  * Initialize Resend client
@@ -43,6 +44,7 @@ function normalizeTo(to: string | string[]): string[] {
  * Send an email using Resend.
  * All HTML emails are wrapped with the shared header and footer (gradient logo, Made with ❤️).
  * Optional text: when provided, sends multipart (text + html) for better deliverability.
+ * Pass userId for marketing/lifecycle sends to attach tokenized unsubscribe + List-Unsubscribe headers.
  */
 export async function sendEmail({
   to,
@@ -51,6 +53,9 @@ export async function sendEmail({
   text,
   from = 'hello@fibi.world',
   replyTo,
+  userId,
+  unsubscribeUrl: unsubscribeUrlOverride,
+  skipUnsubscribeHeaders = false,
 }: {
   to: string | string[]
   subject: string
@@ -58,12 +63,38 @@ export async function sendEmail({
   text?: string
   from?: string
   replyTo?: string
+  /** When set, footer + List-Unsubscribe use a signed per-user link. */
+  userId?: string
+  unsubscribeUrl?: string
+  /** Skip List-Unsubscribe (e.g. pure transactional like password reset). */
+  skipUnsubscribeHeaders?: boolean
 }) {
   try {
     const toList = normalizeTo(to)
     const resend = getResendClient()
     const footerAddress = await getEmailFooterAddress()
-    const wrappedHtml = wrapEmailWithLayout(html, { footerAddress })
+
+    let unsubscribeUrl = unsubscribeUrlOverride
+    let listUnsubApi: string | undefined
+    if (userId && !skipUnsubscribeHeaders) {
+      try {
+        unsubscribeUrl = unsubscribeUrl ?? buildUnsubscribeUrl(userId)
+        listUnsubApi = buildUnsubscribeApiUrl(userId)
+      } catch (err) {
+        console.warn('[sendEmail] Could not build unsubscribe token:', err)
+      }
+    }
+
+    const wrappedHtml = wrapEmailWithLayout(html, {
+      footerAddress,
+      unsubscribeUrl,
+    })
+
+    const headers: Record<string, string> = {}
+    if (listUnsubApi && !skipUnsubscribeHeaders) {
+      headers['List-Unsubscribe'] = `<${listUnsubApi}>`
+      headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'
+    }
 
     const { data, error } = await resend.emails.send({
       from,
@@ -72,6 +103,7 @@ export async function sendEmail({
       html: wrappedHtml,
       ...(text && { text }),
       ...(replyTo && { reply_to: replyTo }),
+      ...(Object.keys(headers).length > 0 && { headers }),
     })
 
     if (error) {
@@ -125,4 +157,3 @@ export async function sendTextEmail({
     throw error
   }
 }
-

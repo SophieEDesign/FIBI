@@ -7,9 +7,9 @@ import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
 import EmailAdminNav from '@/components/admin/EmailAdminNav'
 
-const EmailTemplatesClient = dynamic(() => import('@/components/EmailTemplatesClient'), { ssr: false })
+const EmailCampaignsClient = dynamic(() => import('@/components/EmailCampaignsClient'), { ssr: false })
 
-export default function AdminEmailsTemplatesPage() {
+export default function AdminEmailsCampaignsPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [adminChecked, setAdminChecked] = useState(false)
@@ -18,19 +18,13 @@ export default function AdminEmailsTemplatesPage() {
   useEffect(() => {
     if (authLoading || !user?.id) {
       if (!authLoading && !user) {
-        router.replace('/login?redirect=/app/admin/emails/templates')
+        router.replace('/login?redirect=/app/admin/emails/campaigns')
       }
       return
     }
     let cancelled = false
     const client = createClient()
-    Promise.resolve(
-      client
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-    )
+    Promise.resolve(client.from('profiles').select('role').eq('id', user.id).single())
       .then(({ data, error }) => {
         if (cancelled) return
         setAdminChecked(true)
@@ -42,7 +36,9 @@ export default function AdminEmailsTemplatesPage() {
           setIsAdmin(false)
         }
       })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [authLoading, user, router])
 
   useEffect(() => {
@@ -52,21 +48,17 @@ export default function AdminEmailsTemplatesPage() {
 
   if (authLoading || !adminChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        Loading…
-      </div>
+      <div className="min-h-screen flex items-center justify-center text-gray-500">Loading…</div>
     )
   }
 
-  if (!isAdmin) {
-    return null
-  }
+  if (!isAdmin) return null
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <EmailAdminNav current="/app/admin/emails/templates" />
-        <EmailTemplatesClient />
+        <EmailAdminNav current="/app/admin/emails/campaigns" />
+        <EmailCampaignsClient />
       </div>
     </div>
   )

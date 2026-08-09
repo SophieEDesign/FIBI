@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin'
+import { requireAdmin, getAdminSupabase } from '@/lib/admin'
 import { runOneOffSend } from '@/lib/run-email-automations'
 import type { AutomationConditions } from '@/lib/email-automations'
 
@@ -8,8 +8,7 @@ export const maxDuration = 300
 
 /**
  * POST /api/admin/emails/send-one-off
- * Body: { template_slug: string, filters?: AutomationConditions }
- * Sends the template to all users matching filters (always marketing_opt_in). Rate-limited; logs to email_logs.
+ * Body: { template_slug: string, filters?: AutomationConditions, segment_id?: string }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +22,18 @@ export async function POST(request: NextRequest) {
     }
 
     let filters: AutomationConditions | null = null
-    if (body.filters && typeof body.filters === 'object') {
+
+    if (typeof body.segment_id === 'string' && body.segment_id.trim()) {
+      const admin = getAdminSupabase()
+      const { data: seg } = await admin
+        .from('email_segments')
+        .select('conditions')
+        .eq('id', body.segment_id.trim())
+        .maybeSingle()
+      if (seg?.conditions && typeof seg.conditions === 'object') {
+        filters = seg.conditions as AutomationConditions
+      }
+    } else if (body.filters && typeof body.filters === 'object') {
       const f = body.filters as Record<string, unknown>
       filters = {}
       if (typeof f.confirmed === 'boolean') filters.confirmed = f.confirmed
@@ -46,8 +56,7 @@ export async function POST(request: NextRequest) {
       errors: result.errors,
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[admin/send-one-off]', err)
-    return NextResponse.json({ error: message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

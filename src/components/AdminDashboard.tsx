@@ -62,6 +62,12 @@ export default function AdminDashboard() {
   const [gaMeasurementId, setGaMeasurementId] = useState('')
   const [gaSaving, setGaSaving] = useState(false)
   const [gaMessage, setGaMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [emailEngagement, setEmailEngagement] = useState<{
+    open_rate: number | null
+    click_rate: number | null
+    bounce_rate: number | null
+    unsub_rate: number | null
+  } | null>(null)
 
   const getAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
     const supabase = createClient()
@@ -130,6 +136,19 @@ export default function AdminDashboard() {
         .then((res) => (res.ok ? res.json() : null))
         .then((json) => {
           if (!cancelled && json?.lastRun) setAutomationLastRun(json.lastRun)
+        })
+        .catch(() => {})
+      fetch('/api/admin/emails/log?limit=1', { credentials: 'include', headers })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!cancelled && json?.stats) {
+            setEmailEngagement({
+              open_rate: json.stats.open_rate ?? null,
+              click_rate: json.stats.click_rate ?? null,
+              bounce_rate: json.stats.bounce_rate ?? null,
+              unsub_rate: json.stats.unsub_rate ?? null,
+            })
+          }
         })
         .catch(() => {})
     })
@@ -339,7 +358,19 @@ export default function AdminDashboard() {
               href="/app/admin/emails/templates"
               className="text-sm text-gray-600 hover:text-gray-900"
             >
-              Email Templates
+              Templates
+            </Link>
+            <Link
+              href="/app/admin/emails/segments"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Segments
+            </Link>
+            <Link
+              href="/app/admin/emails/campaigns"
+              className="text-sm text-gray-600 hover:text-gray-900"
+            >
+              Campaigns
             </Link>
             <Link
               href="/app/admin/emails/automations"
@@ -437,6 +468,7 @@ export default function AdminDashboard() {
           lastRun={automationLastRun}
           runResult={automationsResult}
           onRun={handleRunAutomations}
+          engagement={emailEngagement}
         />
 
         {/* Users Table */}

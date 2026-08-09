@@ -27,6 +27,7 @@ Required and optional environment variables by context. Never commit secrets; us
 |----------|----------|--------|
 | `RESEND_API_KEY` | Yes (if sending email) | Resend.com API key for transactional and automation emails. |
 | `CONFIRM_EMAIL_SECRET` | Yes | Secret for email verification token signing (confirm-email flow). |
+| `EMAIL_UNSUB_SECRET` | Optional | Secret for unsubscribe token signing (32+ chars). Falls back to `CONFIRM_EMAIL_SECRET` if unset. |
 | `EMAIL_FOOTER_ADDRESS` | Optional | CAN-SPAM footer; can also be set in Admin → Site settings. |
 | `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` | Optional | For AI enrichment (title/description). At least one enables the feature. |
 | `GOOGLE_PLACES_API_KEY` | Optional | For Places autocomplete and details (server). |
@@ -35,17 +36,17 @@ Required and optional environment variables by context. Never commit secrets; us
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional | Turnstile site key (client). |
 | `FACEBOOK_ACCESS_TOKEN` / `INSTAGRAM_ACCESS_TOKEN` | Optional | For oEmbed/metadata on Meta URLs when approved. |
 
-## Resend webhooks (click tracking)
+## Resend webhooks (engagement + delivery)
 
-Optional. When set, `POST /api/webhooks/resend` accepts Resend’s `email.clicked` events and stores link clicks in `email_link_clicks` for the admin Email log.
+Optional. When set, `POST /api/webhooks/resend` accepts Resend events and updates `email_logs` / `email_link_clicks` for the admin Email log and campaign analytics.
 
 | Variable | Required | Notes |
 |----------|----------|--------|
-| `RESEND_WEBHOOK_SECRET` | Optional | Webhook signing secret (starts with `whsec_`). Create a webhook in Resend Dashboard → Webhooks, subscribe to **email.clicked**, and set the endpoint to `https://your-domain.com/api/webhooks/resend`. Enable **Click tracking** for your domain in Resend. |
+| `RESEND_WEBHOOK_SECRET` | Optional | Webhook signing secret (starts with `whsec_`). Create a webhook in Resend Dashboard → Webhooks, subscribe to **email.clicked**, **email.opened**, **email.bounced**, **email.complained**, and **email.delivered**, and set the endpoint to `https://your-domain.com/api/webhooks/resend`. Enable **Open** and **Click** tracking for your domain in Resend. |
 
-## Cron (email automations)
+## Cron (email automations + campaigns)
 
-Used by `GET /api/cron/email-automations` (Vercel Cron or external scheduler).
+Used by `GET /api/cron/email-automations` (daily) and `GET /api/cron/email-campaigns` (every 15 minutes).
 
 | Variable | Required | Notes |
 |----------|----------|--------|
@@ -53,5 +54,5 @@ Used by `GET /api/cron/email-automations` (Vercel Cron or external scheduler).
 
 ## Security
 
-- **Never** use `NEXT_PUBLIC_` for: `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `CONFIRM_EMAIL_SECRET`, `CRON_KEY`, `CRON_SECRET`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_PLACES_API_KEY`, `TURNSTILE_SECRET_KEY`, or any Meta tokens. Those must be server-only.
+- **Never** use `NEXT_PUBLIC_` for: `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `CONFIRM_EMAIL_SECRET`, `EMAIL_UNSUB_SECRET`, `CRON_KEY`, `CRON_SECRET`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_PLACES_API_KEY`, `TURNSTILE_SECRET_KEY`, or any Meta tokens. Those must be server-only.
 - Client-safe (may be `NEXT_PUBLIC_`): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`.
