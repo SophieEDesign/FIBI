@@ -10,6 +10,7 @@ import { signOut } from '@/lib/signout'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 import LibraryMapPreview from '@/components/LibraryMapPreview'
+import SavedPlaceCard from '@/components/SavedPlaceCard'
 import { Button } from '@/components/ui/Button'
 
 interface HomeGridProps {
@@ -588,12 +589,23 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         {items.length > 0 && libraryTab === 'places' && (
           <div className="mb-6 md:mb-8 space-y-4">
             <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-tertiary)]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.75}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path strokeLinecap="round" d="M20 20l-3-3" />
+              </svg>
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search places, cities, notes…"
-                className="w-full px-4 py-2.5 rounded-full bg-[color:var(--bg-inset)] border border-transparent text-sm text-charcoal placeholder:text-[color:var(--text-tertiary)] focus:outline-none focus:border-[color:var(--border-brand)] focus:shadow-[var(--focus-ring)]"
+                placeholder="Search your saved places…"
+                className="w-full rounded-full border border-transparent bg-[color:var(--bg-inset)] py-2.5 pl-10 pr-4 text-sm text-charcoal placeholder:text-[color:var(--text-tertiary)] focus:border-[color:var(--border-brand)] focus:outline-none focus:shadow-[var(--focus-ring)]"
                 aria-label="Search saved places"
               />
             </div>
@@ -783,120 +795,48 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Loading state */}
         {loading && (
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-20 bg-white rounded-2xl animate-pulse border border-gray-100" />
+              <div
+                key={i}
+                className="overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white"
+              >
+                <div className="aspect-[4/5] animate-pulse bg-[color:var(--bg-inset)]" />
+                <div className="space-y-2 p-3.5">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-[color:var(--bg-inset)]" />
+                  <div className="h-3 w-1/2 animate-pulse rounded bg-[color:var(--bg-inset)]" />
+                </div>
+              </div>
             ))}
           </div>
         )}
 
-        {/* Places list */}
+        {/* Places grid */}
         {!loading && orderedItems.length > 0 && libraryTab === 'places' && (
           <div className="space-y-8">
             {cityGroups.groups.map((group) => (
               <section key={group.key}>
                 {group.label && (
-                  <h2 className="text-sm font-medium text-secondary uppercase tracking-wide mb-3">
+                  <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
                     {group.label}
                   </h2>
                 )}
-                <ul className="space-y-2">
+                <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
                   {group.items.map((item) => {
-                    const displayTitle = item.title || item.place_name || getHostname(item.url)
                     const itemCategories = parseItemField(item.category)
-                    const oneCategory = itemCategories[0]
-                    const isLiked = item.liked ?? false
-                    const isPlanned = item.planned ?? false
-                    const locationLine =
-                      item.place_name ||
-                      item.formatted_address ||
-                      [item.location_city, item.location_country].filter(Boolean).join(', ')
-
                     return (
-                      <li
-                        key={item.id}
-                        className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex items-stretch overflow-hidden"
-                      >
-                        <Link
-                          href={`/item/${item.id}`}
-                          className="flex flex-1 min-w-0 gap-3 p-3 items-center"
-                        >
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-gray-50 shrink-0 relative">
-                            {item.screenshot_url && !failedScreenshotIds.has(item.id) ? (
-                              <img
-                                src={item.screenshot_url}
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-cover"
-                                loading="lazy"
-                                onError={() =>
-                                  setFailedScreenshotIds((prev) => new Set(prev).add(item.id))
-                                }
-                              />
-                            ) : item.thumbnail_url ? (
-                              <img
-                                src={item.thumbnail_url}
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-cover"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <div className="absolute inset-0">
-                                <EmbedPreview
-                                  url={item.url}
-                                  thumbnailUrl={item.thumbnail_url}
-                                  platform={item.platform}
-                                  displayTitle={displayTitle}
-                                />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-medium text-charcoal truncate text-sm sm:text-base">
-                              {displayTitle}
-                            </h3>
-                            {locationLine && (
-                              <p className="text-xs text-secondary truncate mt-0.5">{locationLine}</p>
-                            )}
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {oneCategory && (
-                                <span className="text-xs text-secondary">{oneCategory}</span>
-                              )}
-                              <span className="text-xs text-secondary/70">{item.platform}</span>
-                            </div>
-                          </div>
-                        </Link>
-                        <div className="flex flex-col justify-center gap-1 pr-3 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleIcon(item, 'planned')}
-                            className={`p-1.5 rounded-full ${isPlanned ? 'text-orchid-400' : 'text-secondary/50 hover:text-secondary'}`}
-                            aria-label={isPlanned ? 'Remove planned' : 'Mark as planned'}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleToggleIcon(item, 'liked')}
-                            className={`p-1.5 rounded-full ${isLiked ? 'text-gold-500' : 'text-secondary/50 hover:text-secondary'}`}
-                            aria-label={isLiked ? 'Remove liked' : 'Mark as liked'}
-                          >
-                            <svg className="w-4 h-4" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleItemClick(e, item)}
-                            className="p-1.5 rounded-lg text-secondary/50 hover:text-secondary"
-                            aria-label="Add to trip"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </button>
-                        </div>
+                      <li key={item.id}>
+                        <SavedPlaceCard
+                          item={item}
+                          category={itemCategories[0] || null}
+                          failedScreenshot={failedScreenshotIds.has(item.id)}
+                          onScreenshotError={() =>
+                            setFailedScreenshotIds((prev) => new Set(prev).add(item.id))
+                          }
+                          onToggleLiked={() => handleToggleIcon(item, 'liked')}
+                          onTogglePlanned={() => handleToggleIcon(item, 'planned')}
+                          onAddToTrip={(e) => handleItemClick(e, item)}
+                        />
                       </li>
                     )
                   })}
@@ -906,7 +846,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
             {cityGroups.needsLocation.length > 0 && (
               <section>
-                <h2 className="text-sm font-medium text-secondary uppercase tracking-wide mb-3">
+                <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.11em] text-[color:var(--text-tertiary)]">
                   Needs a location
                 </h2>
                 <ul className="space-y-2">
@@ -915,19 +855,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                     return (
                       <li
                         key={item.id}
-                        className="bg-amber-50/50 rounded-2xl border border-amber-100 flex items-center gap-3 p-3"
+                        className="flex items-center gap-3 rounded-[22px] border border-[color:var(--status-warn-bg)] bg-[color:var(--status-warn-bg)]/40 p-3.5"
                       >
-                        <Link href={`/item/${item.id}`} className="flex-1 min-w-0">
-                          <h3 className="font-medium text-charcoal truncate text-sm">
+                        <Link href={`/item/${item.id}`} className="min-w-0 flex-1">
+                          <h3 className="truncate text-sm font-medium text-charcoal">
                             {displayTitle}
                           </h3>
-                          <p className="text-xs text-secondary mt-0.5">
+                          <p className="mt-0.5 text-xs text-secondary">
                             Add a location so it shows on the map
                           </p>
                         </Link>
                         <Link
                           href={`/item/${item.id}`}
-                          className="text-xs font-medium text-fibi-primary hover:underline shrink-0"
+                          className="shrink-0 text-xs font-medium text-fibi-primary hover:underline"
                         >
                           Add location
                         </Link>

@@ -131,6 +131,13 @@ export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
                 Add Place
               </Link>
               <Link
+                href="/app/guides"
+                onClick={() => setIsOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Travel Guides
+              </Link>
+              <Link
                 href="/app/how-to"
                 onClick={() => setIsOpen(false)}
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

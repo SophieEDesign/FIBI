@@ -47,6 +47,20 @@ export default function GuidePlaceCard({
     effectiveVideoUrl ? place.source_platform || 'TikTok' : place.source_platform
   )?.trim()
 
+  const rawDescription = place.description || ''
+  const categoryMatch = rawDescription.match(/FIBI category:\s*(.+)$/im)
+  const goodForMatch = rawDescription.match(/Good for:\s*(.+)$/im)
+  const category = categoryMatch?.[1]?.trim() || null
+  const goodForTags =
+    goodForMatch?.[1]
+      ?.split(/[·|,]/)
+      .map((t) => t.trim())
+      .filter(Boolean) || []
+  const bodyCopy = rawDescription
+    .replace(/\n*Good for:.*$/im, '')
+    .replace(/\n*FIBI category:.*$/im, '')
+    .trim()
+
   return (
     <article
       id={`place-${place.id}`}
@@ -102,9 +116,27 @@ export default function GuidePlaceCard({
       </div>
 
       <div className="space-y-4 p-4 sm:p-5">
-        {place.description && (
+        {(category || goodForTags.length > 0) && (
+          <div className="flex flex-wrap gap-1.5">
+            {category && (
+              <span className="rounded-full bg-fibi-gradient px-2.5 py-1 text-[11px] font-medium text-indigo-900">
+                {category}
+              </span>
+            )}
+            {goodForTags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {bodyCopy && (
           <p className="text-[15px] leading-relaxed text-[color:var(--text-secondary)] line-clamp-3 whitespace-pre-line">
-            {place.description}
+            {bodyCopy}
           </p>
         )}
 

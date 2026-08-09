@@ -118,7 +118,7 @@ export default function TripBoardView({ slug, board, items }: TripBoardViewProps
       const res = await fetch(`/api/board/${slug}/save`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save')
-      router.push(`/app/calendar?itinerary=${data.itinerary_id}`)
+      router.push(`/app/calendar?itinerary_id=${encodeURIComponent(data.itinerary_id)}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work. Try again.")
     } finally {

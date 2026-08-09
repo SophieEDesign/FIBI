@@ -72,6 +72,12 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
               Map
             </Link>
             <Link
+              href="/app/guides"
+              className={navClass(isActive('/app/guides') || isActive('/travel-guides'))}
+            >
+              Guides
+            </Link>
+            <Link
               href="/profile"
               className={navClass(isActive('/profile'))}
             >

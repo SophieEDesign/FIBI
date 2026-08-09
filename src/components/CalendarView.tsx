@@ -118,9 +118,9 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Preselect itinerary from URL (e.g. after "Add to my account" -> "View in my account")
+  // Preselect itinerary from URL (e.g. after saving a guide or shared board)
   useEffect(() => {
-    const id = searchParams.get('itinerary_id')
+    const id = searchParams.get('itinerary_id') || searchParams.get('itinerary')
     if (id && itineraries.some((i) => i.id === id)) {
       setSelectedItineraryId(id)
       router.replace('/app/calendar')

@@ -7,9 +7,15 @@ import { formatGuideDate } from '@/lib/travel-guides-shared'
 interface GuideCardLinkProps {
   guide: GuideCard
   className?: string
+  /** Default `/travel-guides` — use `/app/guides` inside the logged-in app. */
+  basePath?: string
 }
 
-export default function GuideCardLink({ guide, className = '' }: GuideCardLinkProps) {
+export default function GuideCardLink({
+  guide,
+  className = '',
+  basePath = '/travel-guides',
+}: GuideCardLinkProps) {
   const location = [guide.destination_name || guide.city, guide.country]
     .filter(Boolean)
     .join(', ')
@@ -18,7 +24,7 @@ export default function GuideCardLink({ guide, className = '' }: GuideCardLinkPr
 
   return (
     <Link
-      href={`/travel-guides/${guide.slug}`}
+      href={`${basePath}/${guide.slug}`}
       className={`group relative block overflow-hidden rounded-2xl border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[transform,box-shadow] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md ${className}`}
     >
       <div className="relative aspect-[4/5] overflow-hidden bg-[color:var(--bg-inset)] sm:aspect-[5/6]">
