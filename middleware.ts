@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/middleware'
 
-const PROTECTED_PATHS = ['/app', '/add', '/item', '/profile']
+const PROTECTED_PATHS = ['/app', '/item', '/profile']
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATHS.some(
@@ -38,6 +38,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*', '/add/:path*', '/item/:path*', '/profile/:path*'],
+  matcher: ['/app/:path*', '/item/:path*', '/profile/:path*'],
 }
-

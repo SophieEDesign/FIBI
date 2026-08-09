@@ -76,6 +76,8 @@ export default function CalendarView({ user }: CalendarViewProps) {
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [shareToken, setShareToken] = useState<string | null>(null)
   const [loadingShare, setLoadingShare] = useState(false)
+  const [publishingBoard, setPublishingBoard] = useState(false)
+  const [boardUrl, setBoardUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteName, setInviteName] = useState('')
@@ -365,6 +367,74 @@ export default function CalendarView({ user }: CalendarViewProps) {
     setInviteSent(false)
     setShowShareModal(true)
   }
+
+  const selectedItinerary = useMemo(
+    () => itineraries.find((i) => i.id === selectedItineraryId) || null,
+    [itineraries, selectedItineraryId]
+  )
+
+  const handlePublishTripBoard = async () => {
+    if (!selectedItineraryId) return
+    setPublishingBoard(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: HeadersInit = { 'Content-Type': 'application/json' }
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+      const isPublished = !!selectedItinerary?.published_at
+      const response = await fetch(`/api/itinerary/${selectedItineraryId}/publish`, {
+        method: isPublished ? 'DELETE' : 'POST',
+        credentials: 'include',
+        headers,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || (isPublished ? 'Failed to unpublish' : 'Failed to publish'))
+      }
+      if (isPublished) {
+        setItineraries((prev) =>
+          prev.map((i) =>
+            i.id === selectedItineraryId ? { ...i, published_at: null } : i
+          )
+        )
+        setBoardUrl(null)
+      } else {
+        setItineraries((prev) =>
+          prev.map((i) =>
+            i.id === selectedItineraryId
+              ? {
+                  ...i,
+                  published_at: data.published_at,
+                  public_slug: data.public_slug,
+                }
+              : i
+          )
+        )
+        setBoardUrl(data.board_url || null)
+        if (data.board_url && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(data.board_url)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        }
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "That didn't work. Try again.")
+    } finally {
+      setPublishingBoard(false)
+    }
+  }
+
+  // Sync board URL when selection changes
+  useEffect(() => {
+    if (selectedItinerary?.published_at && selectedItinerary.public_slug) {
+      const base =
+        typeof window !== 'undefined' ? window.location.origin : 'https://fibi.world'
+      setBoardUrl(`${base}/board/${selectedItinerary.public_slug}`)
+    } else {
+      setBoardUrl(null)
+    }
+  }, [selectedItinerary])
 
   const handleShareContinue = async () => {
     if (!selectedItineraryId) return
@@ -1158,6 +1228,46 @@ export default function CalendarView({ user }: CalendarViewProps) {
                         Share trip
                       </span>
                     </button>
+                    {itinerary.user_id === user?.id && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          void handlePublishTripBoard()
+                        }}
+                        disabled={publishingBoard}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors disabled:opacity-50 ${
+                          itinerary.published_at
+                            ? 'bg-fibi-blue-light/40 text-fibi-text-primary'
+                            : 'text-[#6b7280] hover:bg-gray-100'
+                        }`}
+                        title={
+                          itinerary.published_at
+                            ? 'Unpublish trip board'
+                            : 'Publish as trip board'
+                        }
+                      >
+                        {publishingBoard
+                          ? '…'
+                          : itinerary.published_at
+                            ? copied
+                              ? 'Link copied'
+                              : 'Published'
+                            : 'Publish board'}
+                      </button>
+                    )}
+                    {itinerary.published_at && boardUrl && (
+                      <a
+                        href={boardUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-fibi-primary hover:underline px-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View
+                      </a>
+                    )}
                     {itinerary.user_id === user?.id && (
                       <button
                         type="button"

@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation'
 import { signOut } from '@/lib/signout'
 import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
+import LibraryMapPreview from '@/components/LibraryMapPreview'
 
 interface HomeGridProps {
   user: any
@@ -34,7 +35,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
-  const [groupBy, setGroupBy] = useState<'none' | 'liked' | 'planned'>('none')
+  const [groupBy, setGroupBy] = useState<'none' | 'city' | 'liked' | 'planned'>('city')
+  const [searchQuery, setSearchQuery] = useState('')
   const supabase = createClient()
   const confirmError = searchParams?.get('confirm') === 'error'
   const confirmExpired = searchParams?.get('confirm') === 'expired'
@@ -240,16 +242,38 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     }
   }, [items, userCustomCategories])
 
-  // Filter items based on selected filters
+  // Filter items based on selected filters + search
   const filteredItems = useMemo(() => {
-    if (filters.categories.length === 0) return items
-    return items.filter((item) => {
-      const itemCategories = parseItemField(item.category)
-      return filters.categories.some(cat => itemCategories.includes(cat))
-    })
-  }, [items, filters])
+    let list = items
+    if (filters.categories.length > 0) {
+      list = list.filter((item) => {
+        const itemCategories = parseItemField(item.category)
+        return filters.categories.some((cat) => itemCategories.includes(cat))
+      })
+    }
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter((item) => {
+        const hay = [
+          item.title,
+          item.place_name,
+          item.location_city,
+          item.location_country,
+          item.formatted_address,
+          item.notes,
+          item.description,
+          item.url,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return hay.includes(q)
+      })
+    }
+    return list
+  }, [items, filters, searchQuery])
 
-  // Order items: sort by liked/planned, optional group (group off by default)
+  // Order items: sort by liked/planned, optional group (city by default)
   const orderedItems = useMemo(() => {
     let list = [...filteredItems]
     if (groupBy === 'liked') {
@@ -272,6 +296,29 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     }
     return list
   }, [filteredItems, sortOrder, groupBy])
+
+  const cityGroups = useMemo(() => {
+    if (groupBy !== 'city') {
+      return { groups: [{ key: 'all', label: null as string | null, items: orderedItems }], needsPin: [] as SavedItem[] }
+    }
+    const map = new Map<string, SavedItem[]>()
+    const needsPin: SavedItem[] = []
+    for (const item of orderedItems) {
+      const hasPin = item.latitude != null && item.longitude != null
+      const city = item.location_city?.trim()
+      if (!hasPin && !city) {
+        needsPin.push(item)
+        continue
+      }
+      const key = city || item.location_country?.trim() || 'Somewhere'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(item)
+    }
+    const groups = Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, groupItems]) => ({ key, label: key, items: groupItems }))
+    return { groups, needsPin }
+  }, [orderedItems, groupBy])
 
   const activeFiltersCount = filters.categories.length
 
@@ -377,7 +424,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-charcoal">FiBi</h1>
+              <h1 className="text-xl font-bold text-charcoal">FIBI</h1>
               <span className="text-[10px] font-medium text-secondary border border-gray-200 rounded-full px-2 py-0.5 bg-gray-50/80">
                 Early Access
               </span>
@@ -464,10 +511,20 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Filters - Desktop: horizontal chips, Mobile: modal */}
+        {/* Search + Filters */}
         {items.length > 0 && (
-          <div className="mb-6 md:mb-8 hidden md:block">
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="mb-6 md:mb-8 space-y-4">
+            <div className="relative">
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search places, cities, notes…"
+                className="w-full px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-sm text-charcoal placeholder:text-secondary focus:outline-none focus:ring-2 focus:ring-charcoal/15"
+                aria-label="Search saved places"
+              />
+            </div>
+            <div className="hidden md:flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-secondary">Category:</span>
                 <button
@@ -509,25 +566,41 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <span className="text-sm font-medium text-secondary">Group:</span>
                 <select
                   value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'liked' | 'planned')}
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'city' | 'liked' | 'planned')}
                   className="px-2.5 py-1.5 text-sm rounded-xl bg-gray-100 text-secondary hover:bg-gray-200 border-0 focus:ring-2 focus:ring-charcoal/20"
                   aria-label="Group by"
                 >
+                  <option value="city">City</option>
                   <option value="none">None</option>
                   <option value="liked">Liked</option>
                   <option value="planned">Planned</option>
                 </select>
               </div>
-              {activeFiltersCount > 0 && (
+              {(activeFiltersCount > 0 || searchQuery) && (
                 <button
-                  onClick={clearFilters}
+                  onClick={() => {
+                    clearFilters()
+                    setSearchQuery('')
+                  }}
                   className="text-sm text-secondary hover:text-charcoal"
                 >
                   Clear all
                 </button>
               )}
             </div>
+            <div className="md:hidden flex gap-2">
+              <button
+                onClick={() => setShowFilterModal(true)}
+                className="px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary"
+              >
+                Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+              </button>
+            </div>
           </div>
+        )}
+
+        {!loading && orderedItems.length > 0 && (
+          <LibraryMapPreview items={orderedItems} />
         )}
 
         {/* Empty state */}
@@ -592,128 +665,160 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
         {/* Loading state */}
         {loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="aspect-[4/5] bg-white rounded-2xl overflow-hidden shadow-sm animate-pulse border border-gray-100 flex flex-col">
-                <div className="flex-1 min-h-0 bg-gray-200" />
-                <div className="px-3 py-2 border-t border-gray-100">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                </div>
-              </div>
+          <div className="space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-20 bg-white rounded-2xl animate-pulse border border-gray-100" />
             ))}
           </div>
         )}
 
-        {/* Grid */}
+        {/* Map + list */}
         {!loading && orderedItems.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {orderedItems.map((item) => {
-              const displayTitle = item.title || getHostname(item.url)
-              const itemCategories = parseItemField(item.category)
-              const oneCategory = itemCategories[0]
-              const isLiked = item.liked ?? false
-              const isPlanned = item.planned ?? false
-              const both = isLiked && isPlanned
+          <div className="space-y-8">
+            {cityGroups.groups.map((group) => (
+              <section key={group.key}>
+                {group.label && (
+                  <h2 className="text-sm font-medium text-secondary uppercase tracking-wide mb-3">
+                    {group.label}
+                  </h2>
+                )}
+                <ul className="space-y-2">
+                  {group.items.map((item) => {
+                    const displayTitle = item.title || item.place_name || getHostname(item.url)
+                    const itemCategories = parseItemField(item.category)
+                    const oneCategory = itemCategories[0]
+                    const isLiked = item.liked ?? false
+                    const isPlanned = item.planned ?? false
+                    const locationLine =
+                      item.place_name ||
+                      item.formatted_address ||
+                      [item.location_city, item.location_country].filter(Boolean).join(', ')
 
-              return (
-                <div
-                  key={item.id}
-                  className="aspect-[4/5] bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 border border-gray-100 transition-all flex flex-col relative group"
-                >
-                  <Link href={`/item/${item.id}`} className="flex flex-col flex-1 min-h-0">
-                    <div className="flex-1 min-h-0 bg-gray-50 relative overflow-hidden">
-                      {item.screenshot_url && !failedScreenshotIds.has(item.id) ? (
-                        <img
-                          src={item.screenshot_url}
-                          alt={displayTitle}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          loading="lazy"
-                          onError={() => setFailedScreenshotIds((prev) => new Set(prev).add(item.id))}
-                        />
-                      ) : (
-                        <div className="absolute inset-0">
-                          <EmbedPreview
-                            url={item.url}
-                            thumbnailUrl={item.thumbnail_url}
-                            platform={item.platform}
-                            displayTitle={displayTitle}
-                          />
+                    return (
+                      <li
+                        key={item.id}
+                        className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex items-stretch overflow-hidden"
+                      >
+                        <Link
+                          href={`/item/${item.id}`}
+                          className="flex flex-1 min-w-0 gap-3 p-3 items-center"
+                        >
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-gray-50 shrink-0 relative">
+                            {item.screenshot_url && !failedScreenshotIds.has(item.id) ? (
+                              <img
+                                src={item.screenshot_url}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                                loading="lazy"
+                                onError={() =>
+                                  setFailedScreenshotIds((prev) => new Set(prev).add(item.id))
+                                }
+                              />
+                            ) : item.thumbnail_url ? (
+                              <img
+                                src={item.thumbnail_url}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="absolute inset-0">
+                                <EmbedPreview
+                                  url={item.url}
+                                  thumbnailUrl={item.thumbnail_url}
+                                  platform={item.platform}
+                                  displayTitle={displayTitle}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium text-charcoal truncate text-sm sm:text-base">
+                              {displayTitle}
+                            </h3>
+                            {locationLine && (
+                              <p className="text-xs text-secondary truncate mt-0.5">{locationLine}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {oneCategory && (
+                                <span className="text-xs text-secondary">{oneCategory}</span>
+                              )}
+                              <span className="text-xs text-secondary/70">{item.platform}</span>
+                            </div>
+                          </div>
+                        </Link>
+                        <div className="flex flex-col justify-center gap-1 pr-3 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleIcon(item, 'planned')}
+                            className={`p-1.5 rounded-lg ${isPlanned ? 'text-charcoal' : 'text-secondary/50 hover:text-secondary'}`}
+                            aria-label={isPlanned ? 'Remove planned' : 'Mark as planned'}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleIcon(item, 'liked')}
+                            className={`p-1.5 rounded-lg ${isLiked ? 'text-charcoal' : 'text-secondary/50 hover:text-secondary'}`}
+                            aria-label={isLiked ? 'Remove liked' : 'Mark as liked'}
+                          >
+                            <svg className="w-4 h-4" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleItemClick(e, item)}
+                            className="p-1.5 rounded-lg text-secondary/50 hover:text-secondary"
+                            aria-label="Add to trip"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </button>
                         </div>
-                      )}
-                      {/* Top-right overlay: state icons (always visible, subtle when off) + add-to-trip */}
-                      <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
-                        {/* Planned (tick): 24px circle, filled when active */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleToggleIcon(item, 'planned')
-                          }}
-                          className={`flex items-center justify-center w-6 h-6 rounded-full text-white transition-transform duration-200 hover:scale-110 active:scale-95 ${
-                            isPlanned ? 'bg-black/50' : 'bg-black/30 hover:bg-black/40'
-                          }`}
-                          aria-label={isPlanned ? 'Remove planned' : 'Mark as planned'}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={isPlanned ? 2.5 : 2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                        {/* Liked (heart): smaller when both active */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleToggleIcon(item, 'liked')
-                          }}
-                          className={`flex items-center justify-center rounded-full text-white transition-transform duration-200 hover:scale-110 active:scale-95 ${
-                            both ? 'w-5 h-5' : 'w-6 h-6'
-                          } ${isLiked ? 'bg-black/50' : 'bg-black/30 hover:bg-black/40'}`}
-                          style={both ? { minWidth: 20, minHeight: 20 } : undefined}
-                          aria-label={isLiked ? 'Remove liked' : 'Mark as liked'}
-                        >
-                          <svg className={both ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            handleItemClick(e as unknown as React.MouseEvent, item)
-                          }}
-                          className="p-2 rounded-xl bg-white/90 hover:bg-white shadow-soft text-secondary hover:text-charcoal transition-colors"
-                          aria-label="Add to trip"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-white/80 text-secondary text-xs font-normal backdrop-blur-sm">
-                        {item.platform}
-                      </div>
-                    </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            ))}
 
-                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100 min-h-0">
-                      <h3 className="font-medium text-charcoal truncate text-sm">
-                        {displayTitle}
-                      </h3>
-                      {(item.place_name || item.formatted_address || item.location_city || item.location_country) && (
-                        <p className="text-xs text-secondary truncate mt-0.5">
-                          {item.place_name || item.formatted_address || [item.location_city, item.location_country].filter(Boolean).join(', ')}
-                        </p>
-                      )}
-                      {oneCategory && (
-                        <p className="text-xs text-secondary truncate mt-0.5">{oneCategory}</p>
-                      )}
-                    </div>
-                  </Link>
-                </div>
-              )
-            })}
+            {cityGroups.needsPin.length > 0 && (
+              <section>
+                <h2 className="text-sm font-medium text-secondary uppercase tracking-wide mb-3">
+                  Needs a pin
+                </h2>
+                <ul className="space-y-2">
+                  {cityGroups.needsPin.map((item) => {
+                    const displayTitle = item.title || getHostname(item.url)
+                    return (
+                      <li
+                        key={item.id}
+                        className="bg-amber-50/50 rounded-2xl border border-amber-100 flex items-center gap-3 p-3"
+                      >
+                        <Link href={`/item/${item.id}`} className="flex-1 min-w-0">
+                          <h3 className="font-medium text-charcoal truncate text-sm">
+                            {displayTitle}
+                          </h3>
+                          <p className="text-xs text-secondary mt-0.5">
+                            Add a location so it shows on the map
+                          </p>
+                        </Link>
+                        <Link
+                          href={`/item/${item.id}`}
+                          className="text-xs font-medium text-fibi-primary hover:underline shrink-0"
+                        >
+                          Add pin
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            )}
           </div>
         )}
       </main>
@@ -800,10 +905,11 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <h3 className="text-xs font-medium text-secondary mb-2">Group by</h3>
                 <select
                   value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'liked' | 'planned')}
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'city' | 'liked' | 'planned')}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary border-0"
                   aria-label="Group by"
                 >
+                  <option value="city">City</option>
                   <option value="none">None</option>
                   <option value="liked">Liked</option>
                   <option value="planned">Planned</option>

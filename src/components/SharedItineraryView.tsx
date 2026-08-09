@@ -430,7 +430,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
             href="/"
             className="inline-block bg-gray-900 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
           >
-            Go to FiBi
+            Go to FIBI
           </Link>
         </div>
       </div>
@@ -537,7 +537,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
                 href="/"
                 className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
               >
-                FiBi
+                FIBI
               </Link>
             </div>
           </div>
@@ -834,7 +834,7 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
         {/* CTA Section */}
         <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6 text-center">
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Save a copy to your FiBi
+            Save a copy to your FIBI
           </h3>
           <p className="text-sm text-gray-600 mb-4">
             Create your own travel plans and keep track of places you want to visit.

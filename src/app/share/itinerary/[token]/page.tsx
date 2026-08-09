@@ -45,11 +45,11 @@ export async function generateMetadata({
 
       if (itinerary) {
         return {
-          title: `${itinerary.name} - Shared Itinerary | FiBi`,
-          description: `View this shared travel itinerary: ${itinerary.name}`,
+          title: `${itinerary.name} - Trip board | FIBI`,
+          description: `View this shared travel trip: ${itinerary.name}`,
           openGraph: {
-            title: `${itinerary.name} - Shared Itinerary`,
-            description: `View this shared travel itinerary: ${itinerary.name}`,
+            title: `${itinerary.name} - Trip board`,
+            description: `View this shared travel trip: ${itinerary.name}`,
             type: 'website',
             url: `${siteUrl}/share/itinerary/${token}`,
             images: [
@@ -57,14 +57,14 @@ export async function generateMetadata({
                 url: `${siteUrl}/hero-image.png`,
                 width: 1200,
                 height: 630,
-                alt: `${itinerary.name} - Shared Itinerary`,
+                alt: `${itinerary.name} - Trip board`,
               },
             ],
           },
           twitter: {
             card: 'summary_large_image',
-            title: `${itinerary.name} - Shared Itinerary`,
-            description: `View this shared travel itinerary: ${itinerary.name}`,
+            title: `${itinerary.name} - Trip board`,
+            description: `View this shared travel trip: ${itinerary.name}`,
             images: [`${siteUrl}/hero-image.png`],
           },
         }
@@ -76,11 +76,11 @@ export async function generateMetadata({
 
   // Fallback metadata
   return {
-    title: 'Shared Itinerary | FiBi',
-    description: 'View this shared travel itinerary',
+    title: 'Shared trip | FIBI',
+    description: 'View this shared travel trip',
     openGraph: {
-      title: 'Shared Itinerary | FiBi',
-      description: 'View this shared travel itinerary',
+      title: 'Shared trip | FIBI',
+      description: 'View this shared travel trip',
       type: 'website',
       url: `${siteUrl}/share/itinerary/${token}`,
       images: [
@@ -88,14 +88,14 @@ export async function generateMetadata({
           url: `${siteUrl}/hero-image.png`,
           width: 1200,
           height: 630,
-          alt: 'Shared Itinerary | FiBi',
+          alt: 'Shared trip | FIBI',
         },
       ],
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'Shared Itinerary | FiBi',
-      description: 'View this shared travel itinerary',
+      title: 'Shared trip | FIBI',
+      description: 'View this shared travel trip',
       images: [`${siteUrl}/hero-image.png`],
     },
   }

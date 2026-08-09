@@ -241,7 +241,7 @@ export default function SignupClient() {
         <div className="text-center">
           <img
             src="/FIBI Logo.png"
-            alt="FiBi"
+            alt="FIBI"
             className="h-12 w-auto mx-auto mb-4"
           />
           <p className="text-gray-600">Save your travel places</p>

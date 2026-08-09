@@ -60,7 +60,7 @@ FIBI is for: thoughtful travellers, quiet planners, people who screenshot too mu
 
 | Context | Copy |
 |--------|------|
-| **Website hero** | Organise your travel inspiration. Beautifully. Simply. Calmly. |
+| **Website hero** | Turn your travel scrolling into actual trips. *(Supporting brand line: Beautifully. Simply. Calmly.)* |
 | **Instagram caption** | You keep swiping. You keep saving. FIBI keeps it organised. |
 | **App empty state** | No saved places yet. Start with something you love. |
 | **Error message** | That didn’t work. Try again. (Short. No drama.) |

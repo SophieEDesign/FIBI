@@ -7,6 +7,7 @@ import DesktopNavigation from '@/components/DesktopNavigation'
 import SiteFooter from '@/components/SiteFooter'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import { mergeGuestSavesToAccount, guestSaveCount } from '@/lib/guest-saves'
 
 function ProtectedLayoutInner({
   children,
@@ -19,6 +20,19 @@ function ProtectedLayoutInner({
   const { user, loading } = useAuth()
   const [isAdmin, setIsAdmin] = useState(false)
   const redirectingRef = useRef(false)
+  const mergedGuestRef = useRef(false)
+
+  // Merge guest saves once after login
+  useEffect(() => {
+    if (!user?.id || mergedGuestRef.current) return
+    if (guestSaveCount() === 0) {
+      mergedGuestRef.current = true
+      return
+    }
+    mergedGuestRef.current = true
+    const client = createClient()
+    void mergeGuestSavesToAccount(user.id, client)
+  }, [user?.id])
 
   // Single place for auth redirect: avoid redirect loop (e.g. from Strict Mode double-invoke)
   useEffect(() => {

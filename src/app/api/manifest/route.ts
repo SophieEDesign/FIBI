@@ -29,9 +29,9 @@ export async function GET() {
   } catch {
     return NextResponse.json(
       {
-        name: 'FiBi',
-        short_name: 'FiBi',
-        description: 'Save travel places from social media before you lose them',
+        name: 'FIBI',
+        short_name: 'FIBI',
+        description: 'Save your travel places from social media before you lose them',
         start_url: '/?source=pwa',
         scope: '/',
         display: 'standalone',

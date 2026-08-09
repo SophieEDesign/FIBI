@@ -79,7 +79,7 @@ function EmailHeader() {
   return `
   <tr>
     <td style="background: ${EMAIL_GRADIENT}; padding: 40px 30px; text-align: center;">
-      <img src="${EMAIL_LOGO_LIGHT_URL}" alt="FiBi" style="height: 40px; width: auto; margin-bottom: 10px;" />
+      <img src="${EMAIL_LOGO_LIGHT_URL}" alt="FIBI" style="height: 40px; width: auto; margin-bottom: 10px;" />
       <div style="height: 2px; background: rgba(255, 255, 255, 0.3); margin-top: 20px;"></div>
     </td>
   </tr>

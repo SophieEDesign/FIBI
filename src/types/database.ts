@@ -39,6 +39,8 @@ export interface Itinerary {
   end_date: string | null
   cover_image_url?: string | null
   notes?: string | null
+  published_at?: string | null
+  public_slug?: string | null
   created_at: string
 }
 

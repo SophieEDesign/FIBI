@@ -6,31 +6,22 @@ import { usePWAInstall } from '@/hooks/usePWAInstall'
 const TUTORIAL_SHOWN_KEY = 'fibi-sharing-tutorial-shown'
 
 /**
- * Sharing Tutorial Component
- * 
- * Shows a tutorial modal when the app is first opened after installation.
- * Uses localStorage to track if tutorial has been shown.
- * Only shows if app is installed as PWA (standalone mode).
+ * Sharing Tutorial — shown once after PWA install.
  */
 export default function SharingTutorial() {
   const [showTutorial, setShowTutorial] = useState(false)
   const { isInstalled } = usePWAInstall()
 
   useEffect(() => {
-    // Only show tutorial if:
-    // 1. App is installed (running in standalone mode)
-    // 2. Tutorial hasn't been shown before
-    // 3. We're in a browser environment
     if (typeof window === 'undefined') return
 
     const hasShownTutorial = localStorage.getItem(TUTORIAL_SHOWN_KEY) === 'true'
-    
+
     if (isInstalled && !hasShownTutorial) {
-      // Small delay to ensure page is fully loaded
       const timer = setTimeout(() => {
         setShowTutorial(true)
       }, 500)
-      
+
       return () => clearTimeout(timer)
     }
   }, [isInstalled])
@@ -49,7 +40,7 @@ export default function SharingTutorial() {
       <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-900">
-            Welcome to Fibi!
+            Welcome to FIBI
           </h2>
           <button
             onClick={handleDismiss}
@@ -72,12 +63,12 @@ export default function SharingTutorial() {
 
         <div className="space-y-6">
           <p className="text-gray-600">
-            Now that Fibi is installed, you can share places directly from TikTok, Instagram, YouTube, and other apps — no copy-paste needed!
+            FIBI is on your home screen. Share a place from TikTok or Instagram and it lands here — no copy-paste.
           </p>
 
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              How to share to Fibi:
+              How to share
             </h3>
 
             <div className="space-y-3">
@@ -87,7 +78,7 @@ export default function SharingTutorial() {
                 </div>
                 <div>
                   <p className="text-gray-700 font-medium">Find something to save</p>
-                  <p className="text-sm text-gray-500">Open TikTok, Instagram, or any app with a post/video you want to save</p>
+                  <p className="text-sm text-gray-500">Open TikTok, Instagram, or any app with a place you like</p>
                 </div>
               </div>
 
@@ -96,8 +87,8 @@ export default function SharingTutorial() {
                   2
                 </div>
                 <div>
-                  <p className="text-gray-700 font-medium">Tap the Share button</p>
-                  <p className="text-sm text-gray-500">Look for the share icon (usually → or Share) on the post/video</p>
+                  <p className="text-gray-700 font-medium">Tap Share</p>
+                  <p className="text-sm text-gray-500">Use the share icon on the post or video</p>
                 </div>
               </div>
 
@@ -106,8 +97,8 @@ export default function SharingTutorial() {
                   3
                 </div>
                 <div>
-                  <p className="text-gray-700 font-medium">Select Fibi from the Share Sheet</p>
-                  <p className="text-sm text-gray-500">Fibi will appear alongside other apps like Messages, WhatsApp, etc.</p>
+                  <p className="text-gray-700 font-medium">Select FIBI</p>
+                  <p className="text-sm text-gray-500">It appears in your share sheet with your other apps</p>
                 </div>
               </div>
 
@@ -116,29 +107,21 @@ export default function SharingTutorial() {
                   4
                 </div>
                 <div>
-                  <p className="text-gray-700 font-medium">Review and save</p>
-                  <p className="text-sm text-gray-500">Fibi automatically pulls through a visual preview. Optional: add your own screenshot or details, then save!</p>
+                  <p className="text-gray-700 font-medium">Done</p>
+                  <p className="text-sm text-gray-500">We save it for you. Add details later if you want.</p>
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <p className="text-sm font-semibold text-gray-900">✨ Visual Previews</p>
-            <p className="text-sm text-gray-600">
-              When you share to Fibi, a visual preview is automatically pulled through — no need to copy and paste or add screenshots manually. You can optionally add your own screenshot if you want.
-            </p>
           </div>
 
           <button
             onClick={handleDismiss}
             className="w-full bg-gray-900 text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 transition-colors"
           >
-            Got it, let&apos;s go!
+            Got it
           </button>
         </div>
       </div>
     </div>
   )
 }
-

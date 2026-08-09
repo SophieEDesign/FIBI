@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { getSiteUrl } from '@/lib/utils'
 import Link from 'next/link'
 import SocialAuthButtons from '@/components/SocialAuthButtons'
+import { mergeGuestSavesToAccount } from '@/lib/guest-saves'
 
 type ViewMode = 'login' | 'forgot-password' | 'magic-link'
 
@@ -203,6 +204,10 @@ export default function LoginClient() {
           return
         }
 
+        if (data.user) {
+          await mergeGuestSavesToAccount(data.user.id, supabase)
+        }
+
         const redirectParam = searchParams.get('redirect')
         router.push(redirectParam || '/app')
       }
@@ -246,7 +251,7 @@ export default function LoginClient() {
         <div className="text-center">
           <img
             src="/FIBI Logo.png"
-            alt="FiBi"
+            alt="FIBI"
             className="h-12 w-auto mx-auto mb-4"
           />
           <p className="text-gray-600">Save your travel places</p>
