@@ -5,12 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getHostname, uploadScreenshot, cleanOGTitle, generateHostnameTitle } from '@/lib/utils'
+import { getHostname, uploadScreenshot, cleanOGTitle, generateHostnameTitle, isGenericOgTitle } from '@/lib/utils'
 import { deriveLocationStatus } from '@/lib/location-status'
 import {
   isHostedThumbnailUrl,
   requestPersistThumbnail,
 } from '@/lib/persist-thumbnail'
+import { isTikTokUrl } from '@/lib/tiktok-oembed'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -91,7 +92,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     if (hasAutoRefetchedRef.current === item.id) return
 
     const missingText =
-      !(title || item.title)?.trim() || !(description || item.description)?.trim()
+      !(title || item.title)?.trim() ||
+      !(description || item.description)?.trim() ||
+      isGenericOgTitle(cleanOGTitle(title || item.title)) ||
+      /^place from\s+/i.test((title || item.title || '').trim())
     const missingThumb = !item.thumbnail_url
     const needsRehost =
       !!item.thumbnail_url && !isHostedThumbnailUrl(item.thumbnail_url)
@@ -309,8 +313,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     }
   }
 
-  // Re-fetch metadata from the item URL and update empty title/description/thumbnail so user can update posts that didn't pull through
-  const refetchMetadataAndUpdate = useCallback(async () => {
+  // Re-fetch metadata from the item URL.
+  // force=true (button): always apply fresh TikTok/OG title, caption, and thumbnail when available.
+  // force=false (auto): only fill gaps / replace placeholder titles and unhosted thumbs.
+  const refetchMetadataAndUpdate = useCallback(async (force = false) => {
     if (!item?.url?.trim()) return
     setRefetchingMetadata(true)
     setError(null)
@@ -321,55 +327,112 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         body: JSON.stringify({ url: item.url }),
       })
       if (!response.ok) throw new Error('Failed to fetch preview')
-      const metadata = await response.json()
+      let metadata = await response.json() as {
+        title?: string | null
+        description?: string | null
+        image?: string | null
+        scrapedContent?: string | null
+      }
+
+      // TikTok: also hit oEmbed if metadata came back thin (deploy lag / oEmbed-only success)
+      const isTikTok =
+        item.platform === 'TikTok' || isTikTokUrl(item.url)
+      if (
+        isTikTok &&
+        (!metadata.image || !metadata.title || isGenericOgTitle(cleanOGTitle(metadata.title)))
+      ) {
+        try {
+          const oembedRes = await fetch('/api/oembed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: item.url }),
+          })
+          if (oembedRes.ok) {
+            const oembed = await oembedRes.json()
+            metadata = {
+              title: metadata.title || oembed.title || null,
+              description:
+                metadata.description || oembed.caption_text || oembed.title || null,
+              image: metadata.image || oembed.thumbnail_url || null,
+              scrapedContent:
+                metadata.scrapedContent ||
+                oembed.caption_text ||
+                oembed.title ||
+                null,
+            }
+          }
+        } catch {
+          // non-blocking
+        }
+      }
+
       const updates: { title?: string | null; description?: string | null; thumbnail_url?: string | null } = {}
       const currentTitle = (title || item?.title || '').trim()
       const currentDescription = (description || item?.description || '').trim()
       const currentThumbnail = item?.thumbnail_url
-      const thumbNeedsHost =
-        !currentThumbnail || !isHostedThumbnailUrl(currentThumbnail)
 
-      if (!currentTitle && (metadata.title || metadata.scrapedContent)) {
-        const cleaned = cleanOGTitle(metadata.title)
-        const newTitle = cleaned || (metadata.scrapedContent?.substring(0, 80)?.trim() || null) || generateHostnameTitle(item.url)
-        updates.title = newTitle
-        setTitle(newTitle)
-        await saveField('title', newTitle)
-      }
-      if (!currentDescription && (metadata.description || metadata.scrapedContent)) {
-        const newDesc = (metadata.description || metadata.scrapedContent?.substring(0, 500)?.trim() || null) ?? null
-        if (newDesc) {
-          updates.description = newDesc
-          setDescription(newDesc)
-          await saveField('description', newDesc)
+      const titleIsPlaceholder =
+        !currentTitle ||
+        isGenericOgTitle(cleanOGTitle(currentTitle)) ||
+        /^place from\s+/i.test(currentTitle)
+
+      const metaTitleClean = cleanOGTitle(metadata.title) || metadata.title?.trim() || null
+      const metaTitleUsable =
+        !!metaTitleClean && !isGenericOgTitle(metaTitleClean)
+
+      if ((force || titleIsPlaceholder) && (metaTitleUsable || metadata.scrapedContent)) {
+        const newTitle =
+          (metaTitleUsable ? metaTitleClean : null) ||
+          metadata.scrapedContent?.substring(0, 80)?.trim() ||
+          generateHostnameTitle(item.url)
+        if (newTitle && newTitle !== currentTitle) {
+          updates.title = newTitle
+          setTitle(newTitle)
+          await saveField('title', newTitle)
         }
       }
 
-      // Prefer a fresh OG image when we still need a durable thumb
-      const candidateImage =
-        (thumbNeedsHost && metadata.image) ||
-        (thumbNeedsHost && currentThumbnail) ||
+      const metaDesc =
+        (metadata.description || metadata.scrapedContent?.substring(0, 500)?.trim() || null) ??
         null
+      if ((force || !currentDescription) && metaDesc && metaDesc !== currentDescription) {
+        updates.description = metaDesc
+        setDescription(metaDesc)
+        await saveField('description', metaDesc)
+      }
 
-      if (candidateImage && item?.id) {
-        // Store remote URL first, then rehost into our storage while the CDN link still works
+      const thumbNeedsRefresh =
+        force ||
+        !currentThumbnail ||
+        !isHostedThumbnailUrl(currentThumbnail)
+
+      if (thumbNeedsRefresh && item?.id) {
+        const nextImage = metadata.image || (force ? null : currentThumbnail)
         if (metadata.image && metadata.image !== currentThumbnail) {
           updates.thumbnail_url = metadata.image
-          setItem(prev => prev ? { ...prev, thumbnail_url: metadata.image } : null)
+          setItem((prev) => (prev ? { ...prev, thumbnail_url: metadata.image! } : null))
           await saveField('thumbnail_url', metadata.image)
         }
-        const durable = await requestPersistThumbnail(
-          item.id,
-          metadata.image || currentThumbnail
-        )
-        if (durable) {
-          updates.thumbnail_url = durable
-          setItem(prev => prev ? { ...prev, thumbnail_url: durable } : null)
+        if (nextImage || metadata.image) {
+          const durable = await requestPersistThumbnail(
+            item.id,
+            metadata.image || currentThumbnail
+          )
+          if (durable) {
+            updates.thumbnail_url = durable
+            setItem((prev) => (prev ? { ...prev, thumbnail_url: durable } : null))
+          }
         }
       }
 
-      if (Object.keys(updates).length > 0 && item) {
-        setItem(prev => prev ? { ...prev, ...updates } : null)
+      if (Object.keys(updates).length === 0 && force) {
+        setError(
+          metaTitleUsable || metadata.image
+            ? 'Preview is already up to date.'
+            : "Couldn't pull a preview from this link. Try again in a moment."
+        )
+      } else if (Object.keys(updates).length > 0 && item) {
+        setItem((prev) => (prev ? { ...prev, ...updates } : null))
       }
     } catch (err: any) {
       console.debug('ItemDetail: Metadata refetch failed (non-blocking):', err)
@@ -934,7 +997,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             <div className="absolute bottom-4 right-4 flex flex-wrap gap-2 items-center justify-end">
               <button
                 type="button"
-                onClick={() => refetchMetadataAndUpdate()}
+                onClick={() => refetchMetadataAndUpdate(true)}
                 disabled={refetchingMetadata}
                 className="px-3 py-1.5 bg-black/70 text-white text-sm rounded hover:bg-black/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

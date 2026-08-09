@@ -34,7 +34,7 @@ function refererForHost(hostname: string): string {
   if (hostname.includes('fbcdn.net') || hostname.includes('facebook.com')) {
     return 'https://www.facebook.com/'
   }
-  if (hostname.includes('tiktokcdn.com') || hostname.includes('tiktok.com')) {
+  if (hostname.includes('tiktokcdn') || hostname.includes('tiktok.com')) {
     return 'https://www.tiktok.com/'
   }
   try {

@@ -22,7 +22,7 @@ export function getProxiedImageUrl(url: string | null | undefined): string | nul
       host.includes('cdninstagram.com') ||
       (host.includes('instagram.com') && decoded.includes('/p/')) ||
       (host.includes('facebook.com') && decoded.includes('/photos/')) ||
-      host.includes('tiktokcdn.com') ||
+      host.includes('tiktokcdn') ||
       (host.includes('tiktok.com') && decoded.includes('/obj/'))
     if (needsProxy) return `/api/image-proxy?url=${encodeURIComponent(decoded)}`
     return decoded

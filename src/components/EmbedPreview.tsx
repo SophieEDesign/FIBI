@@ -125,7 +125,7 @@ export default function EmbedPreview({
                         hostname.includes('cdninstagram.com') ||
                         (hostname.includes('instagram.com') && decodedUrl.includes('/p/')) ||
                         (hostname.includes('facebook.com') && decodedUrl.includes('/photos/')) ||
-                        hostname.includes('tiktokcdn.com') ||
+                        hostname.includes('tiktokcdn') ||
                         (hostname.includes('tiktok.com') && decodedUrl.includes('/obj/'))
       
       if (needsProxy) {

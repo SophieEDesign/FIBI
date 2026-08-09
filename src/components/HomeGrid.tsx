@@ -40,7 +40,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
-  const [groupBy, setGroupBy] = useState<'none' | 'category' | 'city' | 'liked' | 'planned'>('category')
+  const [groupBy, setGroupBy] = useState<'none' | 'city' | 'liked' | 'planned'>('none')
   const [searchQuery, setSearchQuery] = useState('')
   const [libraryTab, setLibraryTab] = useState<'places' | 'map' | 'boards'>('places')
   const supabase = createClient()
@@ -305,30 +305,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
   const placeGroups = useMemo(() => {
     const needsLocation: SavedItem[] = []
-
-    if (groupBy === 'category') {
-      const map = new Map<string, SavedItem[]>()
-      for (const item of orderedItems) {
-        const cats = parseItemField(item.category)
-        const key = cats[0]?.trim() || 'Uncategorised'
-        if (!map.has(key)) map.set(key, [])
-        map.get(key)!.push(item)
-      }
-      const knownOrder = [...CATEGORIES] as string[]
-      const groups = Array.from(map.entries())
-        .sort(([a], [b]) => {
-          if (a === 'Uncategorised') return 1
-          if (b === 'Uncategorised') return -1
-          const ai = knownOrder.indexOf(a)
-          const bi = knownOrder.indexOf(b)
-          if (ai !== -1 && bi !== -1) return ai - bi
-          if (ai !== -1) return -1
-          if (bi !== -1) return 1
-          return a.localeCompare(b)
-        })
-        .map(([key, groupItems]) => ({ key, label: key, items: groupItems }))
-      return { groups, needsLocation }
-    }
 
     if (groupBy === 'city') {
       const map = new Map<string, SavedItem[]>()
@@ -676,7 +652,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   className="px-2.5 py-1.5 text-sm rounded-xl bg-gray-100 text-secondary hover:bg-gray-200 border-0 focus:ring-2 focus:ring-charcoal/20"
                   aria-label="Sort order"
                 >
-                  <option value="default">Default</option>
+                  <option value="default">Date added</option>
                   <option value="liked">Liked first</option>
                   <option value="planned">Planned first</option>
                 </select>
@@ -684,16 +660,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <select
                   value={groupBy}
                   onChange={(e) =>
-                    setGroupBy(
-                      e.target.value as 'none' | 'category' | 'city' | 'liked' | 'planned'
-                    )
+                    setGroupBy(e.target.value as 'none' | 'city' | 'liked' | 'planned')
                   }
                   className="px-2.5 py-1.5 text-sm rounded-xl bg-gray-100 text-secondary hover:bg-gray-200 border-0 focus:ring-2 focus:ring-charcoal/20"
                   aria-label="Group by"
                 >
-                  <option value="category">Category</option>
-                  <option value="city">City</option>
                   <option value="none">None</option>
+                  <option value="city">City</option>
                   <option value="liked">Liked</option>
                   <option value="planned">Planned</option>
                 </select>
@@ -877,9 +850,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                       <li key={item.id}>
                         <SavedPlaceCard
                           item={item}
-                          category={
-                            groupBy === 'category' ? null : itemCategories[0] || null
-                          }
+                          category={itemCategories[0] || null}
                           failedScreenshot={failedScreenshotIds.has(item.id)}
                           onScreenshotError={() =>
                             setFailedScreenshotIds((prev) => new Set(prev).add(item.id))
@@ -1005,7 +976,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   className="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary border-0"
                   aria-label="Sort order"
                 >
-                  <option value="default">Default</option>
+                  <option value="default">Date added</option>
                   <option value="liked">Liked first</option>
                   <option value="planned">Planned first</option>
                 </select>
@@ -1015,16 +986,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <select
                   value={groupBy}
                   onChange={(e) =>
-                    setGroupBy(
-                      e.target.value as 'none' | 'category' | 'city' | 'liked' | 'planned'
-                    )
+                    setGroupBy(e.target.value as 'none' | 'city' | 'liked' | 'planned')
                   }
                   className="w-full px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary border-0"
                   aria-label="Group by"
                 >
-                  <option value="category">Category</option>
-                  <option value="city">City</option>
                   <option value="none">None</option>
+                  <option value="city">City</option>
                   <option value="liked">Liked</option>
                   <option value="planned">Planned</option>
                 </select>

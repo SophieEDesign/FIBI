@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       'cdninstagram.com',
       'instagram.com',
       'facebook.com',
-      'tiktokcdn.com',
+      'tiktokcdn',
       'tiktok.com',
     ]
     
@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
         referer = 'https://www.instagram.com/'
       } else if (hostname.includes('fbcdn.net') || hostname.includes('facebook.com')) {
         referer = 'https://www.facebook.com/'
+      } else if (hostname.includes('tiktokcdn') || hostname.includes('tiktok.com')) {
+        referer = 'https://www.tiktok.com/'
       }
 
       // Fetch with browser-like headers; some CDNs block non-browser or data-center requests
