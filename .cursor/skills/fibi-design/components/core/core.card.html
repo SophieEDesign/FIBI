@@ -1,0 +1,32 @@
+<!-- @dsCard group="Components" viewport="700x300" name="Core" subtitle="Buttons, icon buttons, cards, badges and tags" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;padding:20px;background:var(--bg-page);font:var(--type-body)}.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.lbl{font:var(--type-caption);color:var(--text-tertiary);letter-spacing:var(--ls-caps);text-transform:uppercase;margin:0 0 8px}.grp{display:flex;flex-direction:column;gap:8px}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const {Button,IconButton,Icon,Card,Badge,Tag}=window.FIBIDesignSystem_383abe;
+function App(){const [sel,setSel]=React.useState(true);return <div style={{display:"grid",gap:20}}>
+<div className="grp"><p className="lbl">Button</p><div className="row">
+<Button variant="primary">Save place</Button>
+<Button variant="gradient">Get started</Button>
+<Button variant="secondary">Cancel</Button>
+<Button variant="soft">Add note</Button>
+<Button variant="ghost">Skip</Button>
+<Button variant="danger">Delete</Button>
+<Button variant="primary" disabled>Disabled</Button></div></div>
+<div className="row" style={{gap:24}}>
+<div className="grp"><p className="lbl">Sizes</p><div className="row"><Button size="sm">Small</Button><Button size="md">Medium</Button><Button size="lg" iconLeft={<Icon name="plus" size={16}/>}>Large</Button></div></div>
+<div className="grp"><p className="lbl">Icon button</p><div className="row"><IconButton icon={<Icon name="share"/>} label="Share" variant="ghost"/><IconButton icon={<Icon name="bookmark"/>} label="Save" variant="surface"/><IconButton icon={<Icon name="map"/>} label="Map" variant="glass"/><IconButton icon={<Icon name="plus"/>} label="Add" variant="accent"/></div></div></div>
+<div className="row" style={{alignItems:"stretch",gap:12}}>
+<Card padding="14px 18px" style={{flex:1}}><b>Surface</b><div style={{color:"var(--text-secondary)",fontSize:13}}>Default card</div></Card>
+<Card tone="subtle" padding="14px 18px" style={{flex:1}}><b>Subtle</b><div style={{color:"var(--text-secondary)",fontSize:13}}>Inset panel</div></Card>
+<Card tone="brand" padding="14px 18px" style={{flex:1}}><b>Brand</b><div style={{color:"var(--text-secondary)",fontSize:13}}>Soft wash</div></Card>
+<Card tone="night" padding="14px 18px" style={{flex:1}}><b>Night</b><div style={{opacity:.7,fontSize:13}}>Indigo</div></Card></div>
+<div className="row"><Badge>Draft</Badge><Badge tone="info">New</Badge><Badge tone="success">Saved</Badge><Badge tone="warn">Needs location</Badge><Badge tone="danger">Failed</Badge><Badge tone="brand">Pro</Badge>
+<Tag interactive selected={sel} onClick={()=>setSel(!sel)}>Lisbon</Tag><Tag interactive>Coffee</Tag><Tag onRemove={()=>{}}>Beaches</Tag></div>
+</div>}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script></body></html>

@@ -1,0 +1,9 @@
+:root{
+--space-0:0px;--space-1:2px;--space-2:4px;--space-3:6px;--space-4:8px;--space-5:12px;--space-6:16px;--space-7:20px;--space-8:24px;--space-9:32px;--space-10:40px;--space-11:56px;--space-12:72px;--space-13:96px;--space-14:128px;
+/* Layout */
+--gutter-mobile:20px;--gutter-desktop:32px;
+--container-max:1120px;--container-narrow:720px;--container-prose:640px;
+--app-width:390px;--app-topbar-h:56px;--app-tabbar-h:64px;
+--control-h-sm:32px;--control-h-md:40px;--control-h-lg:48px;
+--section-y:var(--space-13);--stack-tight:var(--space-4);--stack:var(--space-6);--stack-loose:var(--space-9);
+}

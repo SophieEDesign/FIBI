@@ -56,6 +56,10 @@ export async function PATCH(
       filters?: unknown
       scheduled_at?: string | null
       status?: string
+      subject?: string | null
+      preview_text?: string | null
+      from_name?: string | null
+      from_email?: string | null
     }
     try {
       body = await request.json()
@@ -93,6 +97,19 @@ export async function PATCH(
     }
     if (body.status === 'draft' || body.status === 'scheduled' || body.status === 'cancelled') {
       patch.status = body.status
+    }
+    if (body.subject !== undefined) {
+      patch.subject = typeof body.subject === 'string' ? body.subject.trim() || null : null
+    }
+    if (body.preview_text !== undefined) {
+      patch.preview_text =
+        typeof body.preview_text === 'string' ? body.preview_text.trim() || null : null
+    }
+    if (body.from_name !== undefined) {
+      patch.from_name = typeof body.from_name === 'string' ? body.from_name.trim() || null : null
+    }
+    if (body.from_email !== undefined) {
+      patch.from_email = typeof body.from_email === 'string' ? body.from_email.trim() || null : null
     }
 
     if (Object.keys(patch).length === 0) {

@@ -31,6 +31,25 @@ export type CampaignRow = {
   audience_count: number
   sent_count: number
   failed_count: number
+  subject?: string | null
+  preview_text?: string | null
+  from_name?: string | null
+  from_email?: string | null
+}
+
+function buildFromAddress(fromName: string | null | undefined, fromEmail: string | null | undefined): string {
+  const email = (fromEmail?.trim() || FROM_EMAIL).replace(/[<>]/g, '')
+  const name = fromName?.trim()
+  if (name) return `${name.replace(/[<>]/g, '')} <${email}>`
+  return email
+}
+
+function withPreheader(html: string, previewText: string | null | undefined): string {
+  const text = previewText?.trim()
+  if (!text) return html
+  const safe = text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const preheader = `<div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${safe}</div>`
+  return `${preheader}${html}`
 }
 
 async function resolveCampaignFilters(
@@ -133,11 +152,16 @@ export async function runCampaignSend(campaignId: string): Promise<RunResult> {
       continue
     }
     try {
+      const subject =
+        (typeof campaign.subject === 'string' && campaign.subject.trim()) || template.subject
+      const from = buildFromAddress(campaign.from_name, campaign.from_email)
+      const html = withPreheader(template.html_content, campaign.preview_text)
+
       const resendData = await sendEmail({
         to: user.email,
-        subject: template.subject,
-        html: template.html_content,
-        from: FROM_EMAIL,
+        subject,
+        html,
+        from,
         userId: user.id,
       })
       await admin.from('email_logs').insert({

@@ -19,9 +19,15 @@ function parseFilters(raw: unknown): AutomationConditions | null {
   return Object.keys(filters).length ? filters : null
 }
 
+function optionalString(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  return t || null
+}
+
 /**
  * GET /api/admin/emails/campaigns
- * POST — create draft/scheduled campaign
+ * POST — create draft/scheduled campaign (Mailchimp-style setup fields supported)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +64,10 @@ export async function POST(request: NextRequest) {
       filters?: unknown
       scheduled_at?: string | null
       status?: string
+      subject?: string | null
+      preview_text?: string | null
+      from_name?: string | null
+      from_email?: string | null
     }
     try {
       body = await request.json()
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
     const admin = getAdminSupabase()
     const { data: template } = await admin
       .from('email_templates')
-      .select('slug')
+      .select('slug, subject')
       .eq('slug', templateSlug)
       .maybeSingle()
     if (!template) {
@@ -93,6 +103,8 @@ export async function POST(request: NextRequest) {
 
     const segmentId =
       typeof body.segment_id === 'string' && body.segment_id.trim() ? body.segment_id.trim() : null
+
+    const subject = optionalString(body.subject) ?? template.subject
 
     const { data, error } = await admin
       .from('email_campaigns')
@@ -103,6 +115,10 @@ export async function POST(request: NextRequest) {
         filters: segmentId ? null : parseFilters(body.filters),
         status,
         scheduled_at: scheduledAt,
+        subject,
+        preview_text: optionalString(body.preview_text),
+        from_name: optionalString(body.from_name) ?? 'FiBi',
+        from_email: optionalString(body.from_email) ?? 'hello@fibi.world',
       })
       .select('*')
       .single()
