@@ -41,7 +41,7 @@ function getFooterTable(opts?: { unsubscribeUrl?: string; footerAddress?: string
 <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; margin-top: 20px;">
   <tr>
     <td align="center" style="padding: 20px; color: #6b7280; font-size: 14px;">
-      <p style="margin: 0 0 8px 0;">Made with ❤️ by the FiBi team</p>
+      <p style="margin: 0 0 8px 0;">Made with ❤️ by UppcyX</p>
       <p style="margin: 0 0 8px 0; font-size: 12px;">
         <a href="${siteUrl}" style="color: #3b82f6; text-decoration: none;">fibi.world</a>
         <span style="color: #9ca3af;"> · </span>

@@ -17,7 +17,7 @@ export default function SiteFooter({ showSignIn = false, className = '' }: SiteF
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} Fibi. Save places before you lose them.
+            © {new Date().getFullYear()} FiBi by UppcyX. Save places before you lose them.
           </p>
           <div className="flex items-center gap-6">
             <Link

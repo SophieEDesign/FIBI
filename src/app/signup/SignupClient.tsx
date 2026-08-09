@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import SocialAuthButtons from '@/components/SocialAuthButtons'
 
 // Explicit render URL: safe to load with defer/async; do not use turnstile.ready() with async load
 const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
@@ -250,6 +251,23 @@ export default function SignupClient() {
           <div className="text-center">
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Create your account</h2>
             <p className="text-sm text-gray-600">Already have an account? <Link href="/login" className="text-gray-900 font-medium hover:underline">Sign in</Link></p>
+          </div>
+
+          <SocialAuthButtons
+            disabled={loading}
+            onError={(message) => {
+              setSuccessMessage(null)
+              setError(message || null)
+            }}
+          />
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white px-3 text-gray-500">or</span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" aria-busy={loading} aria-describedby={error ? 'signup-error' : successMessage ? 'signup-success' : undefined}>
