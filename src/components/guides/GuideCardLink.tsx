@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import type { GuideCard } from '@/lib/travel-guides'
-import { formatGuideDate } from '@/lib/travel-guides'
+import type { GuideCard } from '@/lib/travel-guides-shared'
+import { formatGuideDate } from '@/lib/travel-guides-shared'
 
 interface GuideCardLinkProps {
   guide: GuideCard

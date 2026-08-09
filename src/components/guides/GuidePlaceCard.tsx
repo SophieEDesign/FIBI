@@ -1,7 +1,7 @@
 'use client'
 
 import type { TravelGuidePlace } from '@/types/database'
-import { foundOnLabel, sourceCtaLabel, videoCtaLabel } from '@/lib/travel-guides'
+import { foundOnLabel, sourceCtaLabel, videoCtaLabel } from '@/lib/travel-guides-shared'
 
 interface GuidePlaceCardProps {
   place: TravelGuidePlace

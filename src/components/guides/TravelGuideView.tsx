@@ -21,7 +21,7 @@ import {
   guideDestinationKey,
   guidePlaceToSavedItemFields,
   type GuideCard,
-} from '@/lib/travel-guides'
+} from '@/lib/travel-guides-shared'
 import type { TravelGuide, TravelGuidePlace } from '@/types/database'
 
 interface TravelGuideViewProps {

@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
 import SiteFooter from '@/components/SiteFooter'
 import GuideCardLink from '@/components/guides/GuideCardLink'
-import type { GuideCard } from '@/lib/travel-guides'
+import type { GuideCard } from '@/lib/travel-guides-shared'
 
 const DEMO_PLACES = [
   { name: 'Time Out Market', city: 'Lisbon', category: 'Food' },
