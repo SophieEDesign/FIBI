@@ -32,6 +32,7 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 |-------|---------|------|
 | `POST /api/places` | Google Places | `requireUser` |
 | `POST /api/ai-enrich` | AI title/description | `requireUser` |
+| `POST /api/persist-thumbnail` | Rehost preview image into Storage | Cookie or Bearer; owns the `saved_items` row |
 | `GET /api/calendar/download` | Export calendar | Cookie or `Authorization: Bearer <access_token>` |
 | `POST /api/itinerary/invite` | Invite collaborator | Cookie or Bearer |
 | `POST /api/itinerary/share` | Create share | Cookie or Bearer |
@@ -83,7 +84,7 @@ Paths under `/app`, `/add`, `/item`, `/profile` are protected by `middleware.ts`
 
 ## Security notes
 
-- **SSRF**: `metadata` and `oembed` use `isUrlSafeForFetch(url)` before fetching. `image-proxy` uses an allowlist for proxy fetch and `isUrlSafeForFetch` before redirecting the client for non-allowed hosts.
+- **SSRF**: `metadata`, `oembed`, and `persist-thumbnail` use `isUrlSafeForFetch(url)` before fetching. `image-proxy` uses an allowlist for proxy fetch and `isUrlSafeForFetch` before redirecting the client for non-allowed hosts.
 - **Admin**: Role is read from `profiles.role`. A trigger `enforce_profiles_role_immutable` prevents changing `role` via any UPDATE (migration `039_prevent_profiles_role_escalation.sql`). The first admin must be set via Supabase Dashboard or a migration. No API allows a normal user to set or update `profiles.role`.
 - **Service role**: Used after `requireAdmin()` in admin routes; in signup/confirm-email/resend flows that are rate-limited and validated; in cron (`isCronAuthorized`) and the Resend webhook; and on public `GET /api/site-meta` (reads GA measurement ID only).
 

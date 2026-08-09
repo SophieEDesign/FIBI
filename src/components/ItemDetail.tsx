@@ -7,6 +7,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getHostname, uploadScreenshot, cleanOGTitle, generateHostnameTitle } from '@/lib/utils'
 import { deriveLocationStatus } from '@/lib/location-status'
+import {
+  isHostedThumbnailUrl,
+  requestPersistThumbnail,
+} from '@/lib/persist-thumbnail'
 import GooglePlacesInput from '@/components/GooglePlacesInput'
 import EmbedPreview from '@/components/EmbedPreview'
 
@@ -81,13 +85,33 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId])
 
-  // When opening a place that has no title/description/thumbnail, auto re-fetch metadata so user can update
+  // When opening a place that has no title/description/thumbnail, or an unhosted CDN thumb, refresh + rehost
   useEffect(() => {
     if (!item?.url || loading || refetchingMetadata) return
-    const missing = !(title || item.title)?.trim() || !(description || item.description)?.trim() || !item.thumbnail_url
-    if (!missing) return
     if (hasAutoRefetchedRef.current === item.id) return
+
+    const missingText =
+      !(title || item.title)?.trim() || !(description || item.description)?.trim()
+    const missingThumb = !item.thumbnail_url
+    const needsRehost =
+      !!item.thumbnail_url && !isHostedThumbnailUrl(item.thumbnail_url)
+
+    if (!missingText && !missingThumb && !needsRehost) return
     hasAutoRefetchedRef.current = item.id
+
+    // Prefer rehosting the URL we already have; only scrape again if that fails or fields are empty
+    if (needsRehost && !missingText && !missingThumb) {
+      void (async () => {
+        const durable = await requestPersistThumbnail(item.id, item.thumbnail_url)
+        if (durable) {
+          setItem((prev) => (prev ? { ...prev, thumbnail_url: durable } : null))
+        } else {
+          await refetchMetadataAndUpdate()
+        }
+      })()
+      return
+    }
+
     refetchMetadataAndUpdate()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id, item?.url, item?.title, item?.description, item?.thumbnail_url, title, description, loading, refetchingMetadata])
@@ -302,6 +326,8 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       const currentTitle = (title || item?.title || '').trim()
       const currentDescription = (description || item?.description || '').trim()
       const currentThumbnail = item?.thumbnail_url
+      const thumbNeedsHost =
+        !currentThumbnail || !isHostedThumbnailUrl(currentThumbnail)
 
       if (!currentTitle && (metadata.title || metadata.scrapedContent)) {
         const cleaned = cleanOGTitle(metadata.title)
@@ -318,11 +344,30 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
           await saveField('description', newDesc)
         }
       }
-      if (!currentThumbnail && metadata.image) {
-        updates.thumbnail_url = metadata.image
-        setItem(prev => prev ? { ...prev, thumbnail_url: metadata.image } : null)
-        await saveField('thumbnail_url', metadata.image)
+
+      // Prefer a fresh OG image when we still need a durable thumb
+      const candidateImage =
+        (thumbNeedsHost && metadata.image) ||
+        (thumbNeedsHost && currentThumbnail) ||
+        null
+
+      if (candidateImage && item?.id) {
+        // Store remote URL first, then rehost into our storage while the CDN link still works
+        if (metadata.image && metadata.image !== currentThumbnail) {
+          updates.thumbnail_url = metadata.image
+          setItem(prev => prev ? { ...prev, thumbnail_url: metadata.image } : null)
+          await saveField('thumbnail_url', metadata.image)
+        }
+        const durable = await requestPersistThumbnail(
+          item.id,
+          metadata.image || currentThumbnail
+        )
+        if (durable) {
+          updates.thumbnail_url = durable
+          setItem(prev => prev ? { ...prev, thumbnail_url: durable } : null)
+        }
       }
+
       if (Object.keys(updates).length > 0 && item) {
         setItem(prev => prev ? { ...prev, ...updates } : null)
       }

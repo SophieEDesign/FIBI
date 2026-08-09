@@ -5,6 +5,7 @@ import {
   defaultBoardNameFromGuide,
   guidePlaceToSavedItemFields,
 } from '@/lib/travel-guides'
+import { persistAndUpdateItemThumbnail } from '@/lib/persist-thumbnail'
 import type { TravelGuide, TravelGuidePlace } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
@@ -107,10 +108,28 @@ export async function POST(
         }
       })
 
-      const { error: insertItemsError } = await supabase.from('saved_items').insert(rows)
+      const { data: insertedItems, error: insertItemsError } = await supabase
+        .from('saved_items')
+        .insert(rows)
+        .select('id, thumbnail_url')
+
       if (insertItemsError) {
         console.error('Error copying guide places:', insertItemsError)
         return NextResponse.json({ error: 'Failed to copy places' }, { status: 500 })
+      }
+
+      if (insertedItems?.length) {
+        void Promise.all(
+          insertedItems
+            .filter((row) => row.thumbnail_url)
+            .map((row) =>
+              persistAndUpdateItemThumbnail(supabase, {
+                userId: user!.id,
+                itemId: row.id,
+                imageUrl: row.thumbnail_url as string,
+              })
+            )
+        )
       }
     }
 

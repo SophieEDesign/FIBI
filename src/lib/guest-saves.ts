@@ -174,7 +174,11 @@ export async function mergeGuestSavesToAccount(
     }
   })
 
-  const { error } = await supabase.from('saved_items').insert(rows)
+  const { data: inserted, error } = await supabase
+    .from('saved_items')
+    .insert(rows)
+    .select('id, thumbnail_url')
+
   if (error) {
     console.error('mergeGuestSavesToAccount:', error)
     return { merged: 0, error: error.message }
@@ -182,6 +186,20 @@ export async function mergeGuestSavesToAccount(
 
   clearGuestSaves()
   clearGuestPendingBoard()
+
+  // Rehost preview images in the background (CDN URLs expire quickly)
+  if (typeof window !== 'undefined' && inserted?.length) {
+    for (const row of inserted) {
+      if (row.thumbnail_url) {
+        void fetch('/api/persist-thumbnail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId: row.id, imageUrl: row.thumbnail_url }),
+        }).catch(() => {})
+      }
+    }
+  }
+
   return {
     merged: rows.length,
     itinerary_id: itineraryId || undefined,

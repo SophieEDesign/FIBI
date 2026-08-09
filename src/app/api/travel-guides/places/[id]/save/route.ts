@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createClientWithToken } from '@/lib/supabase/server'
 import { isAnonymousUser } from '@/lib/anonymous-auth'
 import { guidePlaceToSavedItemFields } from '@/lib/travel-guides'
+import { persistAndUpdateItemThumbnail } from '@/lib/persist-thumbnail'
 import type { TravelGuidePlace } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
@@ -124,6 +125,15 @@ export async function POST(
     if (insertError || !inserted) {
       console.error('Save guide place error:', insertError)
       return NextResponse.json({ error: 'Failed to save place' }, { status: 500 })
+    }
+
+    // Rehost guide place image so previews stay stable
+    if (fields.thumbnail_url) {
+      void persistAndUpdateItemThumbnail(supabase, {
+        userId: user.id,
+        itemId: inserted.id,
+        imageUrl: fields.thumbnail_url,
+      })
     }
 
     return NextResponse.json({

@@ -35,6 +35,7 @@ If you see **"Could not load user data (401)"** on the **Admin** page:
 
 - **403 on `fbcdn.net` / `cdninstagram.com`** – Meta often blocks direct image loads. The app now:
   - Uses **`/api/image-proxy?url=...`** for thumbnail/preview images from those hosts (LinkPreview, CalendarView, SharedItineraryView, PlaceDetailDrawer, EmbedPreview).
+  - On save (and when opening a place with an unhosted thumb), **rehosts** the preview into Supabase Storage via `/api/persist-thumbnail` so CDN expiry no longer breaks the grid.
   - Uses a **browser-like User-Agent** when the proxy fetches from Meta so more requests succeed.
   - **No fallback to raw URL** for those hosts when the proxy fails (fallback would get 403); the placeholder is shown instead.
 - If you still see broken preview images on a **Vercel preview** URL, the image-proxy request may be getting **401** from Vercel Deployment Protection. Disable protection for previews (see above) so the proxy (and manifest/oembed/metadata) return 200.

@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { addGuestSave } from '@/lib/guest-saves'
 import { deriveLocationStatus } from '@/lib/location-status'
 import { ensureSaveSession, isAnonymousUser } from '@/lib/anonymous-auth'
+import { requestPersistThumbnail } from '@/lib/persist-thumbnail'
 
 type EnrichResult = {
   title: string | null
@@ -315,18 +316,27 @@ export default function QuickSaveForm() {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
 
-      const { error: insertError } = await supabase.from('saved_items').insert({
-        user_id: user.id,
-        ...payload,
-        screenshot_url: null,
-        liked: false,
-        visited: false,
-        planned: false,
-        itinerary_id: itineraryId,
-        trip_position: tripPosition,
-      })
+      const { data: inserted, error: insertError } = await supabase
+        .from('saved_items')
+        .insert({
+          user_id: user.id,
+          ...payload,
+          screenshot_url: null,
+          liked: false,
+          visited: false,
+          planned: false,
+          itinerary_id: itineraryId,
+          trip_position: tripPosition,
+        })
+        .select('id')
+        .single()
 
       if (insertError) throw insertError
+
+      // Rehost CDN preview into our storage while the signed URL still works
+      if (inserted?.id && payload.thumbnail_url) {
+        void requestPersistThumbnail(inserted.id, payload.thumbnail_url)
+      }
 
       if (count === 0 && typeof window !== 'undefined') {
         sessionStorage.setItem('firstPlaceAdded', '1')
