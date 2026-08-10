@@ -61,16 +61,25 @@ export async function GET(request: NextRequest) {
     const admin = getAdminSupabase()
     const users = await getUsersForOneOff(admin, Object.keys(filters).length ? filters : null)
 
+    const { count: marketingOptInTotal } = await admin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('marketing_opt_in', true)
+
     const sampleSize = 5
     const sample = users.slice(0, sampleSize).map((u) => ({
-      id: u.id,
       email: u.email,
+      name: u.full_name,
       email_confirmed_at: u.email_confirmed_at ?? null,
       places_count: u.places_count,
       itineraries_count: u.itineraries_count,
     }))
 
-    return NextResponse.json({ count: users.length, sample })
+    return NextResponse.json({
+      count: users.length,
+      sample,
+      marketing_opt_in_total: marketingOptInTotal ?? 0,
+    })
   } catch (e) {
     console.error('recipients', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

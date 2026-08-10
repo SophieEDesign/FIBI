@@ -87,6 +87,7 @@ export default function EmailCampaignsClient() {
   const [segmentId, setSegmentId] = useState('')
   const [conditions, setConditions] = useState<ConditionsForm>({})
   const [recipientCount, setRecipientCount] = useState<number | null>(null)
+  const [marketingOptInTotal, setMarketingOptInTotal] = useState<number | null>(null)
 
   // Setup
   const [name, setName] = useState('')
@@ -166,8 +167,10 @@ export default function EmailCampaignsClient() {
           recipientCount == null
             ? 'Preview recipient count'
             : recipientCount > 0
-              ? `${recipientCount} recipient${recipientCount === 1 ? '' : 's'}`
-              : 'No recipients match — adjust audience',
+              ? `${recipientCount} recipient${recipientCount === 1 ? '' : 's'} (marketing opt-in)`
+              : marketingOptInTotal === 0
+                ? 'Nobody has marketing opt-in — campaigns cannot send yet'
+                : 'No recipients match — adjust audience',
       },
       { ok: !!name.trim(), label: name.trim() ? `Campaign: ${name.trim()}` : 'Campaign name' },
       {
@@ -197,6 +200,7 @@ export default function EmailCampaignsClient() {
     return items
   }, [
     recipientCount,
+    marketingOptInTotal,
     name,
     fromName,
     fromEmail,
@@ -215,6 +219,7 @@ export default function EmailCampaignsClient() {
     setSegmentId('')
     setConditions({})
     setRecipientCount(null)
+    setMarketingOptInTotal(null)
     setName('')
     setFromName('FiBi')
     setFromEmail('hello@fibi.world')
@@ -244,6 +249,7 @@ export default function EmailCampaignsClient() {
 
   const previewAudience = async () => {
     setRecipientCount(null)
+    setMarketingOptInTotal(null)
     const headers = await getAdminAuthHeaders()
     let qs = ''
     if (segmentId) {
@@ -276,6 +282,9 @@ export default function EmailCampaignsClient() {
     if (res.ok) {
       const data = await res.json()
       setRecipientCount(data.count ?? 0)
+      setMarketingOptInTotal(
+        typeof data.marketing_opt_in_total === 'number' ? data.marketing_opt_in_total : null
+      )
     }
   }
 
@@ -368,7 +377,11 @@ export default function EmailCampaignsClient() {
         const sendData = await sendRes.json().catch(() => ({}))
         setSendingId(null)
         if (!sendRes.ok) {
-          setFormError(sendData.error || 'Send failed')
+          const detail =
+            Array.isArray(sendData.errors) && sendData.errors.length
+              ? sendData.errors.join(' · ')
+              : sendData.error || 'Send failed'
+          setFormError(detail)
           await refresh()
           return
         }
@@ -402,7 +415,13 @@ export default function EmailCampaignsClient() {
         headers,
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) setError(data.error || 'Send failed')
+      if (!res.ok) {
+        const detail =
+          Array.isArray(data.errors) && data.errors.length
+            ? data.errors.join(' · ')
+            : data.error || 'Send failed'
+        setError(detail)
+      }
       await refresh()
     } finally {
       setSendingId(null)
@@ -571,7 +590,19 @@ export default function EmailCampaignsClient() {
                   {recipientCount != null && (
                     <span className="text-sm text-gray-700 font-medium">
                       {recipientCount} recipient{recipientCount === 1 ? '' : 's'}
+                      {marketingOptInTotal != null && (
+                        <span className="text-gray-500 font-normal">
+                          {' '}
+                          · {marketingOptInTotal} with marketing opt-in overall
+                        </span>
+                      )}
                     </span>
+                  )}
+                  {recipientCount === 0 && marketingOptInTotal === 0 && (
+                    <p className="w-full text-sm text-amber-800 bg-amber-50 rounded-md px-3 py-2">
+                      Nobody is opted into marketing yet, so campaigns will not send. Check signup
+                      consent or backfill carefully in SQL if older users should receive updates.
+                    </p>
                   )}
                 </div>
               </div>

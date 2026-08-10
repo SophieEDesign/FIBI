@@ -19,6 +19,21 @@ export async function POST(
     const { id } = await params
     const result = await runCampaignSend(id)
 
+    const noAudience = result.errors.some((e) => e.includes('No recipients matched'))
+    if (noAudience || (result.sent === 0 && result.failed === 0 && result.errors.length > 0)) {
+      return NextResponse.json(
+        {
+          error: result.errors[0] || 'Send failed',
+          sent: result.sent,
+          skipped: result.skipped,
+          failed: result.failed,
+          limitReached: result.limitReached,
+          errors: result.errors,
+        },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json({
       sent: result.sent,
       skipped: result.skipped,

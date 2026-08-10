@@ -36,6 +36,7 @@ export type TemplateRow = {
 export type UserWithStats = {
   id: string
   email: string | null
+  full_name: string | null
   created_at: string
   last_sign_in_at: string | null
   email_confirmed_at: string | null
@@ -171,22 +172,37 @@ export async function fetchUsersWithStats(
 
   const { data: profiles } = await adminClient
     .from('profiles')
-    .select('id, founding_followup_sent, email_verified_at, marketing_opt_in')
+    .select('id, founding_followup_sent, email_verified_at, marketing_opt_in, full_name')
   const foundingMap = new Map<string, boolean>()
   const emailVerifiedMap = new Map<string, string | null>()
   const marketingOptInMap = new Map<string, boolean>()
-  profiles?.forEach((p: { id: string; founding_followup_sent: boolean | null; email_verified_at: string | null; marketing_opt_in?: boolean | null }) => {
+  const nameMap = new Map<string, string | null>()
+  profiles?.forEach((p: {
+    id: string
+    founding_followup_sent: boolean | null
+    email_verified_at: string | null
+    marketing_opt_in?: boolean | null
+    full_name?: string | null
+  }) => {
     foundingMap.set(p.id, p.founding_followup_sent ?? false)
     emailVerifiedMap.set(p.id, p.email_verified_at ?? null)
     marketingOptInMap.set(p.id, p.marketing_opt_in ?? false)
+    const name = typeof p.full_name === 'string' ? p.full_name.trim() : ''
+    nameMap.set(p.id, name || null)
   })
 
   return allUsers.map((u) => {
     const profileVerified = emailVerifiedMap.get(u.id)
     const verifiedAt = u.email_confirmed_at ?? profileVerified ?? null
+    const meta = u.user_metadata as Record<string, unknown> | undefined
+    const metaName =
+      (typeof meta?.full_name === 'string' && meta.full_name.trim()) ||
+      (typeof meta?.name === 'string' && meta.name.trim()) ||
+      null
     return {
     id: u.id,
     email: u.email ?? null,
+    full_name: nameMap.get(u.id) || metaName,
     created_at: u.created_at ?? new Date().toISOString(),
     last_sign_in_at: u.last_sign_in_at ?? null,
     email_confirmed_at: verifiedAt,

@@ -7,6 +7,7 @@ interface LogEntry {
   id: string
   user_id: string
   recipient_email: string | null
+  recipient_name: string | null
   template_slug: string
   automation_id: string | null
   campaign_id: string | null
@@ -18,6 +19,15 @@ interface LogEntry {
   unsubscribed_at: string | null
   clicks: number
   error_detail?: string | null
+}
+
+function recipientLabel(row: LogEntry): { primary: string; secondary: string | null } {
+  const email = row.recipient_email?.trim() || null
+  const name = row.recipient_name?.trim() || null
+  if (name && email) return { primary: name, secondary: email }
+  if (email) return { primary: email, secondary: null }
+  if (name) return { primary: name, secondary: null }
+  return { primary: 'Unknown recipient', secondary: null }
 }
 
 interface Stats {
@@ -197,13 +207,19 @@ export default function EmailLogClient() {
                 ) : (
                   logs.map((row) => {
                     const failed = row.status === 'failed' || !!row.bounced_at
+                    const label = recipientLabel(row)
                     return (
                       <tr
                         key={row.id}
                         className={failed ? 'bg-[#FBE7E5]/60' : 'hover:bg-[#FAF8F3]'}
                       >
                         <td className="px-4 py-3 text-sm text-[#17181A]">
-                          {row.recipient_email ?? row.user_id}
+                          <div>
+                            <p className="font-medium">{label.primary}</p>
+                            {label.secondary ? (
+                              <p className="text-xs text-[#8A857A]">{label.secondary}</p>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="px-4 py-3 font-mono text-sm text-[#5C574C]">
                           {row.template_slug}

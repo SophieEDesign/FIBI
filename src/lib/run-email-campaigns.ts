@@ -130,6 +130,23 @@ export async function runCampaignSend(campaignId: string): Promise<RunResult> {
     return result
   }
 
+  if (users.length === 0) {
+    result.errors.push(
+      'No recipients matched. Campaigns only go to people with marketing opt-in turned on.'
+    )
+    await admin
+      .from('email_campaigns')
+      .update({
+        status: 'failed',
+        audience_count: 0,
+        sent_count: 0,
+        failed_count: 0,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', campaignId)
+    return result
+  }
+
   await admin
     .from('email_campaigns')
     .update({

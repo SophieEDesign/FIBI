@@ -126,24 +126,70 @@ export async function GET(request: NextRequest) {
     const bounced30 = (recent ?? []).filter((r: { bounced_at: string | null }) => r.bounced_at).length
     const unsub30 = (recent ?? []).filter((r: { unsubscribed_at: string | null }) => r.unsubscribed_at).length
 
-    const items = logs.map((row) => ({
-      id: row.id,
-      user_id: row.user_id,
-      recipient_email: row.recipient_email ?? null,
-      template_slug: row.template_slug,
-      automation_id: row.automation_id ?? null,
-      campaign_id: row.campaign_id ?? null,
-      sent_at: row.sent_at,
-      status: row.status,
-      resend_email_id: row.resend_email_id ?? null,
-      opened_at: row.opened_at ?? null,
-      bounced_at: row.bounced_at ?? null,
-      complained_at: row.complained_at ?? null,
-      delivered_at: row.delivered_at ?? null,
-      unsubscribed_at: row.unsubscribed_at ?? null,
-      error_detail: row.error_detail ?? null,
-      clicks: clickCounts.get(row.id) ?? 0,
-    }))
+    const userIds = [...new Set(logs.map((r) => r.user_id).filter(Boolean))]
+    const emailByUser = new Map<string, string | null>()
+    const nameByUser = new Map<string, string | null>()
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await admin
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds)
+      profiles?.forEach((p: { id: string; full_name: string | null }) => {
+        const name = typeof p.full_name === 'string' ? p.full_name.trim() : ''
+        nameByUser.set(p.id, name || null)
+      })
+
+      const needsAuthLookup = userIds.filter((uid) => {
+        const hasEmail = logs.some((r) => r.user_id === uid && r.recipient_email)
+        return !hasEmail || !nameByUser.get(uid)
+      })
+
+      await Promise.all(
+        needsAuthLookup.map(async (uid) => {
+          try {
+            const { data, error } = await admin.auth.admin.getUserById(uid)
+            if (error || !data?.user) return
+            if (!logs.some((r) => r.user_id === uid && r.recipient_email)) {
+              emailByUser.set(uid, data.user.email ?? null)
+            }
+            if (!nameByUser.get(uid)) {
+              const meta = data.user.user_metadata as Record<string, unknown> | undefined
+              const fromMeta =
+                (typeof meta?.full_name === 'string' && meta.full_name.trim()) ||
+                (typeof meta?.name === 'string' && meta.name.trim()) ||
+                ''
+              if (fromMeta) nameByUser.set(uid, fromMeta)
+            }
+          } catch {
+            /* ignore missing auth users */
+          }
+        })
+      )
+    }
+
+    const items = logs.map((row) => {
+      const resolvedEmail = row.recipient_email ?? emailByUser.get(row.user_id) ?? null
+      return {
+        id: row.id,
+        user_id: row.user_id,
+        recipient_email: resolvedEmail,
+        recipient_name: nameByUser.get(row.user_id) ?? null,
+        template_slug: row.template_slug,
+        automation_id: row.automation_id ?? null,
+        campaign_id: row.campaign_id ?? null,
+        sent_at: row.sent_at,
+        status: row.status,
+        resend_email_id: row.resend_email_id ?? null,
+        opened_at: row.opened_at ?? null,
+        bounced_at: row.bounced_at ?? null,
+        complained_at: row.complained_at ?? null,
+        delivered_at: row.delivered_at ?? null,
+        unsubscribed_at: row.unsubscribed_at ?? null,
+        error_detail: row.error_detail ?? null,
+        clicks: clickCounts.get(row.id) ?? 0,
+      }
+    })
 
     return NextResponse.json({
       logs: items,

@@ -302,7 +302,12 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setActionMessage(data.error || 'Send failed')
+        const detail =
+          Array.isArray(data.errors) && data.errors.length
+            ? data.errors.join(' · ')
+            : data.error || 'Send failed'
+        setActionMessage(detail)
+        await load()
         return
       }
       setActionMessage(`Sent ${data.sent ?? 0}, skipped ${data.skipped ?? 0}, failed ${data.failed ?? 0}`)
