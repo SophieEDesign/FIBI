@@ -16,8 +16,8 @@ export async function createClient(request: NextRequest) {
 
   const response = NextResponse.next({ request })
   const supabase = createServerClient(url, key, {
-    cookies: requestCookieMethods(request, (cookiesToSet) => {
-      applyCookiesToResponse(response, cookiesToSet)
+    cookies: requestCookieMethods(request, (cookiesToSet, headers) => {
+      applyCookiesToResponse(response, cookiesToSet, headers)
     }),
   })
 

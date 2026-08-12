@@ -32,12 +32,16 @@ async function signOut(request: NextRequest) {
     .filter((name) => name.startsWith('sb-') && name.includes('auth-token'))
 
   const supabase = createServerClient(url, key, {
-    cookies: requestCookieMethods(request, (cookiesToSet) => {
-      applyCookiesToResponse(response, cookiesToSet.map(({ name, value, options }) => ({
-        name,
-        value,
-        options: { path: '/', ...options },
-      })))
+    cookies: requestCookieMethods(request, (cookiesToSet, headers) => {
+      applyCookiesToResponse(
+        response,
+        cookiesToSet.map(({ name, value, options }) => ({
+          name,
+          value,
+          options: { path: '/', ...options },
+        })),
+        headers
+      )
     }),
   })
 

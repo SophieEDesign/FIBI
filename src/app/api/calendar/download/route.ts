@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
       const emptyCalendar = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//FiBi//Calendar//EN',
+        'PRODID:-//FIBI//Calendar//EN',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
         'END:VCALENDAR',
@@ -164,7 +164,7 @@ function generateICal(items: any[]): string {
   // iCal header
   lines.push('BEGIN:VCALENDAR')
   lines.push('VERSION:2.0')
-  lines.push('PRODID:-//FiBi//Calendar//EN')
+  lines.push('PRODID:-//FIBI//Calendar//EN')
   lines.push('CALSCALE:GREGORIAN')
   lines.push('METHOD:PUBLISH')
   

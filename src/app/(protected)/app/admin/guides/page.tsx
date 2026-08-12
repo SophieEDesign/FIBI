@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 import type { TravelGuide } from '@/types/database'
 
-type GuideRow = TravelGuide & { views_30d?: number; saves_30d?: number }
+type GuideRow = TravelGuide & { views_30d?: number; saves_30d?: number; signups_30d?: number }
 
 export default function AdminGuidesPage() {
   const router = useRouter()
@@ -90,6 +90,7 @@ export default function AdminGuidesPage() {
                   <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Status</th>
                   <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Views 30d</th>
                   <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Saves 30d</th>
+                  <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Signups 30d</th>
                   <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Destination</th>
                   <th className="px-4 py-3 text-left font-medium text-[#8A857A]">Updated</th>
                 </tr>
@@ -111,6 +112,7 @@ export default function AdminGuidesPage() {
                     <td className="px-4 py-3 capitalize text-[#5C574C]">{g.status}</td>
                     <td className="px-4 py-3 text-[#5C574C]">{g.views_30d ?? 0}</td>
                     <td className="px-4 py-3 text-[#5C574C]">{g.saves_30d ?? 0}</td>
+                    <td className="px-4 py-3 text-[#5C574C]">{g.signups_30d ?? 0}</td>
                     <td className="px-4 py-3 text-[#5C574C]">
                       {[g.destination_name, g.country].filter(Boolean).join(', ') || '—'}
                     </td>

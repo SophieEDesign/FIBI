@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import SocialAuthButtons from '@/components/SocialAuthButtons'
+import { getGuideAttributionFromCookie } from '@/lib/guide-attribution'
 
 // Explicit render URL: safe to load with defer/async; do not use turnstile.ready() with async load
 const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
@@ -206,6 +207,20 @@ export default function SignupClient() {
           } catch {
             // non-blocking
           }
+          try {
+            await fetch('/api/auth/attribute-guide', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fromGuide:
+                  searchParams.get('from_guide') ||
+                  getGuideAttributionFromCookie() ||
+                  undefined,
+              }),
+            })
+          } catch {
+            // non-blocking
+          }
           const redirectParam = searchParams.get('redirect')
           setSuccessMessage('Account ready. Check your email if we ask you to confirm.')
           setLoading(false)
@@ -225,6 +240,10 @@ export default function SignupClient() {
           password,
           captchaToken: turnstileToken || undefined,
           marketingOptIn,
+          fromGuide:
+            searchParams.get('from_guide') ||
+            getGuideAttributionFromCookie() ||
+            undefined,
         }),
       })
 

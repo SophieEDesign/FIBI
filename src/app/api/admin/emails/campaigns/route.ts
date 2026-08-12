@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         scheduled_at: scheduledAt,
         subject,
         preview_text: optionalString(body.preview_text),
-        from_name: optionalString(body.from_name) ?? 'FiBi',
+        from_name: optionalString(body.from_name) ?? 'FIBI',
         from_email: optionalString(body.from_email) ?? 'hello@fibi.world',
       })
       .select('*')

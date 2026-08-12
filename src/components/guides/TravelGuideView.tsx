@@ -23,6 +23,7 @@ import {
   guidePlaceToSavedItemFields,
   type GuideCard,
 } from '@/lib/travel-guides-shared'
+import { setGuideAttribution, signupHrefForGuide } from '@/lib/guide-attribution'
 import type { TravelGuide, TravelGuidePlace } from '@/types/database'
 
 interface TravelGuideViewProps {
@@ -67,6 +68,11 @@ export default function TravelGuideView({
     [places]
   )
   const introLong = (guide.introduction?.length ?? 0) > 160
+  const signupHref = signupHrefForGuide(guide.slug, `/travel-guides/${guide.slug}`)
+
+  useEffect(() => {
+    setGuideAttribution(guide.id)
+  }, [guide.id])
 
   useEffect(() => {
     const supabase = createClient()
@@ -363,7 +369,7 @@ export default function TravelGuideView({
                   </Button>
                   {(!userId || isAnon) && (
                     <Button
-                      href={`/signup?redirect=${encodeURIComponent(`/travel-guides/${guide.slug}`)}`}
+                      href={signupHref}
                       variant="secondary"
                       size="lg"
                     >
@@ -383,7 +389,7 @@ export default function TravelGuideView({
                     <>
                       {' '}
                       <Link
-                        href={`/signup?redirect=${encodeURIComponent(`/travel-guides/${guide.slug}`)}`}
+                        href={signupHref}
                         className="underline underline-offset-2"
                       >
                         Create a free FIBI account
@@ -575,7 +581,7 @@ export default function TravelGuideView({
             <>
               {' '}
               <Link
-                href={`/signup?redirect=${encodeURIComponent(`/travel-guides/${guide.slug}`)}`}
+                href={signupHref}
                 className="font-medium underline underline-offset-2"
               >
                 Create a free account

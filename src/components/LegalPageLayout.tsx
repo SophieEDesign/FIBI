@@ -18,7 +18,7 @@ export default function LegalPageLayout({ title, lastUpdated, children }: LegalP
           href="/app"
           className="inline-block text-sm text-[#6b7280] hover:text-[#171717] mb-6 transition-colors"
         >
-          ← Back to FiBi
+          ← Back to FIBI
         </Link>
         <h1 className="text-2xl sm:text-3xl font-semibold text-[#171717] mb-2">{title}</h1>
         <p className="text-sm text-[#6b7280] mb-8">Last updated: {lastUpdated}</p>

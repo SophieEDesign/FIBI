@@ -84,7 +84,7 @@ export default function EmailBlockEditor({ value, onChange, disabled }: EmailBlo
     if (!editor) return
     const href = window.prompt('Button link URL', 'https://fibi.world')
     if (!href) return
-    const label = window.prompt('Button label', 'Open FiBi') || 'Open FiBi'
+    const label = window.prompt('Button label', 'Open FIBI') || 'Open FIBI'
     editor
       .chain()
       .focus()

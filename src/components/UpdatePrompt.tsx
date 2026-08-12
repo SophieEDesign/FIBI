@@ -33,7 +33,7 @@ export default function UpdatePrompt({ onUpdate, onDismiss }: UpdatePromptProps)
           <div className="flex-1">
             <h3 className="font-semibold text-sm mb-1">Update available</h3>
             <p className="text-xs text-white/70 mb-3">
-              A new version of Fibi is ready. Update when you have a moment.
+              A new version of FIBI is ready. Update when you have a moment.
             </p>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleUpdate}>

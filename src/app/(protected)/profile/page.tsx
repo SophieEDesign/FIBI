@@ -253,8 +253,28 @@ export default function ProfilePage() {
       <div className="max-w-2xl mx-auto px-4 py-4 md:py-6">
         {/* Header */}
         <header className="mb-6">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">My FiBi</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Profile</h1>
           <p className="text-xs md:text-sm text-gray-500 mt-0.5">Your personal travel space</p>
+          <nav className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/app/calendar"
+              className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50"
+            >
+              Trips
+            </Link>
+            <Link
+              href="/app/map"
+              className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50"
+            >
+              Map
+            </Link>
+            <Link
+              href="/app/how-to"
+              className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50"
+            >
+              How to use FIBI
+            </Link>
+          </nav>
         </header>
 
         {/* Error Message */}

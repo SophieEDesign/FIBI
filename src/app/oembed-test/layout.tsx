@@ -15,11 +15,11 @@ function getSiteUrl(): string {
 }
 
 export const metadata: Metadata = {
-  title: 'FiBi oEmbed Test Page - Meta App Review',
-  description: 'Test page demonstrating FiBi\'s Instagram oEmbed integration for Meta App Review verification',
+  title: 'FIBI oEmbed Test Page - Meta App Review',
+  description: 'Test page demonstrating FIBI\'s Instagram oEmbed integration for Meta App Review verification',
   openGraph: {
-    title: 'FiBi oEmbed Test Page - Meta App Review',
-    description: 'Test page demonstrating FiBi\'s Instagram oEmbed integration for Meta App Review verification',
+    title: 'FIBI oEmbed Test Page - Meta App Review',
+    description: 'Test page demonstrating FIBI\'s Instagram oEmbed integration for Meta App Review verification',
     type: 'website',
     url: `${getSiteUrl()}/oembed-test`,
     images: [
@@ -27,14 +27,14 @@ export const metadata: Metadata = {
         url: `${getSiteUrl()}/hero-image.png`,
         width: 1200,
         height: 630,
-        alt: 'FiBi oEmbed Test Page',
+        alt: 'FIBI oEmbed Test Page',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FiBi oEmbed Test Page - Meta App Review',
-    description: 'Test page demonstrating FiBi\'s Instagram oEmbed integration for Meta App Review verification',
+    title: 'FIBI oEmbed Test Page - Meta App Review',
+    description: 'Test page demonstrating FIBI\'s Instagram oEmbed integration for Meta App Review verification',
     images: [`${getSiteUrl()}/hero-image.png`],
   },
 }

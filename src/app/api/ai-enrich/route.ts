@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       ? 'https://api.openai.com/v1/chat/completions'
       : 'https://api.anthropic.com/v1/messages'
 
-    const prompt = `You are helping enhance a saved place entry in a travel/inspiration app called FiBi.
+    const prompt = `You are helping enhance a saved place entry in a travel/inspiration app called FIBI.
 
 Given the following information extracted from a shared link:
 - URL: ${context.url}

@@ -287,6 +287,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // TikTok stopped serving og:* to scrapers (shell page only). Use oEmbed for title/thumb.
+      // Short links (vm./vt./t/) must be resolved to a video id first — handled inside fetchTikTokMetadata.
       if (isTikTokUrl(url)) {
         const tiktok = await fetchTikTokMetadata(url)
         if (tiktok && (tiktok.title || tiktok.description || tiktok.image)) {
@@ -297,7 +298,13 @@ export async function POST(request: NextRequest) {
             scrapedContent: tiktok.description,
           } satisfies MetadataResponse)
         }
-        // Fall through to HTML scrape as last resort
+        // Do not fall through to HTML scrape for TikTok — it only returns "Make Your Day"
+        return NextResponse.json({
+          title: null,
+          description: null,
+          image: null,
+          scrapedContent: null,
+        } satisfies MetadataResponse)
       }
 
       const fetchUrl = await resolveCanonicalUrlIfNeeded(url)
@@ -331,24 +338,6 @@ export async function POST(request: NextRequest) {
       }
 
       const metadata = extractMetadata(html)
-
-      // TikTok shell pages often only have <title>TikTok - Make Your Day</title>
-      if (
-        isTikTokUrl(fetchUrl) &&
-        (!metadata.image ||
-          !metadata.title ||
-          /^tiktok(\s*[-–—]\s*make your day)?$/i.test((metadata.title || '').trim()))
-      ) {
-        const tiktok = await fetchTikTokMetadata(fetchUrl)
-        if (tiktok) {
-          return NextResponse.json({
-            title: tiktok.title || metadata.title,
-            description: tiktok.description || metadata.description,
-            image: tiktok.image || metadata.image,
-            scrapedContent: tiktok.description || metadata.scrapedContent,
-          } satisfies MetadataResponse)
-        }
-      }
 
       if (process.env.NODE_ENV === 'development') {
         console.log('Metadata extraction result:', {

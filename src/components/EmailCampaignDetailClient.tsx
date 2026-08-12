@@ -98,7 +98,7 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
 
   // Editable form
   const [name, setName] = useState('')
-  const [fromName, setFromName] = useState('FiBi')
+  const [fromName, setFromName] = useState('FIBI')
   const [fromEmail, setFromEmail] = useState('hello@fibi.world')
   const [subject, setSubject] = useState('')
   const [previewText, setPreviewText] = useState('')
@@ -114,7 +114,7 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
 
   const applyCampaignToForm = (c: Campaign) => {
     setName(c.name || '')
-    setFromName(c.from_name || 'FiBi')
+    setFromName(c.from_name || 'FIBI')
     setFromEmail(c.from_email || 'hello@fibi.world')
     setSubject(c.subject || '')
     setPreviewText(c.preview_text || '')
@@ -691,7 +691,7 @@ export default function EmailCampaignDetailClient({ campaignId }: { campaignId: 
 
           <div className="rounded-lg border border-gray-200 bg-white p-5 text-sm">
             <h2 className="text-base font-semibold text-gray-900 mb-3">Inbox preview</h2>
-            <p className="font-medium text-gray-900">{fromName || 'FiBi'}</p>
+            <p className="font-medium text-gray-900">{fromName || 'FIBI'}</p>
             <p className="font-semibold text-gray-800">{subject || 'No subject'}</p>
             <p className="text-gray-500">{previewText || 'No preview text'}</p>
             <button

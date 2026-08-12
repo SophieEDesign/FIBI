@@ -48,7 +48,7 @@ export default function UnsubscribeClient() {
     return (
       <div className="max-w-md w-full bg-white rounded-2xl shadow-sm p-8 text-center">
         <h1 className="text-xl font-semibold text-[#171717] mb-2">
-          Unsubscribe from FiBi emails
+          Unsubscribe from FIBI emails
         </h1>
         <p className="text-[#374151] text-sm leading-relaxed mb-6">
           Use the unsubscribe link in your latest email, or manage preferences when you&apos;re signed
@@ -89,7 +89,7 @@ export default function UnsubscribeClient() {
   return (
     <div className="max-w-md w-full bg-white rounded-2xl shadow-sm p-8 text-center">
       <h1 className="text-xl font-semibold text-[#171717] mb-2">
-        Unsubscribe from FiBi emails
+        Unsubscribe from FIBI emails
       </h1>
       <p className="text-[#374151] text-sm leading-relaxed mb-6">
         Stop product updates and tips. You&apos;ll still get important account emails when needed.

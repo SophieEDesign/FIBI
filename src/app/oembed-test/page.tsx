@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 /**
  * Test page for Meta oEmbed verification
- * This page demonstrates how FiBi uses Instagram oEmbed to display rich previews.
+ * This page demonstrates how FIBI uses Instagram oEmbed to display rich previews.
  * Supports ?url= for Meta App Review: one URL shows our site + Meta content (e.g. /oembed-test?url=https://www.instagram.com/p/XXX/).
  */
 export default function OEmbedTestPage() {
@@ -81,10 +81,10 @@ export default function OEmbedTestPage() {
         {/* Header */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            FiBi oEmbed Test Page
+            FIBI oEmbed Test Page
           </h1>
           <p className="text-gray-600 mb-4">
-            This page demonstrates how FiBi uses oEmbed API to display
+            This page demonstrates how FIBI uses oEmbed API to display
             rich previews of Instagram and TikTok content. This is for Meta App Review verification.
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -210,7 +210,7 @@ export default function OEmbedTestPage() {
           {/* Preview Display */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Preview Display (How it appears in FiBi)
+              Preview Display (How it appears in FIBI)
             </h2>
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
               {testUrl ? (
@@ -266,7 +266,7 @@ export default function OEmbedTestPage() {
           </h2>
           <ol className="list-decimal list-inside space-y-3 text-gray-700">
             <li>
-              When a user adds an Instagram or TikTok URL to FiBi, the app calls the oEmbed
+              When a user adds an Instagram or TikTok URL to FIBI, the app calls the oEmbed
               endpoint
             </li>
             <li>
@@ -276,7 +276,7 @@ export default function OEmbedTestPage() {
               The response includes thumbnail, title, author, and embeddable HTML
             </li>
             <li>
-              FiBi displays this rich preview to help users identify saved places
+              FIBI displays this rich preview to help users identify saved places
             </li>
           </ol>
         </div>

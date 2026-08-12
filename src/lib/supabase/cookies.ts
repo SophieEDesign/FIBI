@@ -13,21 +13,28 @@ export type CookieToSet = {
  */
 export function requestCookieMethods(
   request: NextRequest,
-  onSetAll?: (cookies: CookieToSet[]) => void
+  onSetAll?: (cookies: CookieToSet[], headers: Record<string, string>) => void
 ) {
   return {
     getAll() {
       return request.cookies.getAll()
     },
-    setAll(cookiesToSet: CookieToSet[]) {
-      onSetAll?.(cookiesToSet)
+    setAll(cookiesToSet: CookieToSet[], headers: Record<string, string> = {}) {
+      onSetAll?.(cookiesToSet, headers)
     },
   }
 }
 
-/** Write cookies onto a NextResponse (middleware / signout / callback redirect). */
-export function applyCookiesToResponse(response: NextResponse, cookies: CookieToSet[]) {
+/** Write cookies (and optional cache headers) onto a NextResponse. */
+export function applyCookiesToResponse(
+  response: NextResponse,
+  cookies: CookieToSet[],
+  headers: Record<string, string> = {}
+) {
   cookies.forEach(({ name, value, options }) => {
     response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
+  })
+  Object.entries(headers).forEach(([key, value]) => {
+    response.headers.set(key, value)
   })
 }

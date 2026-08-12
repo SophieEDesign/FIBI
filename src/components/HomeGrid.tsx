@@ -6,14 +6,25 @@ import { SavedItem, CATEGORIES, Itinerary } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signOut } from '@/lib/signout'
-import MobileMenu from '@/components/MobileMenu'
 import EmbedPreview from '@/components/EmbedPreview'
 import LibraryMapPreview from '@/components/LibraryMapPreview'
 import SavedPlaceCard from '@/components/SavedPlaceCard'
 import TripBoardCard from '@/components/TripBoardCard'
 import { Button } from '@/components/ui/Button'
 import { pickFeaturedTrip } from '@/lib/trip-board-meta'
+
+const LIBRARY_GROUP_BY_KEY = 'fibi-library-group-by'
+
+type GroupByOption = 'none' | 'city' | 'liked' | 'planned'
+
+function readStoredGroupBy(): GroupByOption {
+  if (typeof window === 'undefined') return 'city'
+  const stored = localStorage.getItem(LIBRARY_GROUP_BY_KEY)
+  if (stored === 'none' || stored === 'city' || stored === 'liked' || stored === 'planned') {
+    return stored
+  }
+  return 'city'
+}
 
 interface HomeGridProps {
   user: any
@@ -40,7 +51,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendMessage, setResendMessage] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<'default' | 'liked' | 'planned'>('default')
-  const [groupBy, setGroupBy] = useState<'none' | 'city' | 'liked' | 'planned'>('none')
+  const [groupBy, setGroupBy] = useState<GroupByOption>('city')
   const [searchQuery, setSearchQuery] = useState('')
   const [libraryTab, setLibraryTab] = useState<'places' | 'map' | 'boards'>('places')
   const supabase = createClient()
@@ -115,6 +126,16 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       loadEmailVerified()
     }
   }, [confirmed, user?.id])
+
+  useEffect(() => {
+    setGroupBy(readStoredGroupBy())
+  }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LIBRARY_GROUP_BY_KEY, groupBy)
+    }
+  }, [groupBy])
 
   // Show "Nice start." when returning after adding first place
   useEffect(() => {
@@ -209,10 +230,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       console.error('Error loading itineraries:', error)
       setItineraries([])
     }
-  }
-
-  const handleSignOut = () => {
-    signOut()
   }
 
   // Parse categories/statuses from item (supports both single string and array)
@@ -464,38 +481,26 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
   return (
     <div className="min-h-screen bg-[color:var(--bg-subtle)]">
-      {/* Header - Mobile only */}
-      <header className="md:hidden sticky top-0 z-20 border-b border-[color:var(--border-subtle)] bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-charcoal tracking-tight">FIBI</h1>
-              <span className="text-[10px] font-medium text-secondary border border-[color:var(--border-subtle)] rounded-full px-2 py-0.5 bg-[color:var(--bg-subtle)]">
-                Early Access
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {items.length > 0 && (
-                <button
-                  onClick={() => setShowFilterModal(true)}
-                  className="relative px-3 py-1.5 text-sm font-medium text-secondary hover:text-[color:var(--text-primary)]"
-                >
-                  Filter
-                  {activeFiltersCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white text-xs rounded-full flex items-center justify-center">
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </button>
-              )}
-              <Button href="/app/add" size="sm">
-                Add
-              </Button>
-              <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
+      {/* Filter bar — mobile only (brand/menu in AppMobileHeader) */}
+      {items.length > 0 && (
+        <header className="md:hidden border-b border-[color:var(--border-subtle)] bg-[color:var(--bg-subtle)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2">
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setShowFilterModal(true)}
+                className="relative px-3 py-1.5 text-sm font-medium text-secondary hover:text-[color:var(--text-primary)]"
+              >
+                Filter
+                {activeFiltersCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-accent text-white text-xs rounded-full flex items-center justify-center">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-24 md:pb-12">
         {showFirstPlaceFeedback && (
@@ -796,19 +801,19 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             ) : (
               <div className="text-center py-14 md:py-20 relative">
                 <h2 className="text-2xl md:text-3xl font-medium text-charcoal mb-3 leading-tight">
-                  Start building your next trip.
+                  Nothing saved yet
                 </h2>
                 <p className="text-base md:text-lg text-secondary mb-8 leading-relaxed max-w-md mx-auto">
-                  Save places you don&apos;t want to forget and keep them organised.
+                  Paste a link and it turns into a place — named, pinned, filed under the city.
                 </p>
                 <Button href="/app/add" size="lg" className="mb-4">
-                  Add your first place
+                  Save one
                 </Button>
                 <Link
-                  href="/app/calendar"
+                  href="/app/guides"
                   className="block text-sm text-secondary hover:text-charcoal transition-colors"
                 >
-                  Create a trip
+                  Browse guides for inspiration
                 </Link>
               </div>
             )}
@@ -836,6 +841,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         {/* Places grid */}
         {!loading && orderedItems.length > 0 && libraryTab === 'places' && (
           <div className="space-y-8">
+            {groupBy === 'city' && <LibraryMapPreview items={orderedItems} />}
             {placeGroups.groups.map((group) => (
               <section key={group.key}>
                 {group.label && (

@@ -1053,6 +1053,20 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 />
               </div>
 
+              <div className="mb-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Caption</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={() => {
+                    void saveField('description', description.trim() || null)
+                  }}
+                  rows={3}
+                  className="w-full text-sm text-gray-700 px-0 py-2 border-0 border-b border-transparent focus:border-gray-300 focus:outline-none transition-colors resize-y min-h-[4.5rem]"
+                  placeholder="Post caption pulls through from TikTok and Instagram when available"
+                />
+              </div>
+
               {/* Location - grouped with Title per spec */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>

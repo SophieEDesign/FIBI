@@ -29,16 +29,25 @@ export async function GET(request: NextRequest) {
 
   const viewsMap = new Map<string, number>()
   const savesMap = new Map<string, number>()
+  const signupsMap = new Map<string, number>()
   if (ids.length > 0) {
-    const [{ data: views }, { data: saves }] = await Promise.all([
+    const [{ data: views }, { data: saves }, { data: signups }] = await Promise.all([
       admin.from('travel_guide_views').select('guide_id').in('guide_id', ids).gte('created_at', since30d),
       admin.from('travel_guide_saves').select('guide_id').in('guide_id', ids).gte('created_at', since30d),
+      admin
+        .from('profiles')
+        .select('signup_guide_id')
+        .in('signup_guide_id', ids)
+        .gte('signup_guide_at', since30d),
     ])
     views?.forEach((r: { guide_id: string }) => {
       viewsMap.set(r.guide_id, (viewsMap.get(r.guide_id) ?? 0) + 1)
     })
     saves?.forEach((r: { guide_id: string }) => {
       savesMap.set(r.guide_id, (savesMap.get(r.guide_id) ?? 0) + 1)
+    })
+    signups?.forEach((r: { signup_guide_id: string }) => {
+      signupsMap.set(r.signup_guide_id, (signupsMap.get(r.signup_guide_id) ?? 0) + 1)
     })
   }
 
@@ -47,6 +56,7 @@ export async function GET(request: NextRequest) {
       ...g,
       views_30d: viewsMap.get(g.id) ?? 0,
       saves_30d: savesMap.get(g.id) ?? 0,
+      signups_30d: signupsMap.get(g.id) ?? 0,
     })),
   })
 }

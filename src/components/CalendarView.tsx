@@ -28,7 +28,7 @@ import { isVideoTypeItem } from '@/components/TripVideoViewer'
 import TripBoardCard from '@/components/TripBoardCard'
 import LibraryMapPreview from '@/components/LibraryMapPreview'
 import { matchesTripFilter, type TripBoardFilter } from '@/lib/trip-board-meta'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 
 interface CalendarViewProps {
@@ -107,28 +107,46 @@ export default function CalendarView({
   const locationDropdownRef = useRef<HTMLDivElement>(null)
   const categoryDropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
-  const router = useRouter()
   const searchParams = useSearchParams()
 
-  // URL is the source of truth — avoids remount/race that snapped back to the landing.
-  const selectedItineraryId =
+  // Prefer local selection so opening/closing a trip does not soft-navigate the
+  // force-dynamic calendar page (that remount caused flicker / snap-back).
+  // Trust window.location over Next searchParams — replaceState updates the former only.
+  const readItineraryIdFromWindow = () => {
+    if (typeof window === 'undefined') return null
+    const sp = new URLSearchParams(window.location.search)
+    return sp.get('itinerary_id') || sp.get('itinerary') || null
+  }
+  const urlItineraryId =
     searchParams.get('itinerary_id') || searchParams.get('itinerary') || null
+  const [selectedItineraryId, setSelectedItineraryIdState] = useState<string | null>(
+    () => readItineraryIdFromWindow() ?? urlItineraryId
+  )
+
+  // Sync when Next searchParams change (shared links / full navigations). Prefer browser URL.
+  useEffect(() => {
+    setSelectedItineraryIdState(readItineraryIdFromWindow() ?? urlItineraryId)
+  }, [urlItineraryId])
 
   const setSelectedItineraryId = (id: string | null) => {
-    if (id) {
-      router.push(`/app/calendar?itinerary_id=${encodeURIComponent(id)}`, { scroll: false })
-    } else {
-      router.push('/app/calendar', { scroll: false })
+    setSelectedItineraryIdState(id)
+    const nextUrl = id
+      ? `/app/calendar?itinerary_id=${encodeURIComponent(id)}`
+      : '/app/calendar'
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(window.history.state, '', nextUrl)
     }
   }
 
-  // Drop stale deep links once itineraries are known
+  // Drop stale deep links only after load finished — never while the list is still empty mid-fetch.
   useEffect(() => {
-    if (!selectedItineraryId || itineraries.length === 0) return
-    if (!itineraries.some((i) => i.id === selectedItineraryId)) {
-      router.replace('/app/calendar', { scroll: false })
-    }
-  }, [selectedItineraryId, itineraries, router])
+    if (loading || !selectedItineraryId) return
+    if (itineraries.some((i) => i.id === selectedItineraryId)) return
+    // Client-only load path: wait until we actually have a list (or confirmed empty after load).
+    if (!initialItineraries && itineraries.length === 0) return
+    setSelectedItineraryId(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot clear via setter
+  }, [loading, selectedItineraryId, itineraries, initialItineraries])
 
   // Detect mobile device
   useEffect(() => {

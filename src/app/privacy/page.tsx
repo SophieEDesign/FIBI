@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic'
 const LAST_UPDATED = '25 February 2025'
 
 export const metadata = {
-  title: 'Privacy Policy - FiBi',
-  description: 'FiBi privacy policy: how we collect, use and protect your data.',
+  title: 'Privacy Policy - FIBI',
+  description: 'FIBI privacy policy: how we collect, use and protect your data.',
 }
 
 export default function PrivacyPage() {
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       <section>
         <h2 className="text-lg font-semibold text-[#171717] mt-4 mb-2">Who we are</h2>
         <p>
-          FiBi (&quot;we&quot;, &quot;us&quot;) is the data controller for the FiBi service at fibi.world. We save and organise travel places you find on social media so you don&apos;t lose them.
+          FIBI (&quot;we&quot;, &quot;us&quot;) is the data controller for the FIBI service at fibi.world. We save and organise travel places you find on social media so you don&apos;t lose them.
         </p>
       </section>
 
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
       <section>
         <h2 className="text-lg font-semibold text-[#171717] mt-4 mb-2">How we use your data</h2>
         <p>
-          We use your data to provide the FiBi service (saving and organising places, sharing itineraries, calendar and map views), to send you account-related emails (e.g. password reset, email confirmation) and, if you have opted in, product updates and tips (you can withdraw this at any time). We also use data to maintain security and prevent abuse.
+          We use your data to provide the FIBI service (saving and organising places, sharing itineraries, calendar and map views), to send you account-related emails (e.g. password reset, email confirmation) and, if you have opted in, product updates and tips (you can withdraw this at any time). We also use data to maintain security and prevent abuse.
         </p>
       </section>
 

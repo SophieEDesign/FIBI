@@ -1,6 +1,6 @@
 /**
  * TikTok oEmbed helper — TikTok no longer serves og:* tags to scrapers,
- * so title/thumbnail must come from https://www.tiktok.com/oembed.
+ * and short links (vm./vt./t/) do not work with oEmbed until resolved to a video ID.
  */
 
 export type TikTokOEmbedResult = {
@@ -9,6 +9,8 @@ export type TikTokOEmbedResult = {
   image: string | null
   author_name: string | null
   html: string | null
+  /** Canonical video URL used for oEmbed (useful to persist). */
+  canonical_url?: string | null
 }
 
 function decodeHtmlEntities(text: string): string {
@@ -48,6 +50,17 @@ function cleanTikTokTitle(title: string): string {
     .trim()
 }
 
+export function isTikTokShellTitle(title: string | null | undefined): boolean {
+  if (!title) return true
+  const t = title.trim().toLowerCase()
+  return (
+    t === 'tiktok' ||
+    t === 'tiktok - make your day' ||
+    t === 'make your day' ||
+    /^tiktok\s*[-–—]\s*make your day$/i.test(t)
+  )
+}
+
 export function isTikTokUrl(url: string): boolean {
   try {
     const host = new URL(url).hostname.toLowerCase()
@@ -61,39 +74,61 @@ export function isTikTokUrl(url: string): boolean {
   }
 }
 
-/** Full video/photo URLs already work with oEmbed — skip redirect chase. */
-export function isTikTokCanonicalVideoUrl(url: string): boolean {
+/** Extract numeric video/photo id from path or share query params. */
+export function extractTikTokVideoId(url: string): string | null {
   try {
     const parsed = new URL(url)
-    const host = parsed.hostname.toLowerCase()
-    if (!host.includes('tiktok.com')) return false
-    if (host.startsWith('vm.') || host.startsWith('vt.')) return false
-    return /\/(video|photo)\/\d+/.test(parsed.pathname)
+    const pathMatch = parsed.pathname.match(/\/(?:video|photo)\/(\d+)/)
+    if (pathMatch?.[1]) return pathMatch[1]
+
+    for (const key of ['share_item_id', 'item_id', 'id']) {
+      const value = parsed.searchParams.get(key)
+      if (value && /^\d{5,}$/.test(value)) return value
+    }
+
+    // Rare: id embedded in hash or path segment alone
+    const bare = parsed.pathname.match(/\/(\d{10,})(?:\/|$)/)
+    if (bare?.[1]) return bare[1]
+
+    return null
   } catch {
-    return false
+    return null
   }
 }
 
-function needsTikTokResolve(url: string): boolean {
+export function isTikTokCanonicalVideoUrl(url: string): boolean {
+  return !!extractTikTokVideoId(url) && isTikTokUrl(url) && !isTikTokShortLink(url)
+}
+
+export function isTikTokShortLink(url: string): boolean {
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase()
     if (host.startsWith('vm.') || host.startsWith('vt.')) return true
     if (parsed.pathname.startsWith('/t/')) return true
-    // Share links without /video/ or /photo/
-    if (host.includes('tiktok.com') && !isTikTokCanonicalVideoUrl(url)) return true
     return false
   } catch {
     return false
   }
 }
 
+/** Build a URL TikTok oEmbed accepts (empty @ is fine). */
+export function buildTikTokOEmbedSourceUrl(
+  videoId: string,
+  kind: 'video' | 'photo' = 'video'
+): string {
+  return `https://www.tiktok.com/@/${kind}/${videoId}`
+}
+
 /**
- * Resolve TikTok short/share links (vm.*, vt.*, /t/) without downloading page bodies.
- * Follows Location headers with redirect: 'manual'.
+ * Follow short-link redirects without downloading page bodies.
+ * Returns an oEmbed-friendly `/@/video/{id}` URL when possible.
  */
 export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
-  if (!needsTikTokResolve(url)) return url
+  const existingId = extractTikTokVideoId(url)
+  if (existingId && !isTikTokShortLink(url)) {
+    return buildTikTokOEmbedSourceUrl(existingId)
+  }
 
   let current = url
   const seen = new Set<string>()
@@ -101,7 +136,9 @@ export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
   for (let i = 0; i < 8; i++) {
     if (seen.has(current)) break
     seen.add(current)
-    if (isTikTokCanonicalVideoUrl(current)) return current
+
+    const id = extractTikTokVideoId(current)
+    if (id) return buildTikTokOEmbedSourceUrl(id)
 
     try {
       const controller = new AbortController()
@@ -118,7 +155,6 @@ export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
       })
       clearTimeout(timeoutId)
 
-      // Drop body immediately
       try {
         await response.body?.cancel()
       } catch {
@@ -132,7 +168,6 @@ export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
         continue
       }
 
-      // Some environments return the final URL even with manual redirect
       if (response.url && response.url !== current) {
         current = response.url
         continue
@@ -143,7 +178,45 @@ export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
     }
   }
 
+  // Automatic follow — needed when manual Location headers are missing (some serverless hosts)
+  if (!extractTikTokVideoId(current)) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000)
+      const response = await fetch(url, {
+        method: 'GET',
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      })
+      clearTimeout(timeoutId)
+      try {
+        await response.body?.cancel()
+      } catch {
+        // ignore
+      }
+      if (response.url) current = response.url
+    } catch {
+      // ignore
+    }
+  }
+
+  const finalId = extractTikTokVideoId(current)
+  if (finalId) return buildTikTokOEmbedSourceUrl(finalId)
   return current
+}
+
+/**
+ * Normalize any TikTok URL into something oEmbed accepts.
+ */
+export async function normalizeTikTokUrlForOEmbed(url: string): Promise<string> {
+  const id = extractTikTokVideoId(url)
+  if (id) return buildTikTokOEmbedSourceUrl(id)
+  return resolveTikTokCanonicalUrl(url)
 }
 
 /**
@@ -186,12 +259,17 @@ export async function fetchTikTokOEmbed(url: string): Promise<TikTokOEmbedResult
     const description = captionFromHtml || titleRaw || null
     const title = titleRaw || captionFromHtml || null
 
+    if (isTikTokShellTitle(title) && !data.thumbnail_url) {
+      return null
+    }
+
     return {
-      title,
+      title: isTikTokShellTitle(title) ? description : title,
       description,
       image: typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null,
       author_name: typeof data.author_name === 'string' ? data.author_name : null,
       html: typeof data.html === 'string' ? data.html : null,
+      canonical_url: url,
     }
   } catch (error) {
     console.debug('TikTok oEmbed error:', error)
@@ -200,26 +278,22 @@ export async function fetchTikTokOEmbed(url: string): Promise<TikTokOEmbedResult
 }
 
 /**
- * Resolve short link if needed, then oEmbed. Tries the given URL first
- * (canonical video URLs work without resolving).
+ * Resolve short links to a video id, then oEmbed.
  */
 export async function fetchTikTokMetadata(url: string): Promise<TikTokOEmbedResult | null> {
-  const first = await fetchTikTokOEmbed(url)
-  if (first && (first.image || first.title || first.description)) {
-    return first
+  const normalized = await normalizeTikTokUrlForOEmbed(url)
+  const primary = await fetchTikTokOEmbed(normalized)
+  if (primary && (primary.image || primary.title || primary.description)) {
+    return primary
   }
 
-  if (isTikTokCanonicalVideoUrl(url)) {
-    return first
-  }
-
-  const canonical = await resolveTikTokCanonicalUrl(url)
-  if (canonical !== url) {
-    const second = await fetchTikTokOEmbed(canonical)
+  // Last try: original URL (rare cases where short links start working)
+  if (normalized !== url) {
+    const second = await fetchTikTokOEmbed(url)
     if (second && (second.image || second.title || second.description)) {
       return second
     }
   }
 
-  return first
+  return primary
 }

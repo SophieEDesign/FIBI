@@ -57,9 +57,12 @@ export async function GET(request: NextRequest) {
     // Returning NextResponse.redirect() after cookies().set() can drop the session.
     const pendingCookies: CookieToSet[] = []
 
+    let pendingHeaders: Record<string, string> = {}
+
     const supabase = createServerClient(supabaseUrl, supabaseKey, {
-      cookies: requestCookieMethods(request, (cookiesToSet) => {
+      cookies: requestCookieMethods(request, (cookiesToSet, headers) => {
         pendingCookies.push(...cookiesToSet)
+        pendingHeaders = headers
       }),
     })
 
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
       if (type === 'recovery') {
         const resetUrl = new URL('/reset-password', origin)
         const res = NextResponse.redirect(resetUrl)
-        applyCookiesToResponse(res, pendingCookies)
+        applyCookiesToResponse(res, pendingCookies, pendingHeaders)
         return res
       }
 
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
       if (!safePath) redirectUrl.searchParams.set('confirmed', 'true')
 
       const res = NextResponse.redirect(redirectUrl)
-      applyCookiesToResponse(res, pendingCookies)
+      applyCookiesToResponse(res, pendingCookies, pendingHeaders)
       res.cookies.set('redirect_after_login', '', { path: '/', maxAge: 0 })
       return res
     }

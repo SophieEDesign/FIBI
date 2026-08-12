@@ -9,7 +9,7 @@ function extractBodyContent(html: string): string {
   return html.trim()
 }
 
-/** FiBi signature gradient: Blue → Gold → Coral → Lavender */
+/** FIBI signature gradient: Blue → Gold → Coral → Lavender */
 const EMAIL_HEADER_GRADIENT =
   'linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 25%, #F2B705 50%, #E8A57C 75%, #B985C9 100%)'
 

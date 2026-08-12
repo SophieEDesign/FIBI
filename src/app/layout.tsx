@@ -20,7 +20,7 @@ function getSiteUrl(): string {
 const siteUrl = getSiteUrl()
 const defaultTitle = 'FIBI – See it. Save it. Go there.'
 const defaultDescription =
-  'Your private travel memory from TikTok, Instagram and the web. Save places, organise them, share a board when you\'re ready.'
+  'See it. Save it. Go there. Save places from TikTok, Instagram and the web — organised by city, ready when you travel.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

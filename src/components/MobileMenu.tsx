@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 interface MobileMenuProps {
   isAuthenticated: boolean
+  isAdmin?: boolean
   onSignOut?: () => void
 }
 
@@ -15,7 +16,7 @@ interface MobileMenuProps {
  * Overflow menu for mobile devices with PWA install option.
  * Only visible on mobile screens.
  */
-export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
+export default function MobileMenu({ isAuthenticated, isAdmin }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showInstallHelp, setShowInstallHelp] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -121,7 +122,7 @@ export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
                 onClick={() => setIsOpen(false)}
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                Planner
+                Trips
               </Link>
               <Link
                 href="/app/add"
@@ -151,6 +152,15 @@ export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
               >
                 Profile
               </Link>
+              {isAdmin && (
+                <Link
+                  href="/app/admin"
+                  onClick={() => setIsOpen(false)}
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Admin
+                </Link>
+              )}
               {!isInstalled && (
                 <button
                   onClick={handleInstall}
@@ -192,9 +202,9 @@ export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
       {showInstallHelp && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Install FiBi</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Install FIBI</h3>
             <p className="text-sm text-gray-600 mb-4">
-              To install FiBi on your phone:
+              To install FIBI on your phone:
             </p>
             <div className="text-sm text-gray-700 space-y-3 mb-4">
               <div>
@@ -206,7 +216,7 @@ export default function MobileMenu({ isAuthenticated }: MobileMenuProps) {
                   <li>Tap it and follow the prompts</li>
                 </ol>
                 <p className="text-xs text-gray-500 mt-2 italic">
-                  Note: &quot;Add to Home screen&quot; installs FiBi as an app
+                  Note: &quot;Add to Home screen&quot; installs FIBI as an app
                 </p>
               </div>
               <div>

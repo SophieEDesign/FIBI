@@ -20,6 +20,8 @@ import { addGuestSave } from '@/lib/guest-saves'
 import { deriveLocationStatus } from '@/lib/location-status'
 import { ensureSaveSession, isAnonymousUser } from '@/lib/anonymous-auth'
 import { requestPersistThumbnail } from '@/lib/persist-thumbnail'
+import { getProxiedImageUrl } from '@/lib/image-proxy'
+import { isTikTokUrl } from '@/lib/tiktok-oembed'
 
 type EnrichResult = {
   title: string | null
@@ -110,7 +112,46 @@ export default function QuickSaveForm() {
         body: JSON.stringify({ url: urlToFetch }),
       })
       if (!response.ok) return null
-      return await response.json()
+      let metadata = await response.json() as {
+        title?: string | null
+        description?: string | null
+        image?: string | null
+        scrapedContent?: string | null
+      }
+
+      // TikTok short links: if metadata is thin, also try oEmbed (server normalizes vm. links)
+      const thin =
+        !metadata.image ||
+        !metadata.title ||
+        isGenericOgTitle(cleanOGTitle(metadata.title)) ||
+        /^place from\s+/i.test((metadata.title || '').trim())
+      if (isTikTokUrl(urlToFetch) && thin) {
+        try {
+          const oembedRes = await fetch('/api/oembed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: urlToFetch }),
+          })
+          if (oembedRes.ok) {
+            const oembed = await oembedRes.json()
+            metadata = {
+              title: metadata.title || oembed.title || null,
+              description:
+                metadata.description || oembed.caption_text || oembed.title || null,
+              image: metadata.image || oembed.thumbnail_url || null,
+              scrapedContent:
+                metadata.scrapedContent ||
+                oembed.caption_text ||
+                oembed.title ||
+                null,
+            }
+          }
+        } catch {
+          // non-blocking
+        }
+      }
+
+      return metadata
     } catch {
       return null
     } finally {
@@ -216,14 +257,21 @@ export default function QuickSaveForm() {
       if (metadata) {
         if (metadata.title) {
           const cleaned = cleanOGTitle(metadata.title) || metadata.title
-          if (!title.trim() || isGenericOgTitle(title)) {
+          if (
+            !title.trim() ||
+            isGenericOgTitle(title) ||
+            /^place from\s+/i.test(title.trim())
+          ) {
             nextTitle = cleaned
             setTitle(cleaned)
           }
         }
-        if (metadata.description) {
-          nextDesc = metadata.description
-          setDescription(metadata.description)
+        // Caption → description (TikTok oEmbed title is the caption)
+        const caption =
+          metadata.description || metadata.scrapedContent || null
+        if (caption) {
+          nextDesc = caption
+          setDescription(caption)
         }
         if (metadata.image) setThumbnailUrl(metadata.image)
       }
@@ -282,7 +330,51 @@ export default function QuickSaveForm() {
     setError(null)
 
     try {
-      const payload = buildPayload()
+      // Ensure TikTok (and other) metadata finished before insert — users often hit Save early
+      let saveTitle = title
+      let saveDescription = description
+      let saveThumbnail = thumbnailUrl
+      const needsMeta =
+        !metadataFetchedRef.current ||
+        !saveThumbnail ||
+        !saveTitle.trim() ||
+        isGenericOgTitle(saveTitle) ||
+        /^place from\s+/i.test(saveTitle.trim())
+
+      if (needsMeta) {
+        const metadata = await fetchMetadata(url.trim())
+        metadataFetchedRef.current = true
+        if (metadata?.title) {
+          const cleaned = cleanOGTitle(metadata.title) || metadata.title
+          if (
+            !saveTitle.trim() ||
+            isGenericOgTitle(saveTitle) ||
+            /^place from\s+/i.test(saveTitle.trim())
+          ) {
+            saveTitle = cleaned
+            setTitle(cleaned)
+          }
+        }
+        const caption = metadata?.description || metadata?.scrapedContent || null
+        if (caption) {
+          saveDescription = caption
+          setDescription(caption)
+        }
+        if (metadata?.image) {
+          saveThumbnail = metadata.image
+          setThumbnailUrl(metadata.image)
+        }
+      }
+
+      const payload = {
+        ...buildPayload(),
+        title:
+          saveTitle.trim() ||
+          enrich?.title?.trim() ||
+          generateHostnameTitle(url),
+        description: saveDescription.trim() || null,
+        thumbnail_url: saveThumbnail || null,
+      }
       const session = await ensureSaveSession(supabase)
 
       if (!session) {
@@ -445,8 +537,9 @@ export default function QuickSaveForm() {
             {(thumbnailUrl || title || locationLabel) && (
               <div className="flex gap-3 items-start rounded-xl bg-fibi-bg-light/80 p-3 border border-gray-100">
                 {thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={thumbnailUrl}
+                    src={getProxiedImageUrl(thumbnailUrl) || thumbnailUrl}
                     alt=""
                     className="w-16 h-16 rounded-lg object-cover shrink-0"
                   />
@@ -457,6 +550,11 @@ export default function QuickSaveForm() {
                   <p className="text-sm font-medium text-fibi-text-primary truncate">
                     {previewLabel}
                   </p>
+                  {description && (
+                    <p className="text-xs text-fibi-muted mt-0.5 line-clamp-2">
+                      {description}
+                    </p>
+                  )}
                   {locationLabel && (
                     <p className="text-xs text-fibi-muted mt-0.5 truncate">{locationLabel}</p>
                   )}

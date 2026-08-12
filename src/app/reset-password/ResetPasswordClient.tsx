@@ -109,7 +109,7 @@ export default function ResetPasswordClient() {
           <div className="text-center">
             <img
               src="/FIBI Logo.png"
-              alt="FiBi"
+              alt="FIBI"
               className="h-12 w-auto mx-auto mb-4"
             />
             <div className="bg-white rounded-2xl shadow-sm p-8 space-y-4">
@@ -129,7 +129,7 @@ export default function ResetPasswordClient() {
         <div className="text-center">
           <img
             src="/FIBI Logo.png"
-            alt="FiBi"
+            alt="FIBI"
             className="h-12 w-auto mx-auto mb-4"
           />
           <p className="text-gray-600">Set your new password</p>

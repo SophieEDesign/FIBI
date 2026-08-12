@@ -102,7 +102,7 @@ export default function EmailPreferencesClient() {
         </div>
         <h1 className="text-xl font-semibold text-[#171717] mb-2">Email preferences</h1>
         <p className="text-sm text-[#374151] leading-relaxed mb-6">
-          Choose whether FiBi can send product updates and tips. Account emails (like password reset)
+          Choose whether FIBI can send product updates and tips. Account emails (like password reset)
           are separate.
         </p>
 

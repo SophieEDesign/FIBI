@@ -1,5 +1,5 @@
 /**
- * Modern email templates for FiBi
+ * Modern email templates for FIBI
  * All templates use inline CSS for maximum email client compatibility
  */
 
@@ -71,7 +71,7 @@ function BaseEmailTemplate({
  */
 /** Light logo for dark/gradient backgrounds */
 const EMAIL_LOGO_LIGHT_URL = 'https://fibi.world/Fibi%20Logo%20Light.png'
-/** FiBi signature gradient: Blue → Gold → Coral → Lavender */
+/** FIBI signature gradient: Blue → Gold → Coral → Lavender */
 const EMAIL_GRADIENT =
   'linear-gradient(135deg, #2E9BD6 0%, #5EC3F2 25%, #F2B705 50%, #E8A57C 75%, #B985C9 100%)'
 
@@ -166,7 +166,7 @@ export function getInviteEmailTemplate({
       <tr>
         <td style="padding: 0 30px 40px 30px;">
           <p style="margin: 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">
-            This link was sent via FiBi (fibi.world). If you did not expect this email, you can ignore it.
+            This link was sent via FIBI (fibi.world). If you did not expect this email, you can ignore it.
           </p>
         </td>
       </tr>
@@ -205,7 +205,7 @@ export function getInviteEmailPlainText({
     'Open the itinerary:',
     shareUrl,
     '',
-    'This link was sent via FiBi (fibi.world). If you did not expect this email, you can ignore it.',
+    'This link was sent via FIBI (fibi.world). If you did not expect this email, you can ignore it.',
   ]
   return lines.join('\n')
 }
@@ -220,20 +220,20 @@ export function getWelcomeEmailTemplate({
   recipientName?: string
 }): string {
   return BaseEmailTemplate({
-    title: 'Welcome to FiBi! 🎉',
+    title: 'Welcome to FIBI! 🎉',
     preheader: 'Start saving your favorite places and planning your next adventure',
     children: `
       ${EmailHeader()}
       <tr>
         <td style="padding: 40px 30px;">
           <h1 style="margin: 0 0 20px 0; font-size: 32px; font-weight: 700; background: ${EMAIL_GRADIENT}; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1.2;">
-            Welcome to FiBi! 🎉
+            Welcome to FIBI! 🎉
           </h1>
           <p style="margin: 0 0 20px 0; font-size: 18px; color: #374151; line-height: 1.6;">
             Hey ${recipientName},
           </p>
           <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-            We're so excited to have you on board! FiBi is your personal travel companion for saving and organizing all those amazing places you discover.
+            We're so excited to have you on board! FIBI is your personal travel companion for saving and organizing all those amazing places you discover.
           </p>
           <p style="margin: 0 0 30px 0; font-size: 16px; color: #374151; line-height: 1.6;">
             Here's how to get started:
@@ -285,7 +285,7 @@ export function getWelcomeEmailTemplate({
               💡 Pro Tip
             </p>
             <p style="margin: 0; font-size: 14px; color: #1e40af; line-height: 1.6;">
-              Install FiBi as a PWA to share places in one tap from any app!
+              Install FIBI as a PWA to share places in one tap from any app!
             </p>
           </div>
         </td>
@@ -305,7 +305,7 @@ export function getPasswordResetEmailTemplate({
   resetUrl: string
 }): string {
   return BaseEmailTemplate({
-    title: 'Reset your FiBi password',
+    title: 'Reset your FIBI password',
     preheader: 'Click here to reset your password',
     children: `
       ${EmailHeader()}
@@ -383,11 +383,11 @@ export async function sendInviteEmail({
     senderNote,
   })
 
-  // Transactional-style subject (avoids "on FiBi" and promotional phrasing that trigger content filters)
+  // Transactional-style subject (avoids "on FIBI" and promotional phrasing that trigger content filters)
   const name = senderName || 'Someone'
   const subject = shareType === 'collaborate'
-    ? `[FiBi] ${name} invited you to collaborate on an itinerary`
-    : `[FiBi] ${name} shared an itinerary with you`
+    ? `[FIBI] ${name} invited you to collaborate on an itinerary`
+    : `[FIBI] ${name} shared an itinerary with you`
 
   return sendEmail({
     to,
@@ -411,7 +411,7 @@ export async function sendWelcomeEmail({
 
   return sendEmail({
     to,
-    subject: 'Welcome to FiBi! 🎉',
+    subject: 'Welcome to FIBI! 🎉',
     html,
   })
 }
@@ -421,8 +421,8 @@ export async function sendWelcomeEmail({
  */
 export function getConfirmEmailTemplate({ confirmUrl }: { confirmUrl: string }): string {
   return BaseEmailTemplate({
-    title: 'Confirm your email – FiBi',
-    preheader: 'One tap to confirm your email and get travel tips from FiBi',
+    title: 'Confirm your email – FIBI',
+    preheader: 'One tap to confirm your email and get travel tips from FIBI',
     children: `
       ${EmailHeader()}
       <tr>
@@ -431,7 +431,7 @@ export function getConfirmEmailTemplate({ confirmUrl }: { confirmUrl: string }):
             Confirm your email
           </h1>
           <p style="margin: 0 0 20px 0; font-size: 16px; color: #374151; line-height: 1.6;">
-            Thanks for signing up to FiBi! Confirm your email to get travel tips, updates and the most out of your saved places.
+            Thanks for signing up to FIBI! Confirm your email to get travel tips, updates and the most out of your saved places.
           </p>
           ${CTAButton({ text: 'Confirm email', url: confirmUrl })}
           <p style="margin: 24px 0 0 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
@@ -457,7 +457,7 @@ export async function sendConfirmEmail({
   const html = getConfirmEmailTemplate({ confirmUrl })
   return sendEmail({
     to,
-    subject: 'Confirm your email – FiBi',
+    subject: 'Confirm your email – FIBI',
     html,
   })
 }
@@ -478,7 +478,7 @@ export async function sendPasswordResetEmail({
 
   return sendEmail({
     to,
-    subject: 'Reset your FiBi password',
+    subject: 'Reset your FIBI password',
     html,
   })
 }

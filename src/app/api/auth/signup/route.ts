@@ -9,6 +9,7 @@ import {
 } from '@/lib/signupProtection'
 import { createConfirmEmailToken } from '@/lib/confirm-email-token'
 import { sendConfirmEmail } from '@/lib/email-templates'
+import { applySignupGuideAttribution } from '@/lib/apply-signup-guide-attribution'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,13 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request)
   const userAgent = request.headers.get('user-agent') ?? null
 
-  let body: { email?: string; password?: string; captchaToken?: string; marketingOptIn?: boolean }
+  let body: {
+    email?: string
+    password?: string
+    captchaToken?: string
+    marketingOptIn?: boolean
+    fromGuide?: string
+  }
   try {
     body = await request.json()
   } catch {
@@ -43,6 +50,10 @@ export async function POST(request: NextRequest) {
   const password = typeof body.password === 'string' ? body.password : ''
   const captchaToken = typeof body.captchaToken === 'string' ? body.captchaToken : null
   const marketingOptIn = typeof body.marketingOptIn === 'boolean' ? body.marketingOptIn : false
+  const fromGuide =
+    typeof body.fromGuide === 'string' ? body.fromGuide.trim() : ''
+  const cookieGuideId = request.cookies.get('fibi_guide_attr')?.value?.trim() || ''
+  const guideAttribution = fromGuide || cookieGuideId
 
   if (!email || !password) {
     return NextResponse.json(
@@ -154,6 +165,13 @@ export async function POST(request: NextRequest) {
   } catch (profileErr) {
     const msg = profileErr instanceof Error ? profileErr.message : String(profileErr)
     console.warn('Signup: could not set marketing_opt_in on profile:', msg)
+  }
+
+  try {
+    await applySignupGuideAttribution(supabase, data.user.id, guideAttribution)
+  } catch (attrErr) {
+    const msg = attrErr instanceof Error ? attrErr.message : String(attrErr)
+    console.warn('Signup: could not set guide attribution:', msg)
   }
 
   // Send confirmation email (soft verify – user can use app immediately)

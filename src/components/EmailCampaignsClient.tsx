@@ -91,7 +91,7 @@ export default function EmailCampaignsClient() {
 
   // Setup
   const [name, setName] = useState('')
-  const [fromName, setFromName] = useState('FiBi')
+  const [fromName, setFromName] = useState('FIBI')
   const [fromEmail, setFromEmail] = useState('hello@fibi.world')
   const [subject, setSubject] = useState('')
   const [previewText, setPreviewText] = useState('')
@@ -221,7 +221,7 @@ export default function EmailCampaignsClient() {
     setRecipientCount(null)
     setMarketingOptInTotal(null)
     setName('')
-    setFromName('FiBi')
+    setFromName('FIBI')
     setFromEmail('hello@fibi.world')
     setSubject('')
     setPreviewText('')
@@ -654,7 +654,7 @@ export default function EmailCampaignsClient() {
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="A calm update from FiBi"
+                    placeholder="A calm update from FIBI"
                   />
                 </label>
                 <label className="block">
@@ -670,7 +670,7 @@ export default function EmailCampaignsClient() {
                 {/* Inbox preview mock */}
                 <div className="rounded-lg border border-gray-200 bg-white p-3 text-sm">
                   <p className="text-xs text-gray-500 mb-1">Inbox preview</p>
-                  <p className="font-medium text-gray-900 truncate">{fromName || 'FiBi'}</p>
+                  <p className="font-medium text-gray-900 truncate">{fromName || 'FIBI'}</p>
                   <p className="font-semibold text-gray-800 truncate">{subject || 'Subject line'}</p>
                   <p className="text-gray-500 truncate">
                     {previewText || 'Preview text appears here…'}

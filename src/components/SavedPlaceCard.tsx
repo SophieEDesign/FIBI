@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import type { SavedItem } from '@/types/database'
 import { getHostname } from '@/lib/utils'
+import { getProxiedImageUrl } from '@/lib/image-proxy'
 import EmbedPreview from '@/components/EmbedPreview'
 
 interface SavedPlaceCardProps {
@@ -89,7 +90,7 @@ export default function SavedPlaceCard({
         ) : item.thumbnail_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={item.thumbnail_url}
+            src={getProxiedImageUrl(item.thumbnail_url) || item.thumbnail_url}
             alt=""
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-slow ease-out group-hover:scale-[1.03]"
             loading="lazy"
@@ -127,6 +128,13 @@ export default function SavedPlaceCard({
               {displayTitle}
             </h3>
           </Link>
+          {item.description &&
+            item.description.trim() &&
+            item.description.trim() !== (displayTitle || '').trim() && (
+              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[color:var(--text-tertiary)]">
+                {item.description}
+              </p>
+            )}
           {locationLine && (
             <p className="mt-1 flex items-center gap-1 truncate text-xs text-[color:var(--text-tertiary)]">
               <svg

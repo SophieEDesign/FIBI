@@ -9,10 +9,10 @@ export default function HowToUse() {
         {/* Header */}
         <div className="mb-8 md:mb-12">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            How to use FiBi
+            How to use FIBI
           </h1>
           <p className="text-lg text-gray-600">
-            Learn how to save and organize your travel places with FiBi
+            See it. Save it. Go there.
           </p>
         </div>
 
@@ -21,7 +21,7 @@ export default function HowToUse() {
           {/* Introduction */}
           <section>
             <p className="text-gray-700 leading-relaxed mb-6">
-              FiBi is a personal, algorithm-free library to organise travel inspiration found on social media and the web, providing a simple way to save links with context.
+              FIBI is a personal, algorithm-free library to organise travel inspiration found on social media and the web, providing a simple way to save links with context.
             </p>
           </section>
 
@@ -69,7 +69,7 @@ export default function HowToUse() {
                   </h3>
                 </div>
                 <p className="text-gray-700 leading-relaxed ml-16 md:ml-0">
-                  Share a link directly to the FiBi app from anywhere (TikTok, Instagram, web). Just click share from the app. FiBi automatically pulls through a visual preview.
+                  Share a link directly to the FIBI app from anywhere (TikTok, Instagram, web). Just click share from the app. FIBI automatically pulls through a visual preview.
                 </p>
                 <div className="mt-4 ml-16 md:ml-0">
                   <Link
@@ -190,7 +190,7 @@ export default function HowToUse() {
             <div className="rounded-lg overflow-hidden bg-white shadow-sm border border-gray-200">
               <img
                 src="/unnamed.png"
-                alt="FiBi: Save Your Travel Places - Complete guide"
+                alt="FIBI: See it. Save it. Go there."
                 className="w-full h-auto object-contain"
               />
             </div>

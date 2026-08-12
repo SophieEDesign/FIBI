@@ -35,41 +35,16 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
         <div className="flex items-center justify-between h-12">
           <div className="flex items-center gap-3">
             <Link href="/app" className="flex items-center">
-              <img
-                src="/FIBI Logo.png"
-                alt="FIBI"
-                className="h-7 w-auto"
-              />
+              <img src="/FIBI Logo.png" alt="FIBI" className="h-7 w-auto" />
             </Link>
             <span className="text-[10px] font-medium text-secondary border border-[color:var(--border-subtle)] rounded-full px-2 py-0.5 bg-[color:var(--bg-subtle)]">
               Early Access
             </span>
-            <a
-              href="mailto:feedback@fibi.app?subject=FIBI%20Feedback"
-              className="text-xs text-secondary hover:text-[color:var(--text-primary)] transition-colors duration-fast hidden sm:inline"
-            >
-              Send feedback
-            </a>
           </div>
 
           <div className="flex items-center space-x-1">
-            <Link
-              href="/app"
-              className={navClass(isActive('/app') || isActive('/'))}
-            >
+            <Link href="/app" className={navClass(isActive('/app') || isActive('/'))}>
               Places
-            </Link>
-            <Link
-              href="/app/calendar"
-              className={navClass(isActive('/app/calendar'))}
-            >
-              Trips
-            </Link>
-            <Link
-              href="/app/map"
-              className={navClass(isActive('/app/map'))}
-            >
-              Map
             </Link>
             <Link
               href="/app/guides"
@@ -77,26 +52,29 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
             >
               Guides
             </Link>
-            <Link
-              href="/profile"
-              className={navClass(isActive('/profile'))}
-            >
+            <Button href="/app/add" size="sm" className="mx-2">
+              Save
+            </Button>
+            <Link href="/app/calendar" className={navClass(isActive('/app/calendar'))}>
+              Trips
+            </Link>
+            <Link href="/profile" className={navClass(isActive('/profile'))}>
               Profile
             </Link>
             {isAdmin && (
-              <Link
-                href="/app/admin"
-                className={navClass(isActive('/app/admin'))}
-              >
+              <Link href="/app/admin" className={navClass(isActive('/app/admin'))}>
                 Admin
               </Link>
             )}
           </div>
 
           <div className="flex items-center space-x-4">
-            <Button href="/app/add" size="sm">
-              Add place
-            </Button>
+            <a
+              href="mailto:feedback@fibi.app?subject=FIBI%20Feedback"
+              className="text-xs text-secondary hover:text-[color:var(--text-primary)] transition-colors duration-fast hidden lg:inline"
+            >
+              Send feedback
+            </a>
             <a
               href="/api/auth/signout"
               className="text-secondary hover:text-[color:var(--text-primary)] text-sm font-medium transition-colors duration-fast"
