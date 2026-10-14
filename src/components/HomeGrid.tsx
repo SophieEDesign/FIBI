@@ -512,7 +512,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 See all
               </Link>
             </div>
-            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 md:flex-wrap md:overflow-visible">
               {itineraries.map((trip) => {
                 const count = items.filter((i) => i.itinerary_id === trip.id).length
                 return (
@@ -552,6 +552,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               <h2 className="text-xs font-medium uppercase tracking-wider text-secondary">
                 Places · {filteredItems.length}
               </h2>
+              <div className="flex items-center gap-3">
               <div className="flex gap-0.5 p-0.5 bg-gray-100 rounded-xl" role="group" aria-label="Status">
                 {([
                   ['all', 'All'],
@@ -570,6 +571,16 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                     {label}
                   </button>
                 ))}
+              </div>
+              <Link
+                href="/app/add"
+                className="hidden md:inline-flex items-center gap-2 h-10 px-4 rounded-full bg-charcoal text-white text-sm font-medium shadow-soft hover:opacity-90 transition-opacity"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Save a place
+              </Link>
               </div>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap pb-1">
@@ -656,7 +667,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   href="/app/add"
                   className="inline-block bg-charcoal text-white px-8 py-3 rounded-xl font-medium hover:opacity-90 shadow-soft mb-4"
                 >
-                  Add your first place
+                  Save your first place
                 </Link>
                 <Link
                   href="/app/calendar"

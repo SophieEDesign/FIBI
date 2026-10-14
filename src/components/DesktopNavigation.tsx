@@ -113,9 +113,12 @@ export default function DesktopNavigation({ user, isAdmin, onSignOut }: DesktopN
           <div className="flex items-center space-x-4">
             <Link
               href="/app/add"
-              className="bg-charcoal text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft transition-opacity"
+              className="inline-flex items-center gap-2 bg-charcoal text-white px-4 py-2 rounded-full text-sm font-medium hover:opacity-90 shadow-soft transition-opacity"
             >
-              Add place
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Save a place
             </Link>
             <button
               onClick={handleSignOut}

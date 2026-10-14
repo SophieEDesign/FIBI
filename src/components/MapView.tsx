@@ -723,8 +723,8 @@ export default function MapView() {
       {/* Simple header */}
       <div className="bg-white/90 backdrop-blur-sm border-b border-gray-200 z-40 md:sticky md:top-16">
         {/* Trip filter - Top */}
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+        <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <button
               onClick={() => setSelectedItineraryId(null)}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
@@ -758,6 +758,15 @@ export default function MapView() {
               New
             </button>
           </div>
+          <Link
+            href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
+            className="hidden md:inline-flex shrink-0 items-center gap-2 h-10 px-4 rounded-full bg-charcoal text-white text-sm font-medium shadow-soft hover:opacity-90 transition-opacity"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Save a place
+          </Link>
         </div>
         
         {/* Header with logo and actions - hidden on desktop since DesktopNavigation provides this */}
@@ -797,7 +806,7 @@ export default function MapView() {
           <div
             ref={carouselRef}
             onScroll={handleCarouselScroll}
-            className="pointer-events-auto relative flex gap-3 overflow-x-auto snap-x snap-mandatory px-[calc(50%-140px)] pb-2 [scrollbar-width:none]"
+            className="pointer-events-auto relative flex gap-3 overflow-x-auto snap-x snap-mandatory px-[calc(50%-140px)] md:px-6 pb-2 [scrollbar-width:none]"
           >
             {mappableItems.map((item) => {
               const active = selectedItem?.id === item.id

@@ -1483,7 +1483,7 @@ export default function AddItemForm() {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl shadow-sm p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Add a Place</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Save a place</h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
