@@ -1256,8 +1256,18 @@ export default function AddItemForm() {
 
       const finalCategory = allCategories.length > 0 ? JSON.stringify(allCategories) : null
 
-      // Prepare location data
-      const locationData = selectedPlace
+      // One object type so a save without a picked place (null location
+      // fields) still type-checks. A union here makes insert() infer only
+      // the non-null branch.
+      const locationData: {
+        place_name: string | null
+        place_id: string | null
+        latitude: number | null
+        longitude: number | null
+        formatted_address: string | null
+        location_city: string | null
+        location_country: string | null
+      } = selectedPlace
         ? {
             place_name: selectedPlace.place_name,
             place_id: selectedPlace.place_id,
