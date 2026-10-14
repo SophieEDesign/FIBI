@@ -21,7 +21,11 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [showConfirmedMessage, setShowConfirmedMessage] = useState(confirmed || false)
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null)
   const [showFirstPlaceFeedback, setShowFirstPlaceFeedback] = useState(false)
-  const [showFilterModal, setShowFilterModal] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'visited'>('all')
+  const [showShareTip, setShowShareTip] = useState(false)
+  const [savedToastId, setSavedToastId] = useState<string | null>(null)
+  const savedHandledRef = useRef<string | null>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchParams = useSearchParams()
   const [userCustomCategories, setUserCustomCategories] = useState<string[]>([])
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
@@ -104,6 +108,46 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       loadEmailVerified()
     }
   }, [confirmed, user?.id])
+
+  // Share-sheet tip: shown until dismissed
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setShowShareTip(localStorage.getItem('fibi-share-tip-dismissed') !== 'true')
+  }, [])
+
+  const dismissShareTip = () => {
+    setShowShareTip(false)
+    if (typeof window !== 'undefined') localStorage.setItem('fibi-share-tip-dismissed', 'true')
+  }
+
+  // "Saved to … · Undo" toast after adding a place (AddItemForm redirects with ?saved=<id>)
+  useEffect(() => {
+    const id = searchParams?.get('saved')
+    if (!id || savedHandledRef.current === id) return
+    savedHandledRef.current = id
+    setSavedToastId(id)
+    if (typeof window !== 'undefined') window.history.replaceState({}, '', '/app')
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    toastTimerRef.current = setTimeout(() => setSavedToastId(null), 6000)
+  }, [searchParams])
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+  }, [])
+
+  const handleUndoSave = async () => {
+    const id = savedToastId
+    if (!id) return
+    setSavedToastId(null)
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    try {
+      const { error } = await supabase.from('saved_items').delete().eq('id', id)
+      if (error) throw error
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch (err) {
+      console.error('Error undoing save:', err)
+    }
+  }
 
   // Show "Nice start." when returning after adding first place
   useEffect(() => {
@@ -217,7 +261,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   }
 
   // Calculate usage counts and sort options by popularity
-  const { sortedCategories, sortedUserCustomCategories } = useMemo(() => {
+  const { sortedCategories, sortedUserCustomCategories, categoryCounts } = useMemo(() => {
     const categoryCounts: Record<string, number> = {}
 
     items.forEach((item) => {
@@ -235,19 +279,33 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
     return {
       sortedCategories: sortByPopularity([...CATEGORIES], categoryCounts),
       sortedUserCustomCategories: sortByPopularity([...userCustomCategories], categoryCounts),
+      categoryCounts,
     }
   }, [items, userCustomCategories])
 
-  // Filter items based on selected filters
+  // Filter items by status (to visit / visited) and category
   const filteredItems = useMemo(() => {
-    if (filters.categories.length === 0) return items
     return items.filter((item) => {
+      if (statusFilter === 'visited' && !item.visited) return false
+      if (statusFilter === 'todo' && item.visited) return false
+      if (filters.categories.length === 0) return true
       const itemCategories = parseItemField(item.category)
       return filters.categories.some(cat => itemCategories.includes(cat))
     })
-  }, [items, filters])
+  }, [items, filters, statusFilter])
 
-  const activeFiltersCount = filters.categories.length
+  const activeFiltersCount = filters.categories.length + (statusFilter !== 'all' ? 1 : 0)
+
+  // Only offer categories that are in use (plus any currently selected)
+  const visibleCategories = [...sortedCategories, ...sortedUserCustomCategories].filter(
+    (c) => (categoryCounts[c] || 0) > 0 || filters.categories.includes(c)
+  )
+
+  const savedToastItem = savedToastId ? items.find((i) => i.id === savedToastId) : null
+  const savedToastTrip = savedToastItem?.itinerary_id
+    ? itineraries.find((t) => t.id === savedToastItem.itinerary_id)
+    : null
+  const savedToastLabel = savedToastTrip ? `Saved to ${savedToastTrip.name}` : 'Saved to your places'
 
   const toggleFilter = (category: string) => {
     setFilters(prev => ({
@@ -260,6 +318,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
   const clearFilters = () => {
     setFilters({ categories: [] })
+    setStatusFilter('all')
   }
 
   // Toggle liked or visited on an item
@@ -357,32 +416,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {items.length > 0 && (
-                <button
-                  onClick={() => setShowFilterModal(true)}
-                  className="relative px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  Filter
-                  {activeFiltersCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-gray-900 text-white text-xs rounded-full flex items-center justify-center">
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </button>
-              )}
-              <Link
-                href="/app/add"
-                className="bg-charcoal text-white px-4 py-2 rounded-xl text-sm font-medium hover:opacity-90 shadow-soft"
-              >
-                Add
-              </Link>
               <MobileMenu isAuthenticated={!!user} onSignOut={handleSignOut} />
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-12 pb-24 md:pb-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-12 pb-40 md:pb-12">
         {showFirstPlaceFeedback && (
           <p
             className="mb-6 text-secondary font-normal animate-[fadeIn_0.4s_ease-out]"
@@ -438,42 +478,131 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {/* Filters - Desktop: horizontal chips, Mobile: modal */}
+        {/* Share-sheet tip - dismissible, shown until the user closes it */}
+        {showShareTip && !loading && (
+          <div className="mb-6 bg-white border border-gray-100 shadow-soft rounded-2xl px-4 py-3 flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-charcoal">💡 Tip: save straight from TikTok or Instagram</p>
+              <p className="text-sm text-secondary mt-0.5">
+                Tap Share on any post, then Fibi. The preview comes through on its own.{' '}
+                <Link href="/app/how-to" className="font-medium text-charcoal underline underline-offset-2">
+                  Show me how
+                </Link>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissShareTip}
+              className="p-1.5 -m-1 rounded-lg text-secondary hover:text-charcoal hover:bg-gray-50"
+              aria-label="Dismiss tip"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Trips row - one swipeable row so places start sooner */}
+        {!loading && itineraries.length > 0 && (
+          <section className="mb-6 md:mb-8" aria-label="Trips">
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-secondary">Trips</h2>
+              <Link href="/app/calendar" className="text-sm text-secondary hover:text-charcoal">
+                See all
+              </Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+              {itineraries.map((trip) => {
+                const count = items.filter((i) => i.itinerary_id === trip.id).length
+                return (
+                  <Link
+                    key={trip.id}
+                    href={`/app/calendar?itinerary_id=${trip.id}`}
+                    className="relative shrink-0 snap-start w-36 h-28 rounded-2xl overflow-hidden bg-charcoal text-white shadow-soft hover:shadow-soft-md transition-shadow"
+                  >
+                    {trip.cover_image_url && (
+                      <img src={trip.cover_image_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    <div className="absolute left-3 right-3 bottom-2.5">
+                      <p className="text-sm font-semibold truncate">{trip.name}</p>
+                      <p className="text-xs text-white/85">{count} {count === 1 ? 'place' : 'places'}</p>
+                    </div>
+                  </Link>
+                )
+              })}
+              <Link
+                href="/app/calendar"
+                className="shrink-0 snap-start w-28 h-28 rounded-2xl border border-dashed border-gray-300 text-secondary hover:text-charcoal hover:border-gray-400 flex flex-col items-center justify-center gap-1 text-sm font-medium"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New trip
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {/* Filters - status + category chips, visible on every screen size */}
         {items.length > 0 && (
-          <div className="mb-6 md:mb-8 hidden md:block">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-secondary">Category:</span>
+          <div className="mb-6 md:mb-8 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-secondary">
+                Places · {filteredItems.length}
+              </h2>
+              <div className="flex gap-0.5 p-0.5 bg-gray-100 rounded-xl" role="group" aria-label="Status">
+                {([
+                  ['all', 'All'],
+                  ['todo', 'To visit'],
+                  ['visited', 'Visited'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatusFilter(value)}
+                    aria-pressed={statusFilter === value}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-[10px] transition-colors ${
+                      statusFilter === value ? 'bg-white text-charcoal shadow-soft' : 'text-secondary hover:text-charcoal'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap pb-1">
+              <button
+                onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
+                className={`px-3 py-1.5 text-sm font-medium rounded-xl whitespace-nowrap ${
+                  filters.categories.length === 0
+                    ? 'bg-charcoal text-white'
+                    : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                }`}
+              >
+                All
+              </button>
+              {visibleCategories.map((category) => (
                 <button
-                  onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                  className={`px-3 py-1.5 text-sm rounded-xl ${
-                    filters.categories.length === 0
+                  key={category}
+                  onClick={() => toggleFilter(category)}
+                  aria-pressed={filters.categories.includes(category)}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-xl whitespace-nowrap ${
+                    filters.categories.includes(category)
                       ? 'bg-charcoal text-white'
                       : 'bg-gray-100 text-secondary hover:bg-gray-200'
                   }`}
                 >
-                  All
+                  {category} <span className="opacity-70">{categoryCounts[category] || 0}</span>
                 </button>
-                {[...sortedCategories, ...sortedUserCustomCategories].map((category) => (
-                  <button
-                    key={category}
-                    onClick={() => toggleFilter(category)}
-                    className={`px-3 py-1.5 text-sm rounded-xl ${
-                      filters.categories.includes(category)
-                        ? 'bg-charcoal text-white'
-                        : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
+              ))}
               {activeFiltersCount > 0 && (
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-secondary hover:text-charcoal"
+                  className="px-2 text-sm text-secondary hover:text-charcoal whitespace-nowrap"
                 >
-                  Clear all
+                  Clear
                 </button>
               )}
             </div>
@@ -659,89 +788,35 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         )}
       </main>
 
-      {/* Floating Add Button - Mobile only */}
-      <Link
-        href="/app/add"
-        className="fixed bottom-6 right-6 md:hidden z-30 bg-charcoal text-white w-14 h-14 rounded-2xl shadow-soft-md hover:opacity-90 transition-opacity flex items-center justify-center"
-        aria-label="Add place"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      </Link>
-
-      {/* Filter Modal - Mobile only */}
-      {showFilterModal && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
-          onClick={() => setShowFilterModal(false)}
+      {/* Save a place - labelled, centred above the bottom nav (mobile only) */}
+      <div className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] md:hidden z-30 flex justify-center pointer-events-none">
+        <Link
+          href="/app/add"
+          className="pointer-events-auto inline-flex items-center gap-2 h-12 px-5 rounded-full bg-charcoal text-white font-medium shadow-soft-md hover:opacity-90 transition-opacity"
         >
-          <div 
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-soft-md max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white px-4 py-4 flex items-center justify-between shadow-soft">
-              <h2 className="text-lg font-medium text-charcoal">Filter</h2>
-              <button
-                onClick={() => setShowFilterModal(false)}
-                className="text-secondary hover:text-charcoal"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="p-4 space-y-6">
-              <div>
-                <h3 className="text-xs font-medium text-secondary mb-3">Category</h3>
-                <div className="overflow-x-auto pb-2 -mx-2 px-2">
-                  <div className="flex gap-2 min-w-max">
-                    <button
-                      onClick={() => setFilters(prev => ({ ...prev, categories: [] }))}
-                      className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
-                        filters.categories.length === 0
-                          ? 'bg-charcoal text-white'
-                          : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                      }`}
-                    >
-                      All
-                    </button>
-                    {[...sortedCategories, ...sortedUserCustomCategories].map((category) => (
-                      <button
-                        key={category}
-                        onClick={() => toggleFilter(category)}
-                        className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap ${
-                          filters.categories.includes(category)
-                            ? 'bg-charcoal text-white'
-                            : 'bg-gray-100 text-secondary hover:bg-gray-200'
-                        }`}
-                      >
-                        {category}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Save a place
+        </Link>
+      </div>
 
-
-              <div className="pt-4 space-y-2">
-                {activeFiltersCount > 0 && (
-                  <button
-                    onClick={clearFilters}
-                    className="w-full px-4 py-2.5 text-sm font-medium text-secondary hover:text-charcoal rounded-xl hover:bg-gray-50"
-                  >
-                    Clear filters
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowFilterModal(false)}
-                  className="w-full bg-charcoal text-white py-3 rounded-xl font-medium hover:opacity-90 shadow-soft"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
+      {/* Saved toast with Undo */}
+      {savedToastId && (
+        <div
+          className="fixed inset-x-0 bottom-[calc(9rem+env(safe-area-inset-bottom))] md:bottom-8 z-50 flex justify-center px-4 animate-[fadeIn_0.2s_ease-out]"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-4 bg-charcoal text-white rounded-xl shadow-soft-md pl-4 pr-2 py-2">
+            <span className="text-sm">{savedToastLabel}</span>
+            <button
+              type="button"
+              onClick={handleUndoSave}
+              className="px-3 py-1.5 text-sm font-semibold rounded-lg hover:bg-white/10"
+            >
+              Undo
+            </button>
           </div>
         </div>
       )}

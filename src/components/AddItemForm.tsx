@@ -53,6 +53,7 @@ export default function AddItemForm() {
   const [clipboardChecked, setClipboardChecked] = useState(false)
   const [clipboardTextUsed, setClipboardTextUsed] = useState(false)
   const [itineraryId, setItineraryId] = useState<string | null>(null)
+  const [tripOptions, setTripOptions] = useState<{ id: string; name: string }[]>([])
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
   
   // AI suggestions state
@@ -431,6 +432,33 @@ export default function AddItemForm() {
       }
     } finally {
       setClipboardChecked(true)
+    }
+  }
+
+  // Load trips so a place can be added to one with a single tap
+  useEffect(() => {
+    if (isAuthenticated !== true) return
+    supabase
+      .from('itineraries')
+      .select('id, name')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setTripOptions(data || []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
+
+  // Paste a link from the clipboard (runs on tap, so browsers allow the read)
+  const handlePasteLink = async () => {
+    try {
+      const text = (await navigator.clipboard?.readText?.())?.trim() || ''
+      const match = text.match(/https?:\/\/[^\s]+/)
+      if (match) {
+        setError(null)
+        handleUrlChange(match[0])
+      } else {
+        setError('No link found on your clipboard. Copy the link from the post first.')
+      }
+    } catch {
+      setError("Couldn't read your clipboard. Paste the link into the field instead.")
     }
   }
 
@@ -1324,9 +1352,10 @@ export default function AddItemForm() {
         }
       }
 
-      // Success - redirect to home page
+      // Success - back to places; the saved id drives the "Saved … Undo" toast
       setLoading(false)
-      router.push('/app')
+      const savedId = insertData?.[0]?.id
+      router.push(savedId ? `/app?saved=${encodeURIComponent(savedId)}` : '/app')
       router.refresh()
     } catch (err: any) {
       console.error('Error saving item:', err)
@@ -1493,17 +1522,34 @@ export default function AddItemForm() {
 
             <div>
               <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
-                URL <span className="text-red-500">*</span>
+                Link <span className="text-red-500">*</span>
               </label>
-              <input
-                id="url"
-                type="url"
-                value={url}
-                onChange={(e) => handleUrlChange(e.target.value)}
-                required
-                placeholder="https://..."
-                className="w-full px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="url"
+                  type="url"
+                  value={url}
+                  onChange={(e) => handleUrlChange(e.target.value)}
+                  required
+                  placeholder="https://..."
+                  className="flex-1 min-w-0 px-4 py-2 border border-gray-400 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 bg-white"
+                />
+                {!url && (
+                  <button
+                    type="button"
+                    onClick={handlePasteLink}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-charcoal text-white hover:opacity-90 transition-opacity"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Paste
+                  </button>
+                )}
+              </div>
+              {!url && (
+                <p className="mt-1 text-xs text-secondary">Tip: share straight from TikTok or Instagram to Fibi and the link fills in for you.</p>
+              )}
               {fetchingMetadata && (
                 <p className="mt-1 text-sm text-gray-600">Fetching metadata...</p>
               )}
@@ -1613,6 +1659,33 @@ export default function AddItemForm() {
                 </div>
               )}
             </div>
+
+            {/* Trip - one tap */}
+            {tripOptions.length > 0 && (
+              <div>
+                <span className="block text-sm font-medium text-gray-700 mb-2">
+                  Add to a trip <span className="font-normal text-secondary">(optional)</span>
+                </span>
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                  {[{ id: '', name: 'No trip' }, ...tripOptions].map((t) => {
+                    const selected = (itineraryId || '') === t.id
+                    return (
+                      <button
+                        key={t.id || 'none'}
+                        type="button"
+                        onClick={() => setItineraryId(t.id || null)}
+                        aria-pressed={selected}
+                        className={`px-3 py-1.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
+                          selected ? 'bg-charcoal text-white' : 'bg-gray-100 text-secondary hover:bg-gray-200'
+                        }`}
+                      >
+                        {t.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Advanced options - collapsed by default */}
             <div className="border-t border-gray-100 pt-6 mt-6">
@@ -1975,7 +2048,11 @@ export default function AddItemForm() {
                 disabled={loading}
                 className="w-full sm:flex-1 bg-charcoal text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 shadow-soft transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Saving...' : 'Add place'}
+                {loading
+                  ? 'Saving...'
+                  : itineraryId && tripOptions.find((t) => t.id === itineraryId)
+                    ? `Save to ${tripOptions.find((t) => t.id === itineraryId)!.name}`
+                    : 'Save place'}
               </button>
               <Link
                 href="/app"
