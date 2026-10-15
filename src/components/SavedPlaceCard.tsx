@@ -14,6 +14,7 @@ interface SavedPlaceCardProps {
   onToggleLiked: () => void
   onTogglePlanned: () => void
   onAddToTrip: (e: React.MouseEvent) => void
+  layout?: 'vertical' | 'responsive'
 }
 
 function platformDotColor(platform: string | null | undefined): string {
@@ -64,6 +65,7 @@ export default function SavedPlaceCard({
   onToggleLiked,
   onTogglePlanned,
   onAddToTrip,
+  layout = 'vertical',
 }: SavedPlaceCardProps) {
   const displayTitle = item.title || item.place_name || getHostname(item.url)
   const locationLine =
@@ -76,8 +78,8 @@ export default function SavedPlaceCard({
   const isPlanned = item.planned ?? false
 
   return (
-    <article className="group relative flex flex-col overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md">
-      <Link href={`/item/${item.id}`} className="relative block aspect-[4/5] overflow-hidden bg-[color:var(--bg-inset)]">
+    <article className={`group relative overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md ${layout === 'responsive' ? 'flex flex-row items-center gap-4 p-3 md:flex-col md:items-stretch md:gap-0 md:p-0' : 'flex flex-col'}`}>
+      <Link href={`/item/${item.id}`} className={`relative block overflow-hidden bg-[color:var(--bg-inset)] ${layout === 'responsive' ? 'h-24 w-24 shrink-0 rounded-xl md:aspect-[4/5] md:h-auto md:w-full md:rounded-none' : 'aspect-[4/5]'}`}>
         {item.screenshot_url && !failedScreenshot ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

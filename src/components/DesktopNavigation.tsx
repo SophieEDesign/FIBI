@@ -46,20 +46,20 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
             <Link href="/app" className={navClass(isActive('/app') || isActive('/'))}>
               Places
             </Link>
+            <Link href="/app/map" className={navClass(isActive('/app/map'))}>
+              Map
+            </Link>
+            <Link href="/app/calendar" className={navClass(isActive('/app/calendar'))}>
+              Trips
+            </Link>
+            <Link href="/profile" className={navClass(isActive('/profile'))}>
+              You
+            </Link>
             <Link
               href="/app/guides"
               className={navClass(isActive('/app/guides') || isActive('/travel-guides'))}
             >
               Guides
-            </Link>
-            <Button href="/app/add" size="sm" className="mx-2">
-              Save a place
-            </Button>
-            <Link href="/app/calendar" className={navClass(isActive('/app/calendar'))}>
-              Trips
-            </Link>
-            <Link href="/profile" className={navClass(isActive('/profile'))}>
-              Profile
             </Link>
             {isAdmin && (
               <Link href="/app/admin" className={navClass(isActive('/app/admin'))}>
@@ -68,13 +68,10 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
             )}
           </div>
 
-          <div className="flex items-center space-x-4">
-            <a
-              href="mailto:feedback@fibi.app?subject=FIBI%20Feedback"
-              className="text-xs text-secondary hover:text-[color:var(--text-primary)] transition-colors duration-fast hidden lg:inline"
-            >
-              Send feedback
-            </a>
+          <div className="flex items-center gap-3">
+            <Button href="/app/add" size="sm">
+              Save a place
+            </Button>
             <a
               href="/api/auth/signout"
               className="text-secondary hover:text-[color:var(--text-primary)] text-sm font-medium transition-colors duration-fast"

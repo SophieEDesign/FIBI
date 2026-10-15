@@ -23,12 +23,12 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
     }`
 
   const placesActive = isActive('/app') || isActive('/')
-  const guidesActive = isActive('/app/guides') || isActive('/travel-guides')
-  const saveActive = isActive('/app/add')
-  const moreActive =
+  const mapActive = isActive('/app/map')
+  const youActive =
     isActive('/profile') ||
     isActive('/app/calendar') ||
-    isActive('/app/map') ||
+    isActive('/app/guides') ||
+    isActive('/app/add') ||
     Boolean(isAdmin && isActive('/app/admin'))
 
   return (
@@ -56,10 +56,10 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
           </Link>
 
           <Link
-            href="/app/guides"
-            className={itemClass(guidesActive)}
-            aria-label="Guides"
-            aria-current={guidesActive ? 'page' : undefined}
+            href="/app/map"
+            className={itemClass(mapActive)}
+            aria-label="Map"
+            aria-current={mapActive ? 'page' : undefined}
           >
             <svg
               className="w-6 h-6 mb-1"
@@ -70,46 +70,16 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
-            <span className="text-xs font-medium">Guides</span>
-          </Link>
-
-          <Link
-            href="/app/add"
-            className="flex flex-col items-center justify-center -mt-4"
-            aria-label="Save"
-            aria-current={saveActive ? 'page' : undefined}
-          >
-            <span
-              className={`flex h-12 w-12 items-center justify-center rounded-full shadow-soft transition-colors duration-fast ${
-                saveActive ? 'bg-accent-hover text-white' : 'bg-accent text-white'
-              }`}
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path d="M12 4v16m8-8H4" />
-              </svg>
-            </span>
-            <span
-              className={`text-xs font-medium mt-1 ${saveActive ? 'text-accent' : 'text-[color:var(--text-tertiary)]'}`}
-            >
-              Save
-            </span>
+            <span className="text-xs font-medium">Map</span>
           </Link>
 
           <Link
             href="/profile"
-            className={itemClass(moreActive)}
-            aria-label="More"
-            aria-current={moreActive ? 'page' : undefined}
+            className={itemClass(youActive)}
+            aria-label="You"
+            aria-current={youActive ? 'page' : undefined}
           >
             <svg
               className="w-6 h-6 mb-1"
@@ -120,9 +90,9 @@ export default function BottomNavigation({ isAdmin }: BottomNavigationProps) {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path d="M4 6h16M4 12h16M4 18h16" />
+              <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <span className="text-xs font-medium">More</span>
+            <span className="text-xs font-medium">You</span>
           </Link>
         </div>
       </div>
