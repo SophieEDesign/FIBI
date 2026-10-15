@@ -6,7 +6,18 @@ import { SavedItem, Itinerary } from '@/types/database'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import LinkPreview from '@/components/LinkPreview'
+import EmbedPreview from '@/components/EmbedPreview'
 import { getHostname } from '@/lib/utils'
+
+// Parse a saved item's coordinates (PostgreSQL numeric can arrive as string)
+function toLatLng(item: SavedItem): { lat: number; lng: number } | null {
+  if (item.latitude == null || item.longitude == null) return null
+  const lat = Number(item.latitude)
+  const lng = Number(item.longitude)
+  if (!isFinite(lat) || !isFinite(lng)) return null
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null
+  return { lat, lng }
+}
 
 // Google Maps types are defined in src/types/google-maps.d.ts
 // Note: Using 'any' here because the google namespace isn't resolving in the build
@@ -199,12 +210,6 @@ export default function MapView() {
       setShowCreateItineraryModal(false)
       setNewItineraryName('')
     }
-  }
-
-  const handleOpenCalendarModal = () => {
-    if (!selectedItem) return
-    setCalendarModalItineraryId(selectedItem.itinerary_id || null)
-    setShowCalendarModal(true)
   }
 
   const handleSaveCalendar = async () => {
@@ -523,6 +528,44 @@ export default function MapView() {
     }
   }, [items, selectedItineraryId])
 
+  // Places that can be shown on the map, in carousel order
+  const mappableItems = useMemo(() => filteredItems.filter((item) => toLatLng(item) !== null), [filteredItems])
+
+  // Bottom card carousel, kept in sync with the pins
+  const carouselRef = useRef<HTMLDivElement>(null)
+  const carouselScrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const scrollCarouselTo = (id: string) => {
+    const el = carouselRef.current
+    const card = el?.querySelector<HTMLElement>(`[data-item-id="${id}"]`)
+    if (!el || !card) return
+    el.scrollTo({ left: card.offsetLeft - (el.clientWidth - card.clientWidth) / 2, behavior: 'smooth' })
+  }
+
+  const handleCarouselScroll = () => {
+    if (carouselScrollTimer.current) clearTimeout(carouselScrollTimer.current)
+    carouselScrollTimer.current = setTimeout(() => {
+      const el = carouselRef.current
+      if (!el) return
+      const centre = el.scrollLeft + el.clientWidth / 2
+      let bestId: string | null = null
+      let bestDist = Infinity
+      for (const card of Array.from(el.querySelectorAll<HTMLElement>('[data-item-id]'))) {
+        const dist = Math.abs(card.offsetLeft + card.clientWidth / 2 - centre)
+        if (dist < bestDist) {
+          bestDist = dist
+          bestId = card.dataset.itemId || null
+        }
+      }
+      const next = bestId ? mappableItems.find((i) => i.id === bestId) : undefined
+      if (next && next.id !== selectedItem?.id) {
+        setSelectedItem(next)
+        const pos = toLatLng(next)
+        if (pos) mapInstanceRef.current?.panTo(pos)
+      }
+    }, 120)
+  }
+
   // Update markers when items change
   // TODO: Add marker clustering for dense areas (when filtering by itinerary/stage)
   // Future: Use @googlemaps/markerclusterer for better performance with many markers
@@ -619,9 +662,10 @@ export default function MapView() {
         animation: window.google.maps.Animation?.DROP || undefined, // Animation is optional
       })
 
-      // Add click listener - show modal
+      // Pin tap: select the place and slide its card into view
       marker.addListener('click', () => {
         setSelectedItem(item)
+        scrollCarouselTo(item.id)
       })
 
       markersRef.current.push({ item, marker })
@@ -645,6 +689,28 @@ export default function MapView() {
     }
   }, [isGoogleLoaded, filteredItems])
 
+  // Highlight the selected pin
+  useEffect(() => {
+    if (!isGoogleLoaded || !window.google?.maps) return
+    markersRef.current.forEach(({ item, marker }) => {
+      const active = selectedItem?.id === item.id
+      marker.setIcon({
+        path: window.google.maps.SymbolPath?.CIRCLE || 0,
+        scale: active ? 11 : 8,
+        fillColor: active ? '#1f2937' : '#8B5CF6',
+        fillOpacity: active ? 1 : 0.8,
+        strokeColor: '#FFFFFF',
+        strokeWeight: active ? 3 : 2,
+        anchor: new window.google.maps.Point(0, 0),
+      })
+      marker.setZIndex(active ? 999 : undefined)
+    })
+  }, [selectedItem, filteredItems, isGoogleLoaded])
+
+  useEffect(() => () => {
+    if (carouselScrollTimer.current) clearTimeout(carouselScrollTimer.current)
+  }, [])
+
   // Close modal when clicking outside (on backdrop)
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -662,8 +728,8 @@ export default function MapView() {
       {/* Simple header */}
       <div className="bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150 border-b border-[color:var(--border-subtle)] z-40 md:sticky md:top-16">
         {/* Trip filter - Top */}
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+        <div className="px-4 pt-3 pb-2 flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <button
               onClick={() => setSelectedItineraryId(null)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-fast ${
@@ -697,6 +763,15 @@ export default function MapView() {
               New
             </button>
           </div>
+          <Link
+            href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
+            className="hidden md:inline-flex shrink-0 items-center gap-2 h-10 px-4 rounded-full bg-charcoal text-white text-sm font-medium shadow-soft hover:opacity-90 transition-opacity"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Save a place
+          </Link>
         </div>
         
         {/* Header with logo and actions - hidden on desktop since DesktopNavigation provides this */}
@@ -730,102 +805,60 @@ export default function MapView() {
       {/* Map container - always render so ref is available */}
       <div ref={mapRef} className="flex-1 w-full" />
       
-      {/* Modal - shown when pin is clicked */}
-      {selectedItem && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          onClick={(e) => {
-            // Close modal when clicking backdrop
-            if (e.target === e.currentTarget) {
-              setSelectedItem(null)
-            }
-          }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/50" />
-          
-          {/* Modal Content */}
-          <div className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden">
-            <Link 
-              href={`/item/${selectedItem.id}`}
-              className="block"
-            >
-              {/* Screenshot or preview */}
-              {selectedItem.screenshot_url ? (
-                <img
-                  src={selectedItem.screenshot_url}
-                  alt={selectedItem.title || 'Place'}
-                  className="w-full h-48 object-cover"
-                />
-              ) : (
-                <div className="w-full h-48 bg-gray-100 relative overflow-hidden">
-                  <LinkPreview
-                    url={selectedItem.url}
-                    ogImage={selectedItem.thumbnail_url}
-                    screenshotUrl={selectedItem.screenshot_url}
-                    description={selectedItem.description}
-                    platform={selectedItem.platform}
-                  />
-                </div>
-              )}
-              
-              {/* Content */}
-              <div className="p-4">
-                <h3 className="font-semibold text-gray-900 text-base mb-2 line-clamp-2">
-                  {selectedItem.title || 'Untitled place'}
-                </h3>
-                {(selectedItem.location_city || selectedItem.location_country) && (
-                  <p className="text-sm text-gray-600 mb-3">
-                    {[selectedItem.location_city, selectedItem.location_country]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </p>
-                )}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-gray-500">Tap to view details →</p>
+      {/* Card carousel - swipe a card to highlight its pin; tap a pin to bring its card in */}
+      {!loading && mappableItems.length > 0 && (
+        <div className="absolute inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-6 z-40 pointer-events-none">
+          <div
+            ref={carouselRef}
+            onScroll={handleCarouselScroll}
+            className="pointer-events-auto relative flex gap-3 overflow-x-auto snap-x snap-mandatory px-[calc(50%-140px)] md:px-6 pb-2 [scrollbar-width:none]"
+          >
+            {mappableItems.map((item) => {
+              const active = selectedItem?.id === item.id
+              const title = item.title || getHostname(item.url)
+              const where = [item.location_city, item.location_country].filter(Boolean).join(', ')
+              return (
+                <div
+                  key={item.id}
+                  data-item-id={item.id}
+                  className={`shrink-0 snap-center w-[280px] bg-white rounded-2xl shadow-soft-md overflow-hidden flex transition-shadow ${
+                    active ? 'ring-2 ring-charcoal' : ''
+                  }`}
+                >
+                  <Link href={`/item/${item.id}`} className="flex flex-1 min-w-0">
+                    <div className="relative w-24 h-24 shrink-0 bg-gray-100 overflow-hidden">
+                      {item.screenshot_url ? (
+                        <img src={item.screenshot_url} alt={title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <EmbedPreview url={item.url} thumbnailUrl={item.thumbnail_url} platform={item.platform} displayTitle={title} />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 p-3">
+                      <p className="font-medium text-charcoal text-sm line-clamp-2">{title}</p>
+                      {where && <p className="text-xs text-secondary truncate mt-0.5">{where}</p>}
+                      <p className="text-xs text-secondary mt-1">
+                        {item.platform}
+                        {item.visited ? ' · Visited' : ''}
+                      </p>
+                    </div>
+                  </Link>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleOpenCalendarModal()
+                    onClick={() => {
+                      setSelectedItem(item)
+                      setCalendarModalItineraryId(item.itinerary_id || null)
+                      setShowCalendarModal(true)
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shrink-0"
+                    className="self-start m-2 p-2 rounded-xl text-secondary hover:text-charcoal hover:bg-gray-50 transition-colors"
                     aria-label="Add to trip"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    Add to trip
                   </button>
                 </div>
-              </div>
-            </Link>
-            
-            {/* Close button */}
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setSelectedItem(null)
-              }}
-              className="absolute top-4 right-4 p-2 bg-black/70 text-white rounded-full hover:bg-black/90 transition-colors"
-              aria-label="Close"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+              )
+            })}
           </div>
         </div>
       )}

@@ -42,6 +42,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
   const [newItineraryName, setNewItineraryName] = useState('')
   const [creatingItinerary, setCreatingItinerary] = useState(false)
   const [organiseOpen, setOrganiseOpen] = useState(true)
+  const [visited, setVisited] = useState(false)
   const [notesValue, setNotesValue] = useState('')
   
   // Location fields (edit mode only)
@@ -301,6 +302,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
         }
         
         setCategories(parseCategories(data.category))
+        setVisited(!!data.visited)
         setSelectedItineraryId(data.itinerary_id || null)
         setNotesValue(data.notes ?? '')
         setCustomCategory('')
@@ -461,6 +463,13 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
       // Reload to get correct state
       loadItem()
     }
+  }
+
+  const handleToggleVisited = async () => {
+    const newVal = !visited
+    setVisited(newVal)
+    await saveField('visited', newVal)
+    if (item) setItem({ ...item, visited: newVal })
   }
 
   // Save categories array
@@ -897,6 +906,15 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     )
   }
 
+  // Primary actions: back to the post you saved, and directions to the place
+  const hasPlatformName = item.platform && item.platform !== 'Other'
+  const directionsUrl =
+    item.latitude != null && item.longitude != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}${item.place_id ? `&destination_place_id=${encodeURIComponent(item.place_id)}` : ''}`
+      : item.formatted_address || item.place_name
+        ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((item.formatted_address || item.place_name) as string)}`
+        : null
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white md:hidden shadow-soft">
@@ -1037,6 +1055,48 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 {error}
               </div>
             )}
+
+            {/* Primary actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] gap-3 mb-8">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-charcoal text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 shadow-soft transition-opacity"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {hasPlatformName ? `Open on ${item.platform}` : 'Open original post'}
+              </a>
+              {directionsUrl && (
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium text-charcoal bg-white border border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  Directions
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={handleToggleVisited}
+                aria-pressed={visited}
+                className={`inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-colors ${
+                  visited ? 'bg-gray-900/80 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                {visited ? 'Visited' : "I've been here"}
+              </button>
+            </div>
 
             <div className="mb-6">
               {/* Title + Location */}
@@ -1407,20 +1467,8 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
               />
             </div>
 
-            {/* Original link + Delete (subtle) */}
+            {/* Delete (subtle) — original link now lives in the primary actions above */}
             <div className="mt-6 pt-6 border-t border-gray-100 flex flex-wrap items-center gap-3">
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Open original link
-              </a>
-              <span className="text-gray-300">·</span>
               <button
                 onClick={handleDelete}
                 className="text-sm text-red-600 hover:text-red-800"

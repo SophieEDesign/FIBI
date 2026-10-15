@@ -53,7 +53,7 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
               Guides
             </Link>
             <Button href="/app/add" size="sm" className="mx-2">
-              Save
+              Save a place
             </Button>
             <Link href="/app/calendar" className={navClass(isActive('/app/calendar'))}>
               Trips

@@ -54,6 +54,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   const [groupBy, setGroupBy] = useState<GroupByOption>('city')
   const [searchQuery, setSearchQuery] = useState('')
   const [libraryTab, setLibraryTab] = useState<'places' | 'map' | 'boards'>('places')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'todo' | 'visited'>('all')
+  const [showShareTip, setShowShareTip] = useState(false)
   const supabase = createClient()
   const confirmError = searchParams?.get('confirm') === 'error'
   const confirmExpired = searchParams?.get('confirm') === 'expired'
@@ -130,6 +132,16 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
   useEffect(() => {
     setGroupBy(readStoredGroupBy())
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setShowShareTip(localStorage.getItem('fibi-share-tip-dismissed') !== 'true')
+  }, [])
+
+  const dismissShareTip = () => {
+    setShowShareTip(false)
+    if (typeof window !== 'undefined') localStorage.setItem('fibi-share-tip-dismissed', 'true')
+  }
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -274,6 +286,11 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
         return filters.categories.some((cat) => itemCategories.includes(cat))
       })
     }
+    if (statusFilter === 'visited') {
+      list = list.filter((item) => item.visited)
+    } else if (statusFilter === 'todo') {
+      list = list.filter((item) => !item.visited)
+    }
     const q = searchQuery.trim().toLowerCase()
     if (q) {
       list = list.filter((item) => {
@@ -294,7 +311,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       })
     }
     return list
-  }, [items, filters, searchQuery])
+  }, [items, filters, searchQuery, statusFilter])
 
   // Order items: sort by liked/planned when grouping that way
   const orderedItems = useMemo(() => {
@@ -395,6 +412,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
   const clearFilters = () => {
     setFilters({ categories: [] })
+    setStatusFilter('all')
   }
 
   // Toggle liked or planned on an item
@@ -558,6 +576,68 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
+        {showShareTip && !loading && (
+          <div className="mb-6 bg-white border border-[color:var(--border-subtle)] shadow-soft rounded-2xl px-4 py-3 flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-charcoal">Save straight from TikTok or Instagram</p>
+              <p className="text-sm text-secondary mt-0.5">
+                Tap Share on any post, then FIBI.{' '}
+                <Link href="/app/how-to" className="font-medium text-charcoal underline underline-offset-2">
+                  Show me how
+                </Link>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={dismissShareTip}
+              className="p-1.5 -m-1 rounded-lg text-secondary hover:text-charcoal hover:bg-gray-50"
+              aria-label="Dismiss tip"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {!loading && itineraries.length > 0 && libraryTab === 'places' && (
+          <section className="mb-6 md:mb-8" aria-label="Trips">
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-xs font-medium uppercase tracking-wider text-secondary">Trips</h2>
+              <Link href="/app/calendar" className="text-sm text-secondary hover:text-charcoal">
+                See all
+              </Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
+              {itineraries.map((trip) => {
+                const count = items.filter((i) => i.itinerary_id === trip.id).length
+                return (
+                  <Link
+                    key={trip.id}
+                    href={`/app/calendar?itinerary_id=${trip.id}`}
+                    className="relative shrink-0 w-36 h-28 rounded-2xl overflow-hidden bg-charcoal text-white shadow-soft"
+                  >
+                    {trip.cover_image_url && (
+                      <img src={trip.cover_image_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    <div className="absolute left-3 right-3 bottom-2.5">
+                      <p className="text-sm font-semibold truncate">{trip.name}</p>
+                      <p className="text-xs text-white/85">{count} {count === 1 ? 'place' : 'places'}</p>
+                    </div>
+                  </Link>
+                )
+              })}
+              <Link
+                href="/app/calendar"
+                className="shrink-0 w-28 h-28 rounded-2xl border border-dashed border-gray-300 text-secondary hover:text-charcoal flex flex-col items-center justify-center gap-1 text-sm font-medium"
+              >
+                New trip
+              </Link>
+            </div>
+          </section>
+        )}
+
         {/* Library tabs + retention */}
         {items.length > 0 && (
           <div className="mb-6 space-y-4">
@@ -622,7 +702,26 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 aria-label="Search saved places"
               />
             </div>
-            <div className="hidden md:flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex gap-0.5 p-0.5 bg-gray-100 rounded-xl" role="group" aria-label="Status">
+                {([
+                  ['all', 'All'],
+                  ['todo', 'To visit'],
+                  ['visited', 'Visited'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatusFilter(value)}
+                    aria-pressed={statusFilter === value}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-[10px] transition-colors ${
+                      statusFilter === value ? 'bg-white text-charcoal shadow-soft' : 'text-secondary hover:text-charcoal'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-secondary">Category:</span>
                 <button
@@ -687,14 +786,6 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                   Clear all
                 </button>
               )}
-            </div>
-            <div className="md:hidden flex gap-2">
-              <button
-                onClick={() => setShowFilterModal(true)}
-                className="px-3 py-2 text-sm rounded-xl bg-gray-100 text-secondary"
-              >
-                Filters{activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-              </button>
             </div>
           </div>
         )}
@@ -912,12 +1003,14 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
       {/* Floating Add Button - Mobile only */}
       <Link
         href="/app/add"
-        className="fixed bottom-6 right-6 md:hidden z-30 bg-accent text-white w-14 h-14 rounded-full shadow-soft-md hover:bg-accent-hover transition-colors duration-fast flex items-center justify-center"
-        aria-label="Add place"
+        className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 md:bottom-8 flex justify-center pointer-events-none"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
+        <span className="pointer-events-auto inline-flex items-center gap-2 h-12 px-5 rounded-full bg-accent text-white font-medium shadow-soft-md hover:bg-accent-hover transition-colors duration-fast">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Save a place
+        </span>
       </Link>
 
       {/* Filter Modal - Mobile only */}
