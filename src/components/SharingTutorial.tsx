@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
+import { useIsIos } from '@/lib/useIsIos'
 
 const TUTORIAL_SHOWN_KEY = 'fibi-sharing-tutorial-shown'
 
@@ -11,6 +12,7 @@ const TUTORIAL_SHOWN_KEY = 'fibi-sharing-tutorial-shown'
 export default function SharingTutorial() {
   const [showTutorial, setShowTutorial] = useState(false)
   const { isInstalled } = usePWAInstall()
+  const isIos = useIsIos()
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -40,7 +42,7 @@ export default function SharingTutorial() {
       <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between mb-4">
           <h2 className="text-2xl font-bold text-gray-900">
-            Welcome to FIBI
+            Welcome to Fibi
           </h2>
           <button
             onClick={handleDismiss}
@@ -63,7 +65,9 @@ export default function SharingTutorial() {
 
         <div className="space-y-6">
           <p className="text-gray-600">
-            FIBI is on your home screen. Share a place from TikTok or Instagram and it lands here — no copy-paste.
+            {isIos
+              ? 'Fibi is on your home screen. Copy a link from TikTok or Instagram, open Fibi, and paste it.'
+              : 'Fibi is on your home screen. Share a place from TikTok or Instagram and it lands here.'}
           </p>
 
           <div className="space-y-4">
@@ -87,8 +91,10 @@ export default function SharingTutorial() {
                   2
                 </div>
                 <div>
-                  <p className="text-gray-700 font-medium">Tap Share</p>
-                  <p className="text-sm text-gray-500">Use the share icon on the post or video</p>
+                  <p className="text-gray-700 font-medium">{isIos ? 'Copy the link' : 'Tap Share'}</p>
+                  <p className="text-sm text-gray-500">
+                    {isIos ? 'Use Share, then Copy link' : 'Use the share icon on the post or video'}
+                  </p>
                 </div>
               </div>
 
@@ -97,8 +103,12 @@ export default function SharingTutorial() {
                   3
                 </div>
                 <div>
-                  <p className="text-gray-700 font-medium">Select FIBI</p>
-                  <p className="text-sm text-gray-500">It appears in your share sheet with your other apps</p>
+                  <p className="text-gray-700 font-medium">{isIos ? 'Open Fibi and paste' : 'Select Fibi'}</p>
+                  <p className="text-sm text-gray-500">
+                    {isIos
+                      ? 'Tap Save a place and paste the link'
+                      : 'It appears in your share sheet with your other apps'}
+                  </p>
                 </div>
               </div>
 

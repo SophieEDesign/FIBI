@@ -86,7 +86,7 @@ function ProtectedLayoutInner({
   return (
     <>
       <DesktopNavigation user={user} isAdmin={isAdmin} />
-      {!pathname?.startsWith('/app/admin') && <AppMobileHeader isAdmin={isAdmin} />}
+      {!pathname?.startsWith('/app/admin') && <AppMobileHeader />}
       {anonymous && (
         <div className="bg-fibi-blue-light/40 border-b border-fibi-blue-light/60">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -104,7 +104,7 @@ function ProtectedLayoutInner({
       )}
       {children}
       <SiteFooter />
-      {!pathname?.startsWith('/app/admin') && <BottomNavigation isAdmin={isAdmin} />}
+      {!pathname?.startsWith('/app/admin') && <BottomNavigation />}
     </>
   )
 }

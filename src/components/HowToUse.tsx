@@ -1,15 +1,17 @@
 'use client'
 
 import Link from 'next/link'
+import { useIsIos } from '@/lib/useIsIos'
 
 export default function HowToUse() {
+  const isIos = useIsIos()
   return (
     <div className="min-h-screen bg-white pb-20 md:pb-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {/* Header */}
         <div className="mb-8 md:mb-12">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            How to use FIBI
+            How to use Fibi
           </h1>
           <p className="text-lg text-gray-600">
             See it. Save it. Go there.
@@ -69,11 +71,13 @@ export default function HowToUse() {
                   </h3>
                 </div>
                 <p className="text-gray-700 leading-relaxed ml-16 md:ml-0">
-                  Share a link directly to the FIBI app from anywhere (TikTok, Instagram, web). Just click share from the app. FIBI automatically pulls through a visual preview.
+                  {isIos
+                    ? 'On iPhone, copy the link from TikTok or Instagram, open Fibi, and paste it. Fibi pulls through a visual preview.'
+                    : 'On Android, tap Share, then Fibi. The post lands here with a visual preview. On a computer, paste the link.'}
                 </p>
                 <div className="mt-4 ml-16 md:ml-0">
                   <Link
-                    href="/app/add"
+                    href="/add"
                     className="text-blue-600 hover:text-blue-700 font-medium text-sm inline-flex items-center gap-1"
                   >
                     Try adding a place →
@@ -151,16 +155,16 @@ export default function HowToUse() {
               </div>
               <div className="bg-gray-50 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  📅 Planner
+                  📅 Trips
                 </h3>
                 <p className="text-gray-700 text-sm leading-relaxed">
-                  Organize your trips with the calendar view and plan your visits to saved places.
+                  Keep your trips in one place and plan visits to the places you saved.
                 </p>
                 <Link
                   href="/app/calendar"
                   className="text-blue-600 hover:text-blue-700 font-medium text-sm mt-3 inline-block"
                 >
-                  Open Planner →
+                  Open trips →
                 </Link>
               </div>
               <div className="bg-gray-50 rounded-lg p-6">
@@ -206,10 +210,10 @@ export default function HowToUse() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/app/add"
+                href="/add"
                 className="bg-accent text-white px-6 py-3 rounded-full font-medium hover:bg-accent-hover transition-colors duration-fast"
               >
-                Add your first place
+                Save a place
               </Link>
               <Link
                 href="/app"

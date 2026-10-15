@@ -1,20 +1,15 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import InstallOnPhone from '@/components/InstallOnPhone'
 
 interface UserStats {
   totalPlaces: number
   plannedPlaces: number
   uniqueCountries: number
-}
-
-interface UserPreferences {
-  defaultView: 'grid' | 'map' | 'calendar'
-  defaultHomeFilter: 'all' | 'planned' | 'unplanned'
-  units: 'km' | 'miles'
 }
 
 export default function ProfilePage() {
@@ -25,22 +20,15 @@ export default function ProfilePage() {
     plannedPlaces: 0,
     uniqueCountries: 0,
   })
-  const [preferences, setPreferences] = useState<UserPreferences>({
-    defaultView: 'grid',
-    defaultHomeFilter: 'all',
-    units: 'km',
-  })
   const [displayName, setDisplayName] = useState('')
   const [savingName, setSavingName] = useState(false)
   const [email, setEmail] = useState('')
   const [isEditingEmail, setIsEditingEmail] = useState(false)
   const [updatingEmail, setUpdatingEmail] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [showClearConfirm, setShowClearConfirm] = useState(false)
-  const [clearing, setClearing] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const modalRef = useRef<HTMLDivElement>(null)
 
   // Auth redirect is handled by (protected) layout
 
@@ -89,10 +77,11 @@ export default function ProfilePage() {
       // Load profile (display name from profiles.full_name)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, role')
         .eq('id', user.id)
         .maybeSingle()
       setDisplayName(profile?.full_name ?? '')
+      setIsAdmin(profile?.role === 'admin')
 
       setLoading(false)
     } catch (error) {
@@ -108,58 +97,6 @@ export default function ProfilePage() {
       loadProfileData()
     }
   }, [user, loadProfileData])
-
-  const handleClearTestData = async () => {
-    if (!user) return
-
-    setClearing(true)
-    setErrorMessage(null)
-    setSuccessMessage(null)
-    
-    try {
-      // Delete all items for this user
-      const { error } = await supabase
-        .from('saved_items')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (error) {
-        console.error('Error clearing test data:', error)
-        setErrorMessage('Failed to clear test data. Please try again.')
-      } else {
-        // Reload stats
-        await loadProfileData()
-        setShowClearConfirm(false)
-        setSuccessMessage('All saved places have been deleted.')
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(null), 5000)
-      }
-    } catch (error) {
-      console.error('Error clearing test data:', error)
-      setErrorMessage('Failed to clear test data. Please try again.')
-    } finally {
-      setClearing(false)
-    }
-  }
-
-  // Handle escape key to close modal
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showClearConfirm) {
-        setShowClearConfirm(false)
-      }
-    }
-
-    if (showClearConfirm) {
-      document.addEventListener('keydown', handleEscape)
-      // Focus the modal when it opens
-      modalRef.current?.focus()
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscape)
-    }
-  }, [showClearConfirm])
 
   const handleUpdateEmail = async () => {
     if (!user || !email.trim()) {
@@ -255,26 +192,6 @@ export default function ProfilePage() {
         <header className="mb-6">
           <h1 className="text-xl md:text-2xl font-bold text-gray-900">Profile</h1>
           <p className="text-xs md:text-sm text-gray-500 mt-0.5">Your personal travel space</p>
-          <nav className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/app/calendar"
-              className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50"
-            >
-              Trips
-            </Link>
-            <Link
-              href="/app/map"
-              className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50"
-            >
-              Map
-            </Link>
-            <Link
-              href="/app/how-to"
-              className="text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50"
-            >
-              How to use FIBI
-            </Link>
-          </nav>
         </header>
 
         {/* Error Message */}
@@ -420,174 +337,49 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        {/* Preferences Section */}
+        {/* More */}
         <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">
-          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Preferences</h2>
-          
-          <div className="space-y-4 md:space-y-6">
-            {/* Default View */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default View
-              </label>
-              <div className="flex gap-2">
-                {(['grid', 'map', 'calendar'] as const).map((view) => (
-                  <button
-                    key={view}
-                    onClick={() => setPreferences({ ...preferences, defaultView: view })}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      preferences.defaultView === view
-                        ? 'bg-accent text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    aria-label={`Set default view to ${view}`}
-                    aria-pressed={preferences.defaultView === view}
-                  >
-                    {view.charAt(0).toUpperCase() + view.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Default Home Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Home Filter
-              </label>
-              <div className="flex gap-2">
-                {(['all', 'planned', 'unplanned'] as const).map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setPreferences({ ...preferences, defaultHomeFilter: filter })}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      preferences.defaultHomeFilter === filter
-                        ? 'bg-accent text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    aria-label={`Set default home filter to ${filter}`}
-                    aria-pressed={preferences.defaultHomeFilter === filter}
-                  >
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Units */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Distance Units
-              </label>
-              <div className="flex gap-2">
-                {(['km', 'miles'] as const).map((unit) => (
-                  <button
-                    key={unit}
-                    onClick={() => setPreferences({ ...preferences, units: unit })}
-                    className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      preferences.units === unit
-                        ? 'bg-accent text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    aria-label={`Set distance units to ${unit === 'km' ? 'kilometers' : 'miles'}`}
-                    aria-pressed={preferences.units === unit}
-                  >
-                    {unit === 'km' ? 'Kilometers' : 'Miles'}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Actions Section */}
-        <section className="bg-white rounded-xl p-4 md:p-6 mb-4 shadow-sm">
-          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">Actions</h2>
-          
+          <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-3">More</h2>
           <div className="space-y-2 md:space-y-3">
-            {/* Export */}
-            <button
-              onClick={() => {
-                // Stub for now
-                setSuccessMessage('Export feature coming soon!')
-                setTimeout(() => setSuccessMessage(null), 3000)
-              }}
-              className="w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-              aria-label="Export saved places"
+            <Link
+              href="/app/how-to"
+              className="block w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
             >
-              <div className="font-medium text-gray-900">Export Saved Places</div>
-              <div className="text-xs text-gray-500 mt-0.5">Download your data (coming soon)</div>
-            </button>
-
-            {/* Clear Test Data */}
-            <button
-              onClick={() => setShowClearConfirm(true)}
-              className="w-full text-left px-4 py-3 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors"
-              aria-label="Clear all test data"
+              <div className="font-medium text-gray-900">How to save from TikTok and Instagram</div>
+              <div className="text-xs text-gray-500 mt-0.5">Share on Android. Copy and paste on iPhone.</div>
+            </Link>
+            <InstallOnPhone />
+            <a
+              href="mailto:hello@fibi.world"
+              className="block w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
             >
-              <div className="font-medium">Clear Test Data</div>
-              <div className="text-xs text-red-500 mt-0.5">Delete all your saved places</div>
-            </button>
-
-            {/* Log Out */}
+              <div className="font-medium text-gray-900">Send feedback</div>
+              <div className="text-xs text-gray-500 mt-0.5">Tell us what would help</div>
+            </a>
+            <Link
+              href="/app/guides"
+              className="block w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+            >
+              <div className="font-medium text-gray-900">Travel guides</div>
+              <div className="text-xs text-gray-500 mt-0.5">Places worth keeping</div>
+            </Link>
+            {isAdmin && (
+              <Link
+                href="/app/admin"
+                className="block w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                <div className="font-medium text-gray-900">Admin</div>
+              </Link>
+            )}
             <a
               href="/api/auth/signout"
               className="block w-full text-left px-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
-              aria-label="Log out of your account"
             >
-              <div className="font-medium text-gray-900">Log Out</div>
-              <div className="text-xs text-gray-500 mt-0.5">Sign out of your account</div>
+              <div className="font-medium text-gray-900">Sign out</div>
             </a>
           </div>
         </section>
       </div>
-
-      {/* Clear Test Data Confirmation Modal */}
-      {showClearConfirm && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
-            // Close modal when clicking backdrop
-            if (e.target === e.currentTarget) {
-              setShowClearConfirm(false)
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="clear-data-title"
-        >
-          <div 
-            ref={modalRef}
-            className="bg-white rounded-2xl p-6 max-w-sm w-full"
-            tabIndex={-1}
-          >
-            <h3 id="clear-data-title" className="text-lg font-bold text-gray-900 mb-2">
-              Clear Test Data?
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              This will permanently delete all your saved places. This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                disabled={clearing}
-                aria-label="Cancel clearing test data"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleClearTestData}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
-                disabled={clearing}
-                aria-label="Confirm and clear all test data"
-              >
-                {clearing ? 'Clearing...' : 'Clear All'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   )
 }

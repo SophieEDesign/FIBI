@@ -10,7 +10,7 @@ interface DesktopNavigationProps {
   onSignOut?: () => void
 }
 
-export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationProps) {
+export default function DesktopNavigation({ user }: DesktopNavigationProps) {
   const pathname = usePathname()
 
   const isActive = (path: string) => {
@@ -53,23 +53,12 @@ export default function DesktopNavigation({ user, isAdmin }: DesktopNavigationPr
               Trips
             </Link>
             <Link href="/profile" className={navClass(isActive('/profile'))}>
-              You
+              Profile
             </Link>
-            <Link
-              href="/app/guides"
-              className={navClass(isActive('/app/guides') || isActive('/travel-guides'))}
-            >
-              Guides
-            </Link>
-            {isAdmin && (
-              <Link href="/app/admin" className={navClass(isActive('/app/admin'))}>
-                Admin
-              </Link>
-            )}
           </div>
 
           <div className="flex items-center gap-3">
-            <Button href="/app/add" size="sm">
+            <Button href="/add" size="sm">
               Save a place
             </Button>
             <a

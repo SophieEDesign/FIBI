@@ -216,7 +216,13 @@ export async function requestPersistThumbnail(
     })
     if (!response.ok) return null
     const data = await response.json()
-    return typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null
+    // A 200 with persisted:false means the CDN URL was kept. Callers must
+    // treat that as failure so they can fetch a fresh preview.
+    if (data.persisted === false) return null
+    const next = typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null
+    if (!next) return null
+    if (data.persisted || data.already_hosted || isHostedThumbnailUrl(next)) return next
+    return null
   } catch {
     return null
   }

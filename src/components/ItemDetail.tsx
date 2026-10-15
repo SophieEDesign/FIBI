@@ -867,6 +867,14 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
     handleSaveLocationRef.current = handleSaveLocation
   }, [handleSaveLocation])
 
+  const goBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+      return
+    }
+    router.push('/app')
+  }
+
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this item?')) return
 
@@ -923,12 +931,13 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
             <Link href="/app" className="text-2xl font-bold text-[#1f2937]">
               FIBI
             </Link>
-            <Link
-              href="/app"
+            <button
+              type="button"
+              onClick={goBack}
               className="text-[#6b7280] hover:text-[#1f2937] text-sm font-medium"
             >
               ← Back
-            </Link>
+            </button>
           </div>
         </div>
       </header>

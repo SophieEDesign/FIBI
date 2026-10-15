@@ -11,6 +11,8 @@ interface EmbedPreviewProps {
   /** Post caption / description – shown in a box below the image when provided */
   description?: string | null
   onImageLoad?: () => void
+  /** Called with the remote image URL once it actually loads, so callers can rehost it. */
+  onImageResolved?: (imageUrl: string) => void
 }
 
 interface OEmbedData {
@@ -29,24 +31,26 @@ export default function EmbedPreview({
   platform, 
   displayTitle,
   description,
-  onImageLoad 
+  onImageLoad,
+  onImageResolved,
 }: EmbedPreviewProps) {
   const [oembedThumbnail, setOembedThumbnail] = useState<string | null>(null)
   const [fetchedOgImage, setFetchedOgImage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [imageError, setImageError] = useState(false)
+  const [failedUrls, setFailedUrls] = useState<string[]>([])
 
   const isTikTok = platform === 'TikTok'
   const isInstagram = platform === 'Instagram'
   const isYouTube = platform === 'YouTube'
   const isFacebook = platform === 'Facebook'
 
-  // Fetch metadata to get OG image when no thumbnail was saved (or to supplement)
-  // This ensures we get preview images on itinerary/shared views when thumbnail_url is null
+  const thumbnailFailed = Boolean(thumbnailUrl && failedUrls.includes(thumbnailUrl))
+
+  // Fetch metadata when nothing was saved, or the saved CDN image has expired
   useEffect(() => {
     if (!url.trim()) return
-    
-    if (thumbnailUrl) return
+
+    if (thumbnailUrl && !thumbnailFailed) return
     
     const fetchMetadata = async () => {
       try {
@@ -69,7 +73,7 @@ export default function EmbedPreview({
     
     const timeoutId = setTimeout(fetchMetadata, 300)
     return () => clearTimeout(timeoutId)
-  }, [url, thumbnailUrl])
+  }, [url, thumbnailUrl, thumbnailFailed])
 
   // Fetch oEmbed thumbnail for supported platforms (including Facebook – uses generic metadata fallback)
   useEffect(() => {
@@ -140,17 +144,19 @@ export default function EmbedPreview({
     }
   }
 
-  // Determine which image to show (priority: oEmbed thumbnail > saved thumbnailUrl > fetched OG image)
-  // Use fetched OG image if thumbnailUrl prop not provided - makes previews work even when thumbnail_url wasn't saved
-  const effectiveThumbnailUrl = thumbnailUrl || fetchedOgImage
-  const rawImageUrl = oembedThumbnail || effectiveThumbnailUrl
+  // Priority: fresh oEmbed > saved thumbnail > freshly scraped image.
+  // Skip URLs that already failed to load (expired CDN signatures).
+  const rawImageUrl =
+    [oembedThumbnail, thumbnailUrl, fetchedOgImage].find(
+      (candidate) => Boolean(candidate) && !failedUrls.includes(candidate as string)
+    ) || null
 
   // Use proxied URL for Facebook/Instagram images to avoid 403 errors
   const imageUrl = rawImageUrl ? getProxiedImageUrl(rawImageUrl) : null
 
   // Show built-in placeholder when: no image URL, or image failed to load (e.g. expired CDN)
   // This ensures we always show something - fixes "disappeared" previews in grids that don't provide a placeholder sibling
-  const showPlaceholder = !rawImageUrl || !imageUrl || imageError
+  const showPlaceholder = !rawImageUrl || !imageUrl
 
   const placeholderContent = (
     <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-100">
@@ -177,8 +183,8 @@ export default function EmbedPreview({
             loading="lazy"
             referrerPolicy="no-referrer"
             onLoad={() => {
-              setImageError(false)
               onImageLoad?.()
+              if (rawImageUrl) onImageResolved?.(rawImageUrl)
             }}
             onError={(e) => {
               const target = e.target as HTMLImageElement
@@ -187,7 +193,9 @@ export default function EmbedPreview({
                 target.src = rawImageUrl
                 return
               }
-              setImageError(true)
+              if (rawImageUrl) {
+                setFailedUrls((prev) => (prev.includes(rawImageUrl) ? prev : [...prev, rawImageUrl]))
+              }
             }}
           />
         )}

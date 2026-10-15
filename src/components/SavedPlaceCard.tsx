@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import type { SavedItem } from '@/types/database'
 import { getHostname } from '@/lib/utils'
 import { getProxiedImageUrl } from '@/lib/image-proxy'
+import { requestPersistThumbnail } from '@/lib/persist-thumbnail'
 import EmbedPreview from '@/components/EmbedPreview'
 
 interface SavedPlaceCardProps {
@@ -76,6 +78,13 @@ export default function SavedPlaceCard({
   const status = statusMeta(item)
   const isLiked = item.liked ?? false
   const isPlanned = item.planned ?? false
+  const [thumbFailed, setThumbFailed] = useState(false)
+
+  // Signed social CDN links expire. A stored one that still needs the proxy
+  // is usually already dead, so pull a fresh preview instead of showing a broken image.
+  const thumbnailIsExpiredCdn = Boolean(
+    item.thumbnail_url && getProxiedImageUrl(item.thumbnail_url)?.startsWith('/api/image-proxy')
+  )
 
   return (
     <article className={`group relative overflow-hidden rounded-[22px] border border-[color:var(--border-subtle)] bg-white shadow-soft transition-[box-shadow,transform] duration-base ease-out hover:-translate-y-0.5 hover:shadow-soft-md ${layout === 'responsive' ? 'flex flex-row items-center gap-4 p-3 md:flex-col md:items-stretch md:gap-0 md:p-0' : 'flex flex-col'}`}>
@@ -89,21 +98,25 @@ export default function SavedPlaceCard({
             loading="lazy"
             onError={onScreenshotError}
           />
-        ) : item.thumbnail_url ? (
+        ) : item.thumbnail_url && !thumbnailIsExpiredCdn && !thumbFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={getProxiedImageUrl(item.thumbnail_url) || item.thumbnail_url}
             alt=""
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-slow ease-out group-hover:scale-[1.03]"
             loading="lazy"
+            onError={() => setThumbFailed(true)}
           />
         ) : (
           <div className="absolute inset-0 bg-fibi-brand-soft">
             <EmbedPreview
               url={item.url}
-              thumbnailUrl={item.thumbnail_url}
+              thumbnailUrl={null}
               platform={item.platform}
               displayTitle={displayTitle}
+              onImageResolved={(imageUrl) => {
+                void requestPersistThumbnail(item.id, imageUrl)
+              }}
             />
           </div>
         )}

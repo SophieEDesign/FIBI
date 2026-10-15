@@ -12,6 +12,7 @@ import SavedPlaceCard from '@/components/SavedPlaceCard'
 import TripBoardCard from '@/components/TripBoardCard'
 import { Button } from '@/components/ui/Button'
 import { pickFeaturedTrip } from '@/lib/trip-board-meta'
+import { useIsIos } from '@/lib/useIsIos'
 
 const LIBRARY_GROUP_BY_KEY = 'fibi-library-group-by'
 
@@ -32,6 +33,7 @@ interface HomeGridProps {
 }
 
 export default function HomeGrid({ user, confirmed }: HomeGridProps) {
+  const isIos = useIsIos()
   const [items, setItems] = useState<SavedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ categories: [] as string[] })
@@ -585,7 +587,9 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-charcoal">Tip: save straight from TikTok or Instagram</p>
               <p className="mt-0.5 text-sm text-secondary">
-                On your phone, tap Share on any post, then FIBI. On a computer, paste a link with Save a place.{' '}
+                {isIos
+                  ? 'On iPhone, copy the link, open Fibi, and paste it with Save a place. On a computer, paste a link the same way. '
+                  : 'On your phone, tap Share on any post, then Fibi. On a computer, paste a link with Save a place. '}
                 <Link href="/app/how-to" className="font-medium text-sky-700 underline underline-offset-2">
                   Show me how
                 </Link>
@@ -633,7 +637,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 )
               })}
               <Link
-                href="/app/calendar"
+                href="/app/calendar?new=1"
                 className="flex h-[156px] w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-[color:var(--border-default,theme(colors.gray.300))] text-sm font-medium text-secondary hover:text-charcoal md:h-[120px] md:w-auto"
               >
                 New trip
@@ -817,7 +821,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <p className="text-base md:text-lg text-secondary mb-8 leading-relaxed max-w-md mx-auto">
                   Paste a link and it turns into a place — named, pinned, filed under the city.
                 </p>
-                <Button href="/app/add" size="lg" className="mb-4">
+                <Button href="/add" size="lg" className="mb-4">
                   Save one
                 </Button>
                 <Link
@@ -911,7 +915,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
 
       {/* Floating Add Button - Mobile only */}
       <Link
-        href="/app/add"
+        href="/add"
         className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 flex justify-center pointer-events-none md:hidden"
       >
         <span className="pointer-events-auto inline-flex items-center gap-2 h-12 px-5 rounded-full bg-accent text-white font-medium shadow-soft-md hover:bg-accent-hover transition-colors duration-fast">
@@ -1152,7 +1156,7 @@ function AddToTripModal({
         {/* Header */}
         <div className="p-5 border-b border-gray-200 flex items-center justify-between">
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">Add to Trip</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Add to trip</h2>
           </div>
           <button
             onClick={onClose}
@@ -1317,7 +1321,7 @@ function AddToTripModal({
           <p className="text-center text-xs text-gray-500">
             Manage trips in the{' '}
             <Link href="/app/calendar" className="font-medium text-gray-700 hover:text-gray-900">
-              Planner
+              Trips
             </Link>
             .
           </p>

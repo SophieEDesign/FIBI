@@ -109,6 +109,15 @@ export default function CalendarView({
   const supabase = createClient()
   const searchParams = useSearchParams()
 
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    setShowCreateItineraryModal(true)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('new')
+    const next = url.pathname + (url.search ? url.search : '')
+    window.history.replaceState(null, '', next)
+  }, [searchParams])
+
   // Prefer local selection so opening/closing a trip does not soft-navigate the
   // force-dynamic calendar page (that remount caused flicker / snap-back).
   // Trust window.location over Next searchParams — replaceState updates the former only.
@@ -2685,7 +2694,7 @@ title: 'Shared trip',
               Start with something you love.
             </p>
             <Link
-              href="/app/add"
+              href="/add"
               className="inline-block bg-accent text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors"
             >
               Add your first place

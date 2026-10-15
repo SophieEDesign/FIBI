@@ -8,6 +8,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { usePWAInstall } from '@/hooks/usePWAInstall'
+import { useIsIos } from '@/lib/useIsIos'
 import SiteFooter from '@/components/SiteFooter'
 import GuideCardLink from '@/components/guides/GuideCardLink'
 import { Button } from '@/components/ui/Button'
@@ -80,6 +81,7 @@ export default function LandingPage({
   teaserGuides?: GuideCard[]
 }) {
   const { isInstallable, promptInstall } = usePWAInstall()
+  const isIos = useIsIos()
   const [showShareTip, setShowShareTip] = useState(false)
 
   const handleInstallClick = async (e: React.MouseEvent) => {
@@ -137,7 +139,7 @@ export default function LandingPage({
                   See it. Save it. Go there.
                 </h1>
                 <p className="text-base sm:text-lg text-fibi-muted leading-relaxed max-w-md mx-auto lg:mx-0">
-                  The restaurant you saw on TikTok, findable in September. Share a post to FIBI and
+                  The restaurant you saw on TikTok, findable in September. Save a post to Fibi and
                   it becomes a place — named, pinned, filed under the city.
                 </p>
                 <HeroPasteSave />
@@ -194,8 +196,10 @@ export default function LandingPage({
             <ol className="space-y-8">
               {[
                 {
-                  title: 'Share the post',
-                  body: 'Hit share in TikTok, Instagram or anywhere else and pick FIBI. You stay where you were.',
+                  title: isIos ? 'Copy the link' : 'Share the post',
+                  body: isIos
+                    ? 'On iPhone, copy the link, open Fibi, and paste it. You can do that from TikTok, Instagram, or anywhere else.'
+                    : 'Tap Share in TikTok, Instagram or anywhere else and pick Fibi. You stay where you were.',
                 },
                 {
                   title: 'We work out the place',
@@ -230,8 +234,9 @@ export default function LandingPage({
               {showShareTip && (
                 <div className="mt-4 max-w-md mx-auto text-left text-sm text-fibi-muted leading-relaxed bg-fibi-bg-light border border-gray-100 rounded-xl p-4 space-y-2">
                   <p>
-                    Install FIBI to your home screen. Next time you find a place, tap Share and
-                    choose FIBI.
+                    {isIos
+                      ? 'On iPhone, copy the link, open Fibi, and paste it.'
+                      : 'Install Fibi on your home screen. Next time you find a place, tap Share and choose Fibi.'}
                   </p>
                   <p>Or paste a URL above. Same result, either way.</p>
                   <button
@@ -270,8 +275,9 @@ export default function LandingPage({
               Start with one place. Bring the other 199 later.
             </h2>
             <p className="text-fibi-muted">
-              Paste a link and see it turn into a place. Add FIBI to your home screen so it shows up
-              in the share sheet.
+              {isIos
+                ? 'Paste a link and see it turn into a place. On iPhone, copy the link, open Fibi, and paste it.'
+                : 'Paste a link and see it turn into a place. Add Fibi to your home screen so it shows up in the share sheet.'}
             </p>
             <Button href="/add" size="lg" variant="gradient">
               Save a place

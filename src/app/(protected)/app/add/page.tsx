@@ -1,24 +1,18 @@
-import type { Metadata } from 'next'
-import { Suspense } from 'react'
-import QuickSaveForm from '@/components/QuickSaveForm'
+import { redirect } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Save a place',
-  robots: { index: false, follow: false },
-}
-
-export default function AppAddPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center text-fibi-muted">
-          Loading…
-        </div>
-      }
-    >
-      <QuickSaveForm />
-    </Suspense>
-  )
+export default async function AppAddPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string') query.set(key, value)
+    else if (Array.isArray(value)) value.forEach((entry) => query.append(key, entry))
+  }
+  const qs = query.toString()
+  redirect(qs ? `/add?${qs}` : '/add')
 }

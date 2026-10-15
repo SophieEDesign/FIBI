@@ -24,6 +24,7 @@ export default function PlaceDetailDrawer({
   readOnly = false,
 }: PlaceDetailDrawerProps) {
   const [notesValue, setNotesValue] = useState(item.notes ?? '')
+  const [visited, setVisited] = useState(Boolean(item.visited))
   const [savingNotes, setSavingNotes] = useState(false)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
@@ -39,7 +40,8 @@ export default function PlaceDetailDrawer({
 
   useEffect(() => {
     setNotesValue(item.notes ?? '')
-  }, [item.id, item.notes])
+    setVisited(Boolean(item.visited))
+  }, [item.id, item.notes, item.visited])
 
   const saveNotes = async (value: string) => {
     if (!canEdit) return
@@ -72,6 +74,31 @@ export default function PlaceDetailDrawer({
     }
     if (canEdit) saveNotes(notesValue)
   }
+
+  const handleToggleVisited = async () => {
+    if (!canEdit) return
+    const next = !visited
+    setVisited(next)
+    try {
+      const { error } = await supabase
+        .from('saved_items')
+        .update({ visited: next })
+        .eq('id', item.id)
+      if (error) throw error
+      onItemUpdate?.({ ...item, visited: next })
+    } catch (err) {
+      console.error('Error saving visited:', err)
+      setVisited(!next)
+    }
+  }
+
+  const hasPlatformName = item.platform && item.platform !== 'Other'
+  const directionsUrl =
+    item.latitude != null && item.longitude != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}${item.place_id ? `&destination_place_id=${encodeURIComponent(item.place_id)}` : ''}`
+      : item.formatted_address || item.place_name
+        ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((item.formatted_address || item.place_name) as string)}`
+        : null
 
   useEffect(() => {
     return () => {
@@ -169,24 +196,48 @@ export default function PlaceDetailDrawer({
             </div>
           </div>
         </div>
-        <div className="border-t border-gray-200 p-5 bg-gray-50 flex gap-3">
+        <div className="border-t border-gray-200 p-5 bg-gray-50 space-y-3">
+          <div className="flex flex-col gap-2">
+            {item.url && (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-charcoal text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 text-center"
+              >
+                {hasPlatformName ? `Open on ${item.platform}` : 'Open original post'}
+              </a>
+            )}
+            {directionsUrl && (
+              <a
+                href={directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-3 px-4 rounded-xl font-medium text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 text-center"
+              >
+                Directions
+              </a>
+            )}
+            {canEdit && (
+              <button
+                type="button"
+                onClick={handleToggleVisited}
+                aria-pressed={visited}
+                className={`py-3 px-4 rounded-xl font-medium ${
+                  visited ? 'bg-gray-900/80 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {visited ? 'Visited' : "I've been here"}
+              </button>
+            )}
+          </div>
           <Link
             href={`/item/${item.id}`}
-            className="flex-1 bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover transition-colors text-center"
+            className="block text-center text-sm font-medium text-gray-700 hover:text-gray-900"
             onClick={onClose}
           >
-            View Full Details
+            View full details
           </Link>
-          {item.url && (
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-white transition-colors whitespace-nowrap"
-            >
-              Open Link
-            </a>
-          )}
         </div>
       </div>
     </>

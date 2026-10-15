@@ -243,7 +243,7 @@ export default function TravelGuideView({
                 >
                   Travel Guides
                 </Link>
-                <Button href="/app/add" variant="soft" size="sm">
+                <Button href="/add" variant="soft" size="sm">
                   Save a place
                 </Button>
               </>

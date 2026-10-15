@@ -1,5 +1,6 @@
 'use client'
 
+import { notFound } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import LinkPreview from '@/components/LinkPreview'
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic'
  */
 export default function OEmbedTestPage() {
   const searchParams = useSearchParams()
+  if (process.env.NODE_ENV !== 'development') {
+    notFound()
+  }
 
   // Example URLs for testing (TikTok is real and works without Meta approval)
   const exampleUrls = [
