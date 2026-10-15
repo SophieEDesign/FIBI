@@ -100,6 +100,26 @@ export function isTikTokCanonicalVideoUrl(url: string): boolean {
   return !!extractTikTokVideoId(url) && isTikTokUrl(url) && !isTikTokShortLink(url)
 }
 
+/**
+ * Pull a video or photo id out of a redirect, share URL, or TikTok HTML shell.
+ * Short links often hide the id in the Location header or in the small HTML body.
+ */
+export function extractTikTokIdFromText(text: string | null | undefined): string | null {
+  if (!text) return null
+  const decoded = text
+    .replace(/&amp;/g, '&')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u002F/gi, '/')
+    .replace(/\\u003D/gi, '=')
+    .replace(/\\\//g, '/')
+
+  const path = decoded.match(/\/(?:video|photo)\/(\d{8,})/)
+  if (path?.[1]) return path[1]
+  const share = decoded.match(/share_item_id=(\d{8,})/)
+  if (share?.[1]) return share[1]
+  return null
+}
+
 export function isTikTokShortLink(url: string): boolean {
   try {
     const parsed = new URL(url)
@@ -120,9 +140,74 @@ export function buildTikTokOEmbedSourceUrl(
   return `https://www.tiktok.com/@/${kind}/${videoId}`
 }
 
+const TIKTOK_FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+}
+
+async function readTikTokIdFromResponse(
+  response: Response,
+  baseUrl: string
+): Promise<string | null> {
+  const location = response.headers.get('location')
+  if (location) {
+    const fromHeader =
+      extractTikTokIdFromText(location) ||
+      extractTikTokVideoId(new URL(location, baseUrl).toString())
+    if (fromHeader) {
+      try {
+        await response.body?.cancel()
+      } catch {
+        // ignore
+      }
+      return fromHeader
+    }
+  }
+
+  if (response.url) {
+    const fromFinal = extractTikTokVideoId(response.url)
+    if (fromFinal) {
+      try {
+        await response.body?.cancel()
+      } catch {
+        // ignore
+      }
+      return fromFinal
+    }
+  }
+
+  // Short-link responses are a tiny HTML redirect. The video page shell also
+  // embeds the id even when og:image is missing. Read both.
+  const text = await response.text()
+  return extractTikTokIdFromText(text.slice(0, 500_000))
+}
+
+async function probeTikTokUrl(
+  url: string,
+  redirect: 'manual' | 'follow'
+): Promise<string | null> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      redirect,
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: TIKTOK_FETCH_HEADERS,
+    })
+    return await readTikTokIdFromResponse(response, url)
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 /**
- * Follow short-link redirects without downloading page bodies.
- * Returns an oEmbed-friendly `/@/video/{id}` URL when possible.
+ * Follow short-link redirects to an oEmbed-friendly `/@/video/{id}` URL.
+ * Reads the response body because some hosts hide the Location header.
  */
 export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
   const existingId = extractTikTokVideoId(url)
@@ -130,84 +215,13 @@ export async function resolveTikTokCanonicalUrl(url: string): Promise<string> {
     return buildTikTokOEmbedSourceUrl(existingId)
   }
 
-  let current = url
-  const seen = new Set<string>()
+  const manualId = await probeTikTokUrl(url, 'manual')
+  if (manualId) return buildTikTokOEmbedSourceUrl(manualId)
 
-  for (let i = 0; i < 8; i++) {
-    if (seen.has(current)) break
-    seen.add(current)
+  const followedId = await probeTikTokUrl(url, 'follow')
+  if (followedId) return buildTikTokOEmbedSourceUrl(followedId)
 
-    const id = extractTikTokVideoId(current)
-    if (id) return buildTikTokOEmbedSourceUrl(id)
-
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 6000)
-      const response = await fetch(current, {
-        method: 'GET',
-        redirect: 'manual',
-        signal: controller.signal,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      })
-      clearTimeout(timeoutId)
-
-      try {
-        await response.body?.cancel()
-      } catch {
-        // ignore
-      }
-
-      if (response.status >= 300 && response.status < 400) {
-        const location = response.headers.get('location')
-        if (!location) break
-        current = new URL(location, current).toString()
-        continue
-      }
-
-      if (response.url && response.url !== current) {
-        current = response.url
-        continue
-      }
-      break
-    } catch {
-      break
-    }
-  }
-
-  // Automatic follow — needed when manual Location headers are missing (some serverless hosts)
-  if (!extractTikTokVideoId(current)) {
-    try {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 8000)
-      const response = await fetch(url, {
-        method: 'GET',
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-      })
-      clearTimeout(timeoutId)
-      try {
-        await response.body?.cancel()
-      } catch {
-        // ignore
-      }
-      if (response.url) current = response.url
-    } catch {
-      // ignore
-    }
-  }
-
-  const finalId = extractTikTokVideoId(current)
-  if (finalId) return buildTikTokOEmbedSourceUrl(finalId)
-  return current
+  return url
 }
 
 /**

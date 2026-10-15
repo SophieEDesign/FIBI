@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildTikTokOEmbedSourceUrl,
+  extractTikTokIdFromText,
   extractTikTokVideoId,
   isTikTokShellTitle,
   isTikTokShortLink,
@@ -42,6 +43,17 @@ describe('tiktok-oembed helpers', () => {
     expect(buildTikTokOEmbedSourceUrl('7612124153478499604')).toBe(
       'https://www.tiktok.com/@/video/7612124153478499604'
     )
+  })
+
+  it('reads a video id from a short-link HTML body', () => {
+    const html =
+      '<a href="https://www.tiktok.com/@/video/7611450861855788306?share_item_id=7611450861855788306&amp;utm_source=short_fallback">Found</a>.'
+    expect(extractTikTokIdFromText(html)).toBe('7611450861855788306')
+  })
+
+  it('reads a video id from a unicode-escaped shell page', () => {
+    const html = 'https://www.tiktok.com\\u002F@\\u002Fvideo\\u002F7611450861855788306'
+    expect(extractTikTokIdFromText(html)).toBe('7611450861855788306')
   })
 
   it('detects shell titles', () => {
