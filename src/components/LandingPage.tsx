@@ -80,7 +80,7 @@ const STEPS = [
 ]
 
 // Pin positions on the map band (percent of width/height). Sky blues only — matches FIBI throughout.
-const PINS = [
+const PINS: { x: number; y: number; tone: 'sky' | 'sky-deep' }[] = [
   { x: 24, y: 58, tone: 'sky' }, { x: 62, y: 36, tone: 'sky' }, { x: 46, y: 50, tone: 'sky-deep' },
   { x: 12, y: 32, tone: 'sky' }, { x: 78, y: 62, tone: 'sky-deep' },
 ]
