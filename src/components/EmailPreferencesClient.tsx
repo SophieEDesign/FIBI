@@ -5,13 +5,24 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/useAuth'
 import { createClient } from '@/lib/supabase/client'
+import {
+  isPushSupported,
+  isLikelyIos,
+  isIosStandalone,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '@/lib/push-client'
 
 export default function EmailPreferencesClient() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [marketingOptIn, setMarketingOptIn] = useState(false)
+  const [pushConfigured, setPushConfigured] = useState(false)
+  const [pushSubscribed, setPushSubscribed] = useState(false)
+  const [pushPublicKey, setPushPublicKey] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [pushSaving, setPushSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,13 +47,27 @@ export default function EmailPreferencesClient() {
     ;(async () => {
       try {
         const headers = await getAuthHeaders()
-        const res = await fetch('/api/email-preferences', { credentials: 'include', headers })
-        if (!res.ok) {
+        const [emailRes, pushRes] = await Promise.all([
+          fetch('/api/email-preferences', { credentials: 'include', headers }),
+          fetch('/api/push/subscribe', { credentials: 'include', headers }),
+        ])
+        if (!emailRes.ok) {
           if (!cancelled) setError('Could not load preferences.')
           return
         }
-        const data = await res.json()
+        const data = await emailRes.json()
         if (!cancelled) setMarketingOptIn(!!data.marketing_opt_in)
+
+        if (pushRes.ok) {
+          const pushData = await pushRes.json()
+          if (!cancelled) {
+            setPushConfigured(!!pushData.configured)
+            setPushSubscribed(!!pushData.subscribed)
+            setPushPublicKey(
+              typeof pushData.publicKey === 'string' ? pushData.publicKey : null
+            )
+          }
+        }
       } catch {
         if (!cancelled) setError('Could not load preferences.')
       } finally {
@@ -67,20 +92,59 @@ export default function EmailPreferencesClient() {
         body: JSON.stringify({ marketing_opt_in: next }),
       })
       if (!res.ok) {
-        setError('That didn\'t work. Try again.')
+        setError("That didn't work. Try again.")
         return
       }
       const data = await res.json()
       setMarketingOptIn(!!data.marketing_opt_in)
       setMessage(
         data.marketing_opt_in
-          ? 'You\'ll get product updates and tips.'
-          : 'You\'re unsubscribed from product updates.'
+          ? "You'll get product updates and tips."
+          : "You're unsubscribed from product updates."
       )
     } catch {
-      setError('That didn\'t work. Try again.')
+      setError("That didn't work. Try again.")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const savePush = async (next: boolean) => {
+    setPushSaving(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const headers = await getAuthHeaders()
+      if (next) {
+        if (isLikelyIos() && !isIosStandalone()) {
+          setError('On iPhone, add FIBI to your Home Screen first, then turn on notifications.')
+          return
+        }
+        const key = pushPublicKey || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+        if (!key) {
+          setError('Notifications are not set up yet.')
+          return
+        }
+        const result = await subscribeToPush(key, headers)
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        setPushSubscribed(true)
+        setMessage("You'll get a quiet ping for useful updates.")
+      } else {
+        const result = await unsubscribeFromPush(headers)
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        setPushSubscribed(false)
+        setMessage('Browser notifications are off.')
+      }
+    } catch {
+      setError("That didn't work. Try again.")
+    } finally {
+      setPushSaving(false)
     }
   }
 
@@ -92,6 +156,8 @@ export default function EmailPreferencesClient() {
     )
   }
 
+  const showPushToggle = pushConfigured && isPushSupported()
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] py-10 px-4">
       <div className="max-w-md mx-auto bg-white rounded-2xl shadow-sm p-8">
@@ -100,10 +166,9 @@ export default function EmailPreferencesClient() {
             ← Profile
           </Link>
         </div>
-        <h1 className="text-xl font-semibold text-[#171717] mb-2">Email preferences</h1>
+        <h1 className="text-xl font-semibold text-[#171717] mb-2">Notifications</h1>
         <p className="text-sm text-[#374151] leading-relaxed mb-6">
-          Choose whether FIBI can send product updates and tips. Account emails (like password reset)
-          are separate.
+          Choose how FIBI can reach you. Account emails (like password reset) are separate.
         </p>
 
         <label className="flex items-start gap-3 cursor-pointer">
@@ -115,9 +180,24 @@ export default function EmailPreferencesClient() {
             onChange={(e) => save(e.target.checked)}
           />
           <span className="text-sm text-[#171717]">
-            Send me product updates and tips
+            Send me product updates and tips by email
           </span>
         </label>
+
+        {showPushToggle && (
+          <label className="mt-5 flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-gray-300"
+              checked={pushSubscribed}
+              disabled={pushSaving}
+              onChange={(e) => savePush(e.target.checked)}
+            />
+            <span className="text-sm text-[#171717]">
+              Notify me in this browser when there&apos;s something useful
+            </span>
+          </label>
+        )}
 
         {message && (
           <p className="mt-4 text-sm text-emerald-700" role="status">

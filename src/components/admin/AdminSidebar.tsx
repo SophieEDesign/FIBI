@@ -22,6 +22,10 @@ const NAV = [
     ],
   },
   {
+    label: 'Reach',
+    items: [{ href: '/app/admin/push', label: 'Push notifications' }],
+  },
+  {
     label: 'Content',
     items: [{ href: '/app/admin/guides', label: 'Travel guides' }],
   },

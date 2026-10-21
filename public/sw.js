@@ -84,6 +84,74 @@ self.addEventListener('message', async (event) => {
   }
 })
 
+// Web Push — show a calm notification when the server sends an update
+self.addEventListener('push', (event) => {
+  let data = {
+    title: 'FIBI',
+    body: 'Something new is ready.',
+    url: '/app',
+    tag: 'fibi-update',
+  }
+
+  try {
+    if (event.data) {
+      const parsed = event.data.json()
+      data = {
+        title: typeof parsed.title === 'string' ? parsed.title : data.title,
+        body: typeof parsed.body === 'string' ? parsed.body : data.body,
+        url: typeof parsed.url === 'string' ? parsed.url : data.url,
+        tag: typeof parsed.tag === 'string' ? parsed.tag : data.tag,
+      }
+    }
+  } catch (err) {
+    console.error('Push payload parse failed:', err)
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/FIBI Logo.png',
+      badge: '/icon.svg',
+      tag: data.tag,
+      data: { url: data.url },
+    })
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/app'
+  const absolute =
+    typeof targetUrl === 'string' && targetUrl.startsWith('http')
+      ? targetUrl
+      : new URL(targetUrl || '/app', self.location.origin).href
+
+  event.waitUntil(
+    (async () => {
+      const allClients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      for (const client of allClients) {
+        if ('focus' in client) {
+          await client.focus()
+          if ('navigate' in client) {
+            try {
+              await client.navigate(absolute)
+            } catch {
+              // ignore navigate errors
+            }
+          }
+          return
+        }
+      }
+      if (self.clients.openWindow) {
+        await self.clients.openWindow(absolute)
+      }
+    })()
+  )
+})
+
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)

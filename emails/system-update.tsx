@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Section, Heading, Text, Button, Link } from '@react-email/components'
 import { EmailLayout } from 'emails/layout'
 
-const APP_URL = 'https://fibi.world/login'
+const APP_URL = 'https://fibi.world/app'
 const GUIDES_URL = 'https://fibi.world/travel-guides'
 const NORTH_WALES_URL = 'https://fibi.world/travel-guides/north-wales-hidden-gems'
 
@@ -17,7 +17,7 @@ export function SystemUpdateEmail() {
           color: '#171717',
         }}
       >
-        We&apos;ve updated FIBI
+        FIBI&apos;s had an upgrade
       </Heading>
       <Text
         style={{
@@ -27,8 +27,30 @@ export function SystemUpdateEmail() {
           color: '#374151',
         }}
       >
-        A few quiet improvements to help you save places, organise trips, and
-        share them when you&apos;re ready.
+        A few quiet improvements to help you save places, find them again, and
+        share a trip when you&apos;re ready.
+      </Text>
+
+      <Text
+        style={{
+          margin: '24px 0 8px',
+          fontSize: 16,
+          fontWeight: 600,
+          color: '#171717',
+        }}
+      >
+        Places, clearer
+      </Text>
+      <Text
+        style={{
+          margin: '0 0 16px',
+          fontSize: 16,
+          lineHeight: 1.6,
+          color: '#374151',
+        }}
+      >
+        Save from the toolbar or the map. Filter what you&apos;ve kept. See
+        everything in one calm place.
       </Text>
 
       <Text
@@ -49,8 +71,8 @@ export function SystemUpdateEmail() {
           color: '#374151',
         }}
       >
-        Open a trip and tap Share board. You get a calm public link anyone can
-        open — no account needed to look.
+        Open a trip and tap Share board. Anyone can open the link — no account
+        needed to look.
       </Text>
 
       <Text
@@ -80,28 +102,6 @@ export function SystemUpdateEmail() {
           Travel Guides
         </Link>
         .
-      </Text>
-
-      <Text
-        style={{
-          margin: '24px 0 8px',
-          fontSize: 16,
-          fontWeight: 600,
-          color: '#171717',
-        }}
-      >
-        Continue with Google
-      </Text>
-      <Text
-        style={{
-          margin: '0 0 16px',
-          fontSize: 16,
-          lineHeight: 1.6,
-          color: '#374151',
-        }}
-      >
-        Sign in a little faster when you next open FIBI — Google is there
-        alongside email.
       </Text>
 
       <Section style={{ textAlign: 'center' as const, marginTop: 28 }}>

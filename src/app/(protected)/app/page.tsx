@@ -5,6 +5,7 @@ import { Suspense } from 'react'
 import { useAuth } from '@/lib/useAuth'
 import HomeGrid from '@/components/HomeGrid'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
+import PushPermissionPrompt from '@/components/PushPermissionPrompt'
 import SharingTutorial from '@/components/SharingTutorial'
 
 /**
@@ -36,6 +37,7 @@ function AppHomeContent() {
     <>
       <HomeGrid user={user} confirmed={confirmed} />
       <ServiceWorkerRegistration />
+      <PushPermissionPrompt />
       <SharingTutorial />
     </>
   )
