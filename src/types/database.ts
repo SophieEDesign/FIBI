@@ -25,6 +25,8 @@ export interface SavedItem {
   trip_position: number | null
   /** resolved | needs_review | unknown */
   location_status?: 'resolved' | 'needs_review' | 'unknown' | null
+  /** Starter example seeded on signup; excluded from activation metrics */
+  is_example?: boolean
   created_at: string
   updated_at: string
 }
@@ -47,6 +49,8 @@ export interface Itinerary {
   public_description?: string | null
   published_at?: string | null
   public_slug?: string | null
+  /** Starter example seeded on signup; excluded from activation metrics */
+  is_example?: boolean
   created_at: string
 }
 

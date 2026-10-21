@@ -158,6 +158,7 @@ export async function fetchUsersWithStats(
   const { data: placeStats } = await adminClient
     .from('saved_items')
     .select('user_id')
+    .eq('is_example', false)
   const placeCounts = new Map<string, number>()
   placeStats?.forEach((r: { user_id: string }) => {
     placeCounts.set(r.user_id, (placeCounts.get(r.user_id) ?? 0) + 1)
@@ -166,6 +167,7 @@ export async function fetchUsersWithStats(
   const { data: itineraryStats } = await adminClient
     .from('itineraries')
     .select('user_id')
+    .eq('is_example', false)
   const itineraryCounts = new Map<string, number>()
   itineraryStats?.forEach((r: { user_id: string }) => {
     itineraryCounts.set(r.user_id, (itineraryCounts.get(r.user_id) ?? 0) + 1)
