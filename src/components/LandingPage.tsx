@@ -79,10 +79,10 @@ const STEPS = [
   { n: '03', title: 'Find it later', body: 'Everything is organised in one calm, algorithm-free place for easy access.' },
 ]
 
-// Pin positions on the map band (percent of width/height)
+// Pin positions on the map band (percent of width/height). Sky blues only — matches FIBI throughout.
 const PINS = [
-  { x: 24, y: 58, tone: 'gold' }, { x: 62, y: 36, tone: 'gold' }, { x: 46, y: 50, tone: 'orchid' },
-  { x: 12, y: 32, tone: 'gold' }, { x: 78, y: 62, tone: 'orchid' },
+  { x: 24, y: 58, tone: 'sky' }, { x: 62, y: 36, tone: 'sky' }, { x: 46, y: 50, tone: 'sky-deep' },
+  { x: 12, y: 32, tone: 'sky' }, { x: 78, y: 62, tone: 'sky-deep' },
 ]
 
 function formatCredit(credit: PhotoCredit): string {
@@ -107,9 +107,9 @@ function PinIcon({ className = 'w-7 h-7' }: { className?: string }) {
   )
 }
 
-/** Filled map pin for the landing map band */
-function MapPin({ tone }: { tone: 'gold' | 'orchid' }) {
-  const fill = tone === 'gold' ? '#E0A800' : '#C888D8'
+/** Filled map pin for the landing map band — FIBI sky only */
+function MapPin({ tone }: { tone: 'sky' | 'sky-deep' }) {
+  const fill = tone === 'sky-deep' ? '#2E9EE8' : '#58B8F8'
   return (
     <svg className="w-8 h-8 drop-shadow-[0_6px_14px_rgba(46,158,232,0.45)]" viewBox="0 0 24 24" aria-hidden>
       <path
@@ -166,7 +166,7 @@ export default function LandingPage() {
             <div className="mt-8 flex justify-center">
               <Link
                 href="/signup"
-                className="inline-flex items-center h-12 px-7 rounded-full bg-brand text-white text-base font-medium shadow-soft-lg hover:brightness-105 active:scale-[0.985] transition"
+                className="inline-flex items-center h-12 px-7 rounded-full bg-sky-400 text-night-950 text-base font-medium shadow-soft-lg hover:bg-sky-300 active:scale-[0.985] transition"
               >
                 Get started
               </Link>
@@ -190,7 +190,7 @@ export default function LandingPage() {
                       <PinIcon />
                     )}
                     <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-night-900/70 backdrop-blur text-xs font-medium text-mist">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gold-400" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
                       {p.source}
                     </span>
                   </div>
@@ -226,7 +226,7 @@ export default function LandingPage() {
                 style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
                 aria-hidden
               >
-                <MapPin tone={pin.tone as 'gold' | 'orchid'} />
+                <MapPin tone={pin.tone} />
               </span>
             ))}
             <div className="absolute left-4 bottom-4 sm:left-6 sm:bottom-6 right-4 sm:right-auto px-5 py-3.5 rounded-2xl bg-night-800/75 backdrop-blur-xl backdrop-saturate-150">
