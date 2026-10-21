@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import SocialAuthButtons from '@/components/SocialAuthButtons'
 import { getGuideAttributionFromCookie } from '@/lib/guide-attribution'
+import { safeRedirectPath, setRedirectCookie } from '@/lib/auth-redirect'
 
 // Explicit render URL: safe to load with defer/async; do not use turnstile.ready() with async load
 const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
@@ -106,13 +107,12 @@ export default function SignupClient() {
     }
   }, [searchParams, checkingAuth])
 
+  const redirectParam = safeRedirectPath(searchParams.get('redirect'))
+
   // Persist redirect in cookie so auth callback (e.g. email confirmation) can send user back
   useEffect(() => {
-    const redirectParam = searchParams.get('redirect')
-    if (redirectParam && typeof document !== 'undefined') {
-      document.cookie = `redirect_after_login=${encodeURIComponent(redirectParam)}; path=/; max-age=600; samesite=lax`
-    }
-  }, [searchParams])
+    if (redirectParam) setRedirectCookie(redirectParam)
+  }, [redirectParam])
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -139,7 +139,6 @@ export default function SignupClient() {
           if (isAnon) {
             setCheckingAuth(false)
           } else {
-            const redirectParam = searchParams.get('redirect')
             router.replace(redirectParam || '/app')
           }
         } else {
@@ -157,7 +156,7 @@ export default function SignupClient() {
     return () => {
       isMounted = false
     }
-  }, [router, searchParams, supabase])
+  }, [router, redirectParam, supabase])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -200,10 +199,11 @@ export default function SignupClient() {
             return
           }
           try {
-            await supabase
-              .from('profiles')
-              .update({ marketing_opt_in: marketingOptIn })
-              .eq('id', currentUser.id)
+            await fetch('/api/email-preferences', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ marketing_opt_in: marketingOptIn }),
+            })
           } catch {
             // non-blocking
           }
@@ -221,7 +221,6 @@ export default function SignupClient() {
           } catch {
             // non-blocking
           }
-          const redirectParam = searchParams.get('redirect')
           setSuccessMessage('Account ready. Check your email if we ask you to confirm.')
           setLoading(false)
           setTimeout(() => {
@@ -272,7 +271,7 @@ export default function SignupClient() {
       setLoading(false)
       // Redirect to home after a short delay so the success message is visible
       setTimeout(() => {
-        router.replace(searchParams.get('redirect') || '/')
+        router.replace(redirectParam || '/')
       }, 2000)
     } catch (err: any) {
       console.error('Signup error:', err)
@@ -314,6 +313,7 @@ export default function SignupClient() {
 
           <SocialAuthButtons
             disabled={loading}
+            redirectPath={redirectParam}
             onError={(message) => {
               setSuccessMessage(null)
               setError(message || null)

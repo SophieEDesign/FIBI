@@ -156,12 +156,18 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Set marketing opt-in on profile (trigger already created profile with default false)
+  // Set marketing preference (trigger already created profile with default false).
+  // Explicit opt-in clears any prior PECR suppression for this email.
   try {
-    await supabase
-      .from('profiles')
-      .update({ marketing_opt_in: marketingOptIn, updated_at: new Date().toISOString() })
-      .eq('id', data.user.id)
+    if (marketingOptIn) {
+      const { applyMarketingOptIn } = await import('@/lib/marketing-unsubscribe')
+      await applyMarketingOptIn(data.user.id)
+    } else {
+      await supabase
+        .from('profiles')
+        .update({ marketing_opt_in: false, updated_at: new Date().toISOString() })
+        .eq('id', data.user.id)
+    }
   } catch (profileErr) {
     const msg = profileErr instanceof Error ? profileErr.message : String(profileErr)
     console.warn('Signup: could not set marketing_opt_in on profile:', msg)

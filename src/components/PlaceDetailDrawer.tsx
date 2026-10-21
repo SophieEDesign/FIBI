@@ -203,7 +203,7 @@ export default function PlaceDetailDrawer({
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-charcoal text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 text-center"
+                className="bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover text-center"
               >
                 {hasPlatformName ? `Open on ${item.platform}` : 'Open original post'}
               </a>
@@ -213,7 +213,7 @@ export default function PlaceDetailDrawer({
                 href={directionsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="py-3 px-4 rounded-xl font-medium text-gray-900 bg-white border border-gray-300 hover:bg-gray-50 text-center"
+                className="py-3 px-4 rounded-full font-medium text-[color:var(--text-primary)] bg-white border border-[color:var(--border-default)] hover:bg-[color:var(--bg-subtle)] text-center"
               >
                 Directions
               </a>
@@ -223,8 +223,10 @@ export default function PlaceDetailDrawer({
                 type="button"
                 onClick={handleToggleVisited}
                 aria-pressed={visited}
-                className={`py-3 px-4 rounded-xl font-medium ${
-                  visited ? 'bg-gray-900/80 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                className={`py-3 px-4 rounded-full font-medium ${
+                  visited
+                    ? 'bg-orchid-400 text-white'
+                    : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-[color:var(--neutral-200)]'
                 }`}
               >
                 {visited ? 'Visited' : "I've been here"}

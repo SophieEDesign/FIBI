@@ -94,7 +94,10 @@ function ProtectedLayoutInner({
               Keep your places — create an account when you&apos;re ready.
             </p>
             <Link
-              href={`/signup?redirect=${encodeURIComponent(pathname || '/app')}`}
+              href={`/signup?redirect=${encodeURIComponent(
+                (pathname || '/app') +
+                  (searchParams.toString() ? `?${searchParams.toString()}` : '')
+              )}`}
               className="font-medium text-fibi-primary hover:underline shrink-0"
             >
               Create an account

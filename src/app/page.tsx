@@ -1,4 +1,5 @@
 import LandingPage from '@/components/LandingPage'
+import { isAnonymousUser } from '@/lib/anonymous-auth'
 import { createClient } from '@/lib/supabase/server'
 import { listPublishedGuides } from '@/lib/travel-guides'
 import { redirect } from 'next/navigation'
@@ -9,9 +10,8 @@ export const dynamic = 'force-dynamic'
 /**
  * Public Home Page (root "/" – not wrapped by protected layout)
  *
- * Shows LandingPage for unauthenticated users.
- * Redirects to /app (Places) when user is logged in.
- * Kept at root so we never get double header/footer from (protected) layout + LandingPage.
+ * Shows LandingPage for signed-out and anonymous visitors.
+ * Only full accounts redirect to /app — anonymous sessions must still reach the landing page.
  */
 export default async function HomePage() {
   try {
@@ -21,7 +21,7 @@ export default async function HomePage() {
       error: authError,
     } = await supabase.auth.getUser()
 
-    if (user && !authError) {
+    if (user && !authError && !isAnonymousUser(user)) {
       redirect('/app')
     }
 

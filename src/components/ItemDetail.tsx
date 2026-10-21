@@ -1071,7 +1071,7 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 href={item.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 bg-charcoal text-white py-3 px-4 rounded-xl font-medium hover:opacity-90 shadow-soft transition-opacity"
+                className="inline-flex items-center justify-center gap-2 bg-accent text-white py-3 px-4 rounded-full font-medium hover:bg-accent-hover shadow-soft transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -1096,8 +1096,10 @@ export default function ItemDetail({ itemId }: ItemDetailProps) {
                 type="button"
                 onClick={handleToggleVisited}
                 aria-pressed={visited}
-                className={`inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium transition-colors ${
-                  visited ? 'bg-gray-900/80 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                className={`inline-flex items-center justify-center gap-2 py-3 px-4 rounded-full font-medium transition-colors ${
+                  visited
+                    ? 'bg-orchid-400 text-white'
+                    : 'bg-[color:var(--bg-inset)] text-secondary hover:bg-[color:var(--neutral-200)]'
                 }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>

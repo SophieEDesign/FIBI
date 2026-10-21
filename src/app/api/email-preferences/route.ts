@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
 import { getAdminSupabase } from '@/lib/admin'
-import { applyMarketingUnsubscribe } from '@/lib/marketing-unsubscribe'
+import { applyMarketingOptIn, applyMarketingUnsubscribe } from '@/lib/marketing-unsubscribe'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,21 +50,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (body.marketing_opt_in === false) {
-    const result = await applyMarketingUnsubscribe(user.id)
+    const result = await applyMarketingUnsubscribe(user.id, 'preferences')
     if (!result.ok) {
       return NextResponse.json({ error: 'That didn\'t work. Try again.' }, { status: 500 })
     }
     return NextResponse.json({ marketing_opt_in: false })
   }
 
-  const admin = getAdminSupabase()
-  const { error } = await admin
-    .from('profiles')
-    .update({ marketing_opt_in: true, updated_at: new Date().toISOString() })
-    .eq('id', user.id)
-
-  if (error) {
-    console.error('email-preferences PATCH', error)
+  const result = await applyMarketingOptIn(user.id)
+  if (!result.ok) {
     return NextResponse.json({ error: 'That didn\'t work. Try again.' }, { status: 500 })
   }
 

@@ -279,7 +279,11 @@ export default function MapView() {
       } = await supabase.auth.getUser()
 
       if (!user) {
-        router.push('/login')
+        const intended =
+          typeof window !== 'undefined'
+            ? window.location.pathname + window.location.search
+            : '/app/map'
+        router.push(`/login?redirect=${encodeURIComponent(intended)}`)
         return
       }
 
@@ -352,7 +356,11 @@ export default function MapView() {
       } = await supabase.auth.getUser()
 
       if (!user) {
-        router.push('/login')
+        const intended =
+          typeof window !== 'undefined'
+            ? window.location.pathname + window.location.search
+            : '/app/map'
+        router.push(`/login?redirect=${encodeURIComponent(intended)}`)
         return
       }
 
@@ -755,7 +763,7 @@ export default function MapView() {
             ))}
             <button
               onClick={() => setShowCreateItineraryModal(true)}
-              className="px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors flex items-center gap-1"
+              className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap bg-white text-secondary border border-[color:var(--border-default)] hover:bg-[color:var(--bg-subtle)] transition-colors flex items-center gap-1"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -765,7 +773,7 @@ export default function MapView() {
           </div>
           <Link
             href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
-            className="hidden md:inline-flex shrink-0 items-center gap-2 h-10 px-4 rounded-full bg-charcoal text-white text-sm font-medium shadow-soft hover:opacity-90 transition-opacity"
+            className="hidden md:inline-flex shrink-0 items-center gap-2 h-10 px-4 rounded-full bg-accent text-white text-sm font-medium shadow-soft hover:bg-accent-hover transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -776,12 +784,12 @@ export default function MapView() {
         
         {/* Header with logo and actions - hidden on desktop since DesktopNavigation provides this */}
         <div className="px-4 pb-3 flex items-center justify-between md:hidden">
-          <Link href="/app" className="text-2xl font-bold text-gray-900">
+          <Link href="/app" className="text-2xl font-bold text-[color:var(--text-primary)]">
             FIBI
           </Link>
           <Link
             href={selectedItineraryId ? `/app/add?itinerary_id=${selectedItineraryId}` : '/app/add'}
-            className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            className="text-sm text-secondary hover:text-[color:var(--text-primary)] transition-colors"
           >
             Add Place
           </Link>

@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { User } from '@supabase/supabase-js'
+import { loadOptedOutEmailSet } from '@/lib/marketing-unsubscribe'
 
 export type AutomationConditions = {
   confirmed?: boolean
@@ -213,9 +214,15 @@ export async function fetchUsersWithStats(
   }})
 }
 
+function isEligibleForMarketing(u: UserWithStats, optedOutEmails: Set<string>): boolean {
+  if (!u.email || !u.marketing_opt_in) return false
+  return !optedOutEmails.has(u.email.trim().toLowerCase())
+}
+
 /**
  * Get users eligible for an automation (trigger + conditions + delay).
  * Does NOT check email_logs or throttle — caller must do that.
+ * Always excludes marketing_opt_in=false and email_opt_outs.
  */
 export async function getUsersForAutomation(
   adminClient: SupabaseClient,
@@ -223,10 +230,10 @@ export async function getUsersForAutomation(
   allUsers: UserWithStats[]
 ): Promise<UserWithStats[]> {
   const conditions = (automation.conditions ?? {}) as AutomationConditions
+  const optedOutEmails = await loadOptedOutEmailSet()
   return allUsers.filter(
     (u) =>
-      u.email &&
-      u.marketing_opt_in &&
+      isEligibleForMarketing(u, optedOutEmails) &&
       matchesTrigger(u, automation.trigger_type) &&
       passesDelay(u, automation.delay_hours) &&
       evaluateUserConditions(u, conditions)
@@ -236,6 +243,7 @@ export async function getUsersForAutomation(
 /**
  * Get users eligible for a one-off send: has email, marketing_opt_in, and matches filters.
  * Used by admin "Send one-off" to a filterable list (e.g. confirmed only).
+ * Always excludes email_opt_outs (PECR suppression list).
  */
 export async function getUsersForOneOff(
   adminClient: SupabaseClient,
@@ -243,10 +251,8 @@ export async function getUsersForOneOff(
 ): Promise<UserWithStats[]> {
   const allUsers = await fetchUsersWithStats(adminClient)
   const conditions = filters ?? {}
+  const optedOutEmails = await loadOptedOutEmailSet()
   return allUsers.filter(
-    (u) =>
-      u.email &&
-      u.marketing_opt_in &&
-      evaluateUserConditions(u, conditions)
+    (u) => isEligibleForMarketing(u, optedOutEmails) && evaluateUserConditions(u, conditions)
   )
 }

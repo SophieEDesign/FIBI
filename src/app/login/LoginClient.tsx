@@ -7,6 +7,7 @@ import { getSiteUrl } from '@/lib/utils'
 import Link from 'next/link'
 import SocialAuthButtons from '@/components/SocialAuthButtons'
 import { mergeGuestSavesToAccount } from '@/lib/guest-saves'
+import { safeRedirectPath, setRedirectCookie } from '@/lib/auth-redirect'
 
 type ViewMode = 'login' | 'forgot-password' | 'magic-link'
 
@@ -59,12 +60,11 @@ export default function LoginClient() {
     }
   }, [searchParams, checkingAuth])
 
+  const redirectParam = safeRedirectPath(searchParams.get('redirect'))
+
   useEffect(() => {
-    const redirectParam = searchParams.get('redirect')
-    if (redirectParam && typeof document !== 'undefined') {
-      document.cookie = `redirect_after_login=${encodeURIComponent(redirectParam)}; path=/; max-age=600; samesite=lax`
-    }
-  }, [searchParams])
+    if (redirectParam) setRedirectCookie(redirectParam)
+  }, [redirectParam])
 
   useEffect(() => {
     let isMounted = true
@@ -84,7 +84,6 @@ export default function LoginClient() {
         if (!isMounted) return
 
         if (session) {
-          const redirectParam = searchParams.get('redirect')
           router.replace(redirectParam || '/app')
         } else {
           setCheckingAuth(false)
@@ -101,7 +100,7 @@ export default function LoginClient() {
     return () => {
       isMounted = false
     }
-  }, [router, searchParams, supabase])
+  }, [router, redirectParam, supabase])
 
   const resetToLogin = () => {
     setViewMode('login')
@@ -155,10 +154,13 @@ export default function LoginClient() {
         }
 
         const siteUrl = getSiteUrl()
+        const callbackUrl = redirectParam
+          ? `${siteUrl}/auth/callback?next=${encodeURIComponent(redirectParam)}`
+          : `${siteUrl}/auth/callback`
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
-            emailRedirectTo: `${siteUrl}/auth/callback`,
+            emailRedirectTo: callbackUrl,
             shouldCreateUser: true,
           },
         })
@@ -211,7 +213,6 @@ export default function LoginClient() {
           await mergeGuestSavesToAccount(data.user.id, supabase)
         }
 
-        const redirectParam = searchParams.get('redirect')
         router.push(redirectParam || '/app')
       }
     } catch (err: unknown) {
@@ -279,6 +280,7 @@ export default function LoginClient() {
             <>
               <SocialAuthButtons
                 disabled={loading}
+                redirectPath={redirectParam}
                 onError={(message) => {
                   setSuccessMessage(null)
                   setError(message || null)

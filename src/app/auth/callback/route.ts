@@ -5,6 +5,7 @@ import {
   requestCookieMethods,
   type CookieToSet,
 } from '@/lib/supabase/cookies'
+import { REDIRECT_COOKIE, safeRedirectPath } from '@/lib/auth-redirect'
 
 /**
  * Prefer the request URL origin (www.fibi.world vs fibi.world).
@@ -90,19 +91,18 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      const redirectCookie = request.cookies.get('redirect_after_login')?.value
-      const redirectPath = redirectCookie ? decodeURIComponent(redirectCookie) : null
-      const safePath =
-        redirectPath && redirectPath.startsWith('/') && !redirectPath.startsWith('//')
-          ? redirectPath
-          : null
+      // Prefer ?next= (OAuth/magic-link) so shared URLs survive even if the cookie is missing
+      const nextParam = requestUrl.searchParams.get('next')
+      const redirectCookie = request.cookies.get(REDIRECT_COOKIE)?.value
+      const fromCookie = redirectCookie ? decodeURIComponent(redirectCookie) : null
+      const safePath = safeRedirectPath(nextParam) || safeRedirectPath(fromCookie)
 
       const redirectUrl = new URL(safePath || '/app', origin)
       if (!safePath) redirectUrl.searchParams.set('confirmed', 'true')
 
       const res = NextResponse.redirect(redirectUrl)
       applyCookiesToResponse(res, pendingCookies, pendingHeaders)
-      res.cookies.set('redirect_after_login', '', { path: '/', maxAge: 0 })
+      res.cookies.set(REDIRECT_COOKIE, '', { path: '/', maxAge: 0 })
       return res
     }
 

@@ -54,12 +54,12 @@ async function bumpCampaignCount(
     .eq('id', campaignId)
 }
 
-async function suppressMarketing(userId: string) {
-  const admin = getAdminSupabase()
-  await admin
-    .from('profiles')
-    .update({ marketing_opt_in: false, updated_at: new Date().toISOString() })
-    .eq('id', userId)
+async function suppressMarketing(
+  userId: string,
+  source: 'complaint' | 'bounce'
+) {
+  const { applyMarketingUnsubscribe } = await import('@/lib/marketing-unsubscribe')
+  await applyMarketingUnsubscribe(userId, source)
 }
 
 /**
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       await admin.from('email_logs').update({ bounced_at: eventAt }).eq('id', logRow.id)
       await bumpCampaignCount(logRow.campaign_id, 'bounced_count')
     }
-    await suppressMarketing(logRow.user_id)
+    await suppressMarketing(logRow.user_id, 'bounce')
     return NextResponse.json({ ok: true })
   }
 
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       await admin.from('email_logs').update({ complained_at: eventAt }).eq('id', logRow.id)
       await bumpCampaignCount(logRow.campaign_id, 'bounced_count')
     }
-    await suppressMarketing(logRow.user_id)
+    await suppressMarketing(logRow.user_id, 'complaint')
     return NextResponse.json({ ok: true })
   }
 

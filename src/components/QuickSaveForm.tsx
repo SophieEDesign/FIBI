@@ -22,6 +22,9 @@ import { ensureSaveSession, isAnonymousUser } from '@/lib/anonymous-auth'
 import { requestPersistThumbnail } from '@/lib/persist-thumbnail'
 import { getProxiedImageUrl } from '@/lib/image-proxy'
 import { isTikTokUrl } from '@/lib/tiktok-oembed'
+import { buildLocationSearchQuery, geocodePlaceQuery } from '@/lib/geocode-place'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 type EnrichResult = {
   title: string | null
@@ -62,11 +65,17 @@ export default function QuickSaveForm() {
   const [autoSaveAttempted, setAutoSaveAttempted] = useState(false)
 
   const metadataFetchedRef = useRef(false)
+  const enrichRef = useRef<EnrichResult | null>(null)
   const enrichTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const supabase = createClient()
   const router = useRouter()
   const searchParams = useSearchParams()
   const itineraryIdParam = searchParams.get('itinerary_id')
+
+  const setEnrichBoth = (value: EnrichResult | null) => {
+    enrichRef.current = value
+    setEnrich(value)
+  }
 
   useEffect(() => {
     const check = async () => {
@@ -164,57 +173,43 @@ export default function QuickSaveForm() {
     currentTitle: string,
     currentDescription: string,
     scrapedContent?: string | null
-  ) => {
+  ): Promise<EnrichResult | null> => {
     setAiLoading(true)
     try {
+      // Caption first: description is usually the post caption; scraped text backs it up
+      const caption =
+        (currentDescription || '').trim() ||
+        (scrapedContent || '').trim() ||
+        null
+
       const response = await fetch('/api/ai-enrich', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           url: urlToEnrich,
           title: currentTitle || null,
-          description: currentDescription || null,
+          description: caption,
           domain: getHostname(urlToEnrich) || null,
           platform: detectPlatform(urlToEnrich) || null,
-          scrapedContent: scrapedContent || null,
+          scrapedContent: scrapedContent || caption || null,
         }),
       })
-      if (!response.ok) return
+      if (!response.ok) return null
       const data = await response.json()
-      if (data.error) return
+      if (data.error && !data.suggestedPlaceName && !data.suggestedCity) return null
 
-      let place = null
-      const searchQuery =
-        data.suggestedPlaceName ||
-        [data.suggestedCity, data.suggestedCountry].filter(Boolean).join(', ')
-      if (
-        searchQuery &&
-        (data.confidence?.location === 'high' || data.confidence?.location === 'medium')
-      ) {
-        try {
-          const placesRes = await fetch('/api/places', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ query: searchQuery }),
+      // Geocode whenever AI found a place or city — pins need lat/lng, not only high confidence
+      const searchQuery = buildLocationSearchQuery({
+        placeName: data.suggestedPlaceName,
+        city: data.suggestedCity,
+        country: data.suggestedCountry,
+      })
+      const place = searchQuery
+        ? await geocodePlaceQuery(searchQuery, {
+            city: data.suggestedCity,
+            country: data.suggestedCountry,
           })
-          if (placesRes.ok) {
-            const placesData = await placesRes.json()
-            if (placesData.place) {
-              place = {
-                place_name: placesData.place.name,
-                place_id: placesData.place.place_id,
-                latitude: placesData.place.geometry.location.lat,
-                longitude: placesData.place.geometry.location.lng,
-                formatted_address: placesData.place.formatted_address || '',
-                city: data.suggestedCity || placesData.city || null,
-                country: data.suggestedCountry || placesData.country || null,
-              }
-            }
-          }
-        } catch {
-          // non-blocking
-        }
-      }
+        : null
 
       const result: EnrichResult = {
         title: data.suggestedTitle,
@@ -225,7 +220,7 @@ export default function QuickSaveForm() {
         place,
         confidence: data.confidence,
       }
-      setEnrich(result)
+      setEnrichBoth(result)
 
       if (
         data.suggestedTitle &&
@@ -234,8 +229,9 @@ export default function QuickSaveForm() {
       ) {
         setTitle(data.suggestedTitle)
       }
+      return result
     } catch {
-      // non-blocking
+      return null
     } finally {
       setAiLoading(false)
     }
@@ -244,7 +240,7 @@ export default function QuickSaveForm() {
   const handleUrlChange = async (value: string) => {
     setUrl(value)
     metadataFetchedRef.current = false
-    setEnrich(null)
+    setEnrichBoth(null)
     if (enrichTimeoutRef.current) clearTimeout(enrichTimeoutRef.current)
 
     if (!value.trim()) return
@@ -275,7 +271,12 @@ export default function QuickSaveForm() {
         }
         if (metadata.image) setThumbnailUrl(metadata.image)
       }
-      await runEnrich(value.trim(), nextTitle, nextDesc, metadata?.scrapedContent)
+      await runEnrich(
+        value.trim(),
+        nextTitle,
+        nextDesc,
+        metadata?.scrapedContent || nextDesc || null
+      )
     }, 600)
   }
 
@@ -286,18 +287,19 @@ export default function QuickSaveForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const buildPayload = () => {
+  const buildPayload = (enrichOverride?: EnrichResult | null) => {
+    const active = enrichOverride ?? enrichRef.current ?? enrich
     const finalTitle =
       title.trim() ||
-      enrich?.title?.trim() ||
+      active?.title?.trim() ||
       generateHostnameTitle(url)
     const category =
-      enrich?.confidence?.category === 'high' || enrich?.confidence?.category === 'medium'
-        ? enrich.category
-          ? JSON.stringify([enrich.category])
+      active?.confidence?.category === 'high' || active?.confidence?.category === 'medium'
+        ? active.category
+          ? JSON.stringify([active.category])
           : null
         : null
-    const place = enrich?.place
+    const place = active?.place
     const fields = {
       url: url.trim(),
       platform: detectPlatform(url.trim()),
@@ -305,9 +307,9 @@ export default function QuickSaveForm() {
       description: description.trim() || null,
       thumbnail_url: thumbnailUrl || null,
       notes: notes.trim() || null,
-      location_country: place?.country || enrich?.country || null,
-      location_city: place?.city || enrich?.city || null,
-      place_name: place?.place_name || enrich?.placeName || null,
+      location_country: place?.country || active?.country || null,
+      location_city: place?.city || active?.city || null,
+      place_name: place?.place_name || active?.placeName || null,
       place_id: place?.place_id || null,
       latitude: place?.latitude ?? null,
       longitude: place?.longitude ?? null,
@@ -334,12 +336,14 @@ export default function QuickSaveForm() {
       let saveTitle = title
       let saveDescription = description
       let saveThumbnail = thumbnailUrl
+      let scrapedForEnrich: string | null = null
       const needsMeta =
         !metadataFetchedRef.current ||
         !saveThumbnail ||
         !saveTitle.trim() ||
         isGenericOgTitle(saveTitle) ||
-        /^place from\s+/i.test(saveTitle.trim())
+        /^place from\s+/i.test(saveTitle.trim()) ||
+        !saveDescription.trim()
 
       if (needsMeta) {
         const metadata = await fetchMetadata(url.trim())
@@ -360,17 +364,32 @@ export default function QuickSaveForm() {
           saveDescription = caption
           setDescription(caption)
         }
+        scrapedForEnrich = metadata?.scrapedContent || caption || null
         if (metadata?.image) {
           saveThumbnail = metadata.image
           setThumbnailUrl(metadata.image)
         }
       }
 
+      // Pull place/city from caption via AI + geocode so the pin lands without typing
+      let activeEnrich = enrichRef.current
+      const needsLocation =
+        !activeEnrich?.place?.latitude || !activeEnrich?.place?.longitude
+      if (needsLocation) {
+        const enrichResult = await runEnrich(
+          url.trim(),
+          saveTitle,
+          saveDescription,
+          scrapedForEnrich || saveDescription || null
+        )
+        if (enrichResult) activeEnrich = enrichResult
+      }
+
       const payload = {
-        ...buildPayload(),
+        ...buildPayload(activeEnrich),
         title:
           saveTitle.trim() ||
-          enrich?.title?.trim() ||
+          activeEnrich?.title?.trim() ||
           generateHostnameTitle(url),
         description: saveDescription.trim() || null,
         thumbnail_url: saveThumbnail || null,
@@ -478,15 +497,15 @@ export default function QuickSaveForm() {
       .join(', ')
 
   return (
-    <div className="min-h-screen bg-fibi-bg-light">
-      <header className="bg-white/80 border-b border-gray-100 md:hidden">
+    <div className="min-h-screen bg-[color:var(--bg-subtle)]">
+      <header className="bg-[color:var(--surface-glass)] border-b border-[color:var(--border-subtle)] md:hidden backdrop-blur-[18px]">
         <div className="max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href={isAuthenticated && !isAnonymous ? '/app' : '/'} className="text-xl font-semibold text-fibi-text-primary">
+          <Link href={isAuthenticated && !isAnonymous ? '/app' : '/'} className="text-xl font-semibold text-[color:var(--text-primary)]">
             FIBI
           </Link>
           <Link
             href={isAuthenticated && !isAnonymous ? '/app' : '/'}
-            className="text-sm text-fibi-muted hover:text-fibi-text-primary"
+            className="text-sm text-secondary hover:text-[color:var(--text-primary)]"
           >
             Cancel
           </Link>
@@ -494,29 +513,29 @@ export default function QuickSaveForm() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-10">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8 space-y-6">
+        <Card className="p-6 sm:p-8 space-y-6" elevation="sm">
           <div>
-            <h1 className="text-2xl font-semibold text-fibi-text-primary">Save a place</h1>
-            <p className="text-sm text-fibi-muted mt-1">
+            <h1 className="text-2xl font-semibold text-[color:var(--text-primary)]">Save a place</h1>
+            <p className="text-sm text-secondary mt-1">
               Paste a link. We&apos;ll do the rest.
             </p>
           </div>
 
           {savedToast && (
-            <div className="bg-green-50 border border-green-100 text-green-800 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-[color:var(--status-success-bg)] text-[color:var(--status-success-fg)] px-4 py-3 rounded-xl text-sm">
               Saved.
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-[color:var(--status-danger-bg)] text-[color:var(--status-danger-fg)] px-4 py-3 rounded-xl text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="url" className="block text-sm font-medium text-fibi-text-primary mb-1.5">
+              <label htmlFor="url" className="block text-sm font-medium text-[color:var(--text-primary)] mb-1.5">
                 Link
               </label>
               <input
@@ -525,46 +544,46 @@ export default function QuickSaveForm() {
                 value={url}
                 onChange={(e) => handleUrlChange(e.target.value)}
                 placeholder="https://…"
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-fibi-primary/30 focus:border-fibi-primary"
+                className="w-full px-4 py-3 rounded-xl border border-[color:var(--border-default)] bg-white focus:outline-none focus:ring-2 focus:ring-sky-400/40 focus:border-sky-400"
                 autoFocus
                 required
               />
               {(fetchingMetadata || aiLoading) && (
-                <p className="text-xs text-fibi-muted mt-1.5">Fetching preview…</p>
+                <p className="text-xs text-secondary mt-1.5">Fetching preview…</p>
               )}
             </div>
 
             {(thumbnailUrl || title || locationLabel) && (
-              <div className="flex gap-3 items-start rounded-xl bg-fibi-bg-light/80 p-3 border border-gray-100">
+              <div className="flex gap-3 items-start rounded-xl bg-[color:var(--bg-subtle)] p-3 border border-[color:var(--border-subtle)]">
                 {thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={getProxiedImageUrl(thumbnailUrl) || thumbnailUrl}
                     alt=""
-                    className="w-16 h-16 rounded-lg object-cover shrink-0"
+                    className="w-16 h-16 rounded-xl object-cover shrink-0"
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-lg bg-fibi-blue-light/40 shrink-0" />
+                  <div className="w-16 h-16 rounded-xl bg-fibi-brand-soft shrink-0" />
                 )}
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-fibi-text-primary truncate">
+                  <p className="text-sm font-medium text-[color:var(--text-primary)] truncate">
                     {previewLabel}
                   </p>
                   {description && (
-                    <p className="text-xs text-fibi-muted mt-0.5 line-clamp-2">
+                    <p className="text-xs text-secondary mt-0.5 line-clamp-2">
                       {description}
                     </p>
                   )}
                   {locationLabel && (
-                    <p className="text-xs text-fibi-muted mt-0.5 truncate">{locationLabel}</p>
+                    <p className="text-xs text-sky-700 mt-0.5 truncate">{locationLabel}</p>
                   )}
                 </div>
               </div>
             )}
 
             <div>
-              <label htmlFor="notes" className="block text-sm font-medium text-fibi-text-primary mb-1.5">
-                Note <span className="text-fibi-muted font-normal">(optional)</span>
+              <label htmlFor="notes" className="block text-sm font-medium text-[color:var(--text-primary)] mb-1.5">
+                Note <span className="text-secondary font-normal">(optional)</span>
               </label>
               <input
                 id="notes"
@@ -572,31 +591,27 @@ export default function QuickSaveForm() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Why you saved it"
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-fibi-primary/30 focus:border-fibi-primary"
+                className="w-full px-4 py-3 rounded-xl border border-[color:var(--border-default)] bg-white focus:outline-none focus:border-sky-400"
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={loading || !url.trim()}
-              className="w-full bg-accent text-white py-3.5 rounded-full font-medium hover:opacity-95 transition-all shadow-md disabled:opacity-50"
-            >
+            <Button type="submit" disabled={loading || !url.trim()} fullWidth size="lg">
               {loading ? 'Saving…' : 'Save'}
-            </button>
+            </Button>
 
             {(!isAuthenticated || isAnonymous) && (
-              <p className="text-xs text-fibi-muted text-center">
+              <p className="text-xs text-secondary text-center">
                 {isAnonymous
                   ? 'Your places are saved. '
                   : 'Saved on this device for now. '}
-                <Link href="/signup?redirect=/app" className="text-fibi-primary hover:underline">
+                <Link href="/signup?redirect=/app" className="text-sky-600 hover:underline">
                   Create an account
                 </Link>{' '}
                 to keep them.
               </p>
             )}
           </form>
-        </div>
+        </Card>
       </main>
     </div>
   )

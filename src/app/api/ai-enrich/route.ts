@@ -115,9 +115,9 @@ ${context.scrapedContent ? `- Page Content (scraped): ${context.scrapedContent.s
 
 Please suggest improvements. IMPORTANT RULES:
 1. For title: Suggest a clean, short title (place name or a concise label). Prefer the place name when it is clear from context. Remove platform noise ("Instagram", "TikTok", etc.). Only return null if the title is already perfect.
-2. For location (suggestedPlaceName, suggestedCity, suggestedCountry): Prefer place from the post caption or tagged location. Extract any place name, city, or country mentioned in the description/caption first, then in the title, URL, and domain. Instagram/TikTok posts often mention or tag locations in the caption—use that. Even if confidence is low, suggest it (we'll mark confidence as "low"). Examples: "Café XYZ" from caption, "Lisbon" from description, "Portugal" from context.
+2. For location (suggestedPlaceName, suggestedCity, suggestedCountry): The Description and Page Content fields are usually the post caption — treat them as the primary source. Extract venue/place names (café, restaurant, hotel, beach, landmark), then city and country from hashtags, "@" tags, or phrases like "in Lisbon", "📍 Porto", "Paris, France". Prefer a specific venue name in suggestedPlaceName when one appears; always fill suggestedCity/suggestedCountry when mentioned. Even if confidence is low, still suggest values (mark confidence "low") so we can geocode a map pin. Examples: "Café XYZ" + "Lisbon" + "Portugal"; city-only "Bali"; "Santorini, Greece".
 3. For category: ALWAYS suggest a category based on the content. Use context clues: restaurant/food mentions = "Food", hotel/accommodation = "Stay", beach/ocean = "Beach", hiking/nature = "Nature", city/urban = "City", activity/experience = "Activity". If truly unclear, use "Other".
-4. Be smart: Use the description (post caption) and scraped content as the main source for place; then URL domain, platform (location tags), and title.
+4. Priority order for place: caption/description → scraped content → title → URL/domain. Do not invent places that are not implied by the text.
 
 Return ONLY a JSON object with this exact structure:
 {

@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getSiteUrl } from '@/lib/utils'
+import { safeRedirectPath } from '@/lib/auth-redirect'
 
 type SocialAuthButtonsProps = {
   disabled?: boolean
   onError?: (message: string) => void
+  /** Post-auth path including query (e.g. /add?url=… or /share/itinerary/…). */
+  redirectPath?: string | null
 }
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -40,7 +43,18 @@ function AppleIcon({ className }: { className?: string }) {
   )
 }
 
-export default function SocialAuthButtons({ disabled, onError }: SocialAuthButtonsProps) {
+function buildCallbackUrl(redirectPath?: string | null): string {
+  const siteUrl = getSiteUrl()
+  const safe = safeRedirectPath(redirectPath ?? null)
+  if (!safe) return `${siteUrl}/auth/callback`
+  return `${siteUrl}/auth/callback?next=${encodeURIComponent(safe)}`
+}
+
+export default function SocialAuthButtons({
+  disabled,
+  onError,
+  redirectPath,
+}: SocialAuthButtonsProps) {
   const [loadingProvider, setLoadingProvider] = useState<'google' | 'apple' | null>(null)
 
   const signInWithProvider = async (provider: 'google' | 'apple') => {
@@ -49,11 +63,10 @@ export default function SocialAuthButtons({ disabled, onError }: SocialAuthButto
 
     try {
       const supabase = createClient()
-      const siteUrl = getSiteUrl()
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${siteUrl}/auth/callback`,
+          redirectTo: buildCallbackUrl(redirectPath),
           queryParams:
             provider === 'google'
               ? { prompt: 'select_account' }

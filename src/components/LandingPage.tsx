@@ -69,7 +69,7 @@ function FilledPlacePayoff() {
       <div className="p-4">
         <p className="text-xs font-medium text-fibi-muted uppercase tracking-wide">Food hall · Lisbon</p>
         <h3 className="text-lg font-semibold text-fibi-text-primary mt-1">Time Out Market</h3>
-        <p className="text-sm text-fibi-muted mt-1">Saved without leaving TikTok</p>
+        <p className="text-sm text-fibi-muted mt-1">Copied from TikTok, saved in one paste</p>
       </div>
     </div>
   )
