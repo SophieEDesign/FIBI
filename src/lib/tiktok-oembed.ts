@@ -233,66 +233,164 @@ export async function normalizeTikTokUrlForOEmbed(url: string): Promise<string> 
   return resolveTikTokCanonicalUrl(url)
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /**
- * Fetch TikTok oEmbed. Returns null on hard failure.
+ * Pull cover + caption from TikTok's hydrated video page when oEmbed is blocked.
+ * TikTok often rate-limits oEmbed (429) but still serves itemStruct in the HTML.
  */
-export async function fetchTikTokOEmbed(url: string): Promise<TikTokOEmbedResult | null> {
+export function extractTikTokMetadataFromHtml(
+  html: string,
+  canonicalUrl?: string | null
+): TikTokOEmbedResult | null {
+  const match = html.match(
+    /<script[^>]*id=["']__UNIVERSAL_DATA_FOR_REHYDRATION__["'][^>]*>([\s\S]*?)<\/script>/i
+  )
+  if (!match?.[1]) return null
+
   try {
-    const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
-    const response = await fetch(oembedUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        Accept: 'application/json, text/html, */*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        Referer: 'https://www.tiktok.com/',
-        Origin: 'https://www.tiktok.com',
-      },
-      cache: 'no-store',
-    })
+    const data = JSON.parse(match[1]) as Record<string, unknown>
+    const scope = data.__DEFAULT_SCOPE__ as Record<string, unknown> | undefined
+    const detail = scope?.['webapp.video-detail'] as Record<string, unknown> | undefined
+    const itemInfo = detail?.itemInfo as Record<string, unknown> | undefined
+    const item = itemInfo?.itemStruct as Record<string, unknown> | undefined
+    if (!item) return null
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      console.debug(
-        `TikTok oEmbed failed: ${response.status}`,
-        errorText.substring(0, 150)
-      )
-      return null
-    }
+    const video = (item.video || {}) as Record<string, unknown>
+    const author = (item.author || {}) as Record<string, unknown>
+    const image =
+      (typeof video.originCover === 'string' && video.originCover) ||
+      (typeof video.cover === 'string' && video.cover) ||
+      (typeof video.dynamicCover === 'string' && video.dynamicCover) ||
+      null
+    const description =
+      typeof item.desc === 'string' ? cleanTikTokTitle(item.desc) : null
+    const authorName =
+      (typeof author.uniqueId === 'string' && author.uniqueId) ||
+      (typeof author.nickname === 'string' && author.nickname) ||
+      null
 
-    const data = await response.json()
-    if (data.error) {
-      console.debug('TikTok oEmbed returned error payload')
-      return null
-    }
-
-    const captionFromHtml =
-      typeof data.html === 'string' ? extractCaptionFromHtml(data.html) : null
-    const titleRaw =
-      typeof data.title === 'string' ? cleanTikTokTitle(data.title) : null
-    const description = captionFromHtml || titleRaw || null
-    const title = titleRaw || captionFromHtml || null
-
-    if (isTikTokShellTitle(title) && !data.thumbnail_url) {
-      return null
-    }
+    if (!image && !description) return null
 
     return {
-      title: isTikTokShellTitle(title) ? description : title,
+      title: description,
       description,
-      image: typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null,
-      author_name: typeof data.author_name === 'string' ? data.author_name : null,
-      html: typeof data.html === 'string' ? data.html : null,
-      canonical_url: url,
+      image,
+      author_name: authorName,
+      html: null,
+      canonical_url: canonicalUrl || null,
     }
   } catch (error) {
-    console.debug('TikTok oEmbed error:', error)
+    console.debug('TikTok page JSON parse failed:', error)
+    return null
+  }
+}
+
+async function fetchTikTokPageMetadata(
+  videoUrl: string
+): Promise<TikTokOEmbedResult | null> {
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 12000)
+    const response = await fetch(videoUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: {
+        ...TIKTOK_FETCH_HEADERS,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    })
+    clearTimeout(timeoutId)
+    if (!response.ok) {
+      console.debug(`TikTok page fetch failed: ${response.status}`)
+      return null
+    }
+    const html = await response.text()
+    return extractTikTokMetadataFromHtml(html, videoUrl)
+  } catch (error) {
+    console.debug('TikTok page fetch error:', error)
     return null
   }
 }
 
 /**
- * Resolve short links to a video id, then oEmbed.
+ * Fetch TikTok oEmbed. Returns null on hard failure.
+ * Retries once on 429 — TikTok rate-limits aggressively from cloud IPs.
+ */
+export async function fetchTikTokOEmbed(url: string): Promise<TikTokOEmbedResult | null> {
+  const oembedUrl = `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (attempt > 0) await sleep(900)
+
+      const response = await fetch(oembedUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          Accept: 'application/json, text/html, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          Referer: 'https://www.tiktok.com/',
+          Origin: 'https://www.tiktok.com',
+        },
+        cache: 'no-store',
+      })
+
+      if (response.status === 429) {
+        console.debug('TikTok oEmbed rate limited (429)')
+        continue
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '')
+        console.debug(
+          `TikTok oEmbed failed: ${response.status}`,
+          errorText.substring(0, 150)
+        )
+        return null
+      }
+
+      const data = await response.json()
+      if (data.error) {
+        console.debug('TikTok oEmbed returned error payload')
+        return null
+      }
+
+      const captionFromHtml =
+        typeof data.html === 'string' ? extractCaptionFromHtml(data.html) : null
+      const titleRaw =
+        typeof data.title === 'string' ? cleanTikTokTitle(data.title) : null
+      const description = captionFromHtml || titleRaw || null
+      const title = titleRaw || captionFromHtml || null
+
+      if (isTikTokShellTitle(title) && !data.thumbnail_url) {
+        return null
+      }
+
+      return {
+        title: isTikTokShellTitle(title) ? description : title,
+        description,
+        image: typeof data.thumbnail_url === 'string' ? data.thumbnail_url : null,
+        author_name: typeof data.author_name === 'string' ? data.author_name : null,
+        html: typeof data.html === 'string' ? data.html : null,
+        canonical_url: url,
+      }
+    } catch (error) {
+      console.debug('TikTok oEmbed error:', error)
+      return null
+    }
+  }
+
+  return null
+}
+
+/**
+ * Resolve short links to a video id, try oEmbed, then scrape the video page.
+ * Page scrape covers the common case where TikTok rate-limits oEmbed.
  */
 export async function fetchTikTokMetadata(url: string): Promise<TikTokOEmbedResult | null> {
   const normalized = await normalizeTikTokUrlForOEmbed(url)
@@ -301,11 +399,16 @@ export async function fetchTikTokMetadata(url: string): Promise<TikTokOEmbedResu
     return primary
   }
 
-  // Last try: original URL (rare cases where short links start working)
-  if (normalized !== url) {
-    const second = await fetchTikTokOEmbed(url)
-    if (second && (second.image || second.title || second.description)) {
-      return second
+  const pageUrl = extractTikTokVideoId(normalized)
+    ? normalized
+    : extractTikTokVideoId(url)
+      ? buildTikTokOEmbedSourceUrl(extractTikTokVideoId(url)!)
+      : null
+
+  if (pageUrl) {
+    const fromPage = await fetchTikTokPageMetadata(pageUrl)
+    if (fromPage && (fromPage.image || fromPage.title || fromPage.description)) {
+      return fromPage
     }
   }
 

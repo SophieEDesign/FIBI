@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTikTokOEmbedSourceUrl,
   extractTikTokIdFromText,
+  extractTikTokMetadataFromHtml,
   extractTikTokVideoId,
   isTikTokShellTitle,
   isTikTokShortLink,
@@ -54,6 +55,30 @@ describe('tiktok-oembed helpers', () => {
   it('reads a video id from a unicode-escaped shell page', () => {
     const html = 'https://www.tiktok.com\\u002F@\\u002Fvideo\\u002F7611450861855788306'
     expect(extractTikTokIdFromText(html)).toBe('7611450861855788306')
+  })
+
+  it('reads cover and caption from hydrated video page JSON', () => {
+    const payload = {
+      __DEFAULT_SCOPE__: {
+        'webapp.video-detail': {
+          itemInfo: {
+            itemStruct: {
+              desc: 'Europe’s Hidden Paradise',
+              author: { uniqueId: 'fortiqos' },
+              video: {
+                cover: 'https://cdn.example/cover.jpg',
+                originCover: 'https://cdn.example/origin.jpg',
+              },
+            },
+          },
+        },
+      },
+    }
+    const html = `<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__">${JSON.stringify(payload)}</script>`
+    const result = extractTikTokMetadataFromHtml(html, 'https://www.tiktok.com/@/video/1')
+    expect(result?.image).toBe('https://cdn.example/origin.jpg')
+    expect(result?.title).toBe('Europe’s Hidden Paradise')
+    expect(result?.author_name).toBe('fortiqos')
   })
 
   it('detects shell titles', () => {
