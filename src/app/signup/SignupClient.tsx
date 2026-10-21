@@ -252,9 +252,12 @@ export default function SignupClient() {
       if (!res.ok) {
         if (res.status === 429) {
           setError(message || 'Too many signup attempts. Please try again in an hour.')
-        } else if (res.status === 409) {
+        } else         if (res.status === 409) {
           setError(message || 'An account with this email already exists. Please sign in instead.')
-          setTimeout(() => router.push('/login'), 2000)
+          const loginHref = redirectParam
+            ? `/login?redirect=${encodeURIComponent(redirectParam)}`
+            : '/login'
+          setTimeout(() => router.push(loginHref), 2000)
         } else {
           setError(message || 'Failed to sign up. Please try again.')
         }
@@ -263,16 +266,28 @@ export default function SignupClient() {
         return
       }
 
+      // Soft email confirmation: sign in straight away so "Save trip" and other
+      // ?redirect= flows keep working. If Supabase blocks unconfirmed sign-in,
+      // fall back to the old success message.
+      if (supabase) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (!signInError) {
+          router.replace(redirectParam || '/app')
+          router.refresh()
+          return
+        }
+        console.warn('Signup: automatic sign-in failed:', signInError.message)
+      }
+
       setSuccessMessage(message || 'Account created! Please check your email to confirm your account, then you can sign in.')
       setEmail('')
       setPassword('')
       setConfirmPassword('')
       resetTurnstile()
       setLoading(false)
-      // Redirect to home after a short delay so the success message is visible
-      setTimeout(() => {
-        router.replace(redirectParam || '/')
-      }, 2000)
     } catch (err: any) {
       console.error('Signup error:', err)
       setError(err.message || err.error?.message || 'An error occurred. Please try again.')
@@ -308,7 +323,7 @@ export default function SignupClient() {
         <div className="bg-white rounded-2xl shadow-sm p-8 space-y-6">
           <div className="text-center">
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Create your account</h2>
-            <p className="text-sm text-gray-600">Already have an account? <Link href="/login" className="text-gray-900 font-medium hover:underline">Sign in</Link></p>
+            <p className="text-sm text-gray-600">Already have an account? <Link href={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login'} className="text-gray-900 font-medium hover:underline">Sign in</Link></p>
           </div>
 
           <SocialAuthButtons

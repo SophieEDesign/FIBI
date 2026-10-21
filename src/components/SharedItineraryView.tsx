@@ -1,21 +1,13 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { SavedItem } from '@/types/database'
-import { getHostname, isMobileDevice, detectPlatform } from '@/lib/utils'
+import { getHostname, isMobileDevice } from '@/lib/utils'
 import { getProxiedImageUrl } from '@/lib/image-proxy'
 import Link from 'next/link'
-import EmbedPreview from '@/components/EmbedPreview'
+import LinkPreview from '@/components/LinkPreview'
 import PlaceDetailDrawer from '@/components/PlaceDetailDrawer'
-import VideoFeed from '@/components/VideoFeed'
-import TripSwipeViewer from '@/components/TripSwipeViewer'
-import VideoEmbedBlock from '@/components/VideoEmbedBlock'
-import { isVideoTypeItem } from '@/components/TripVideoViewer'
-import CollapsibleOptions from '@/components/CollapsibleOptions'
 import { createClient } from '@/lib/supabase/client'
-
-type GoogleMapsMarker = any
-type GoogleMapsMap = any
 
 interface SharedItineraryViewProps {
   shareToken: string
@@ -34,46 +26,105 @@ interface SharedItineraryData {
   share_type?: 'copy' | 'collaborate'
 }
 
-interface CalendarDay {
-  date: Date
-  items: SavedItem[]
-  isCurrentMonth: boolean
-  isToday: boolean
+type GoogleMapsMap = any
+type GoogleMapsMarker = any
+
+const UNPLANNED = 'unplanned'
+
+const MAP_STYLE = [
+  { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
+  { featureType: 'water', stylers: [{ saturation: -45 }, { lightness: 20 }] },
+  { featureType: 'landscape', stylers: [{ saturation: -45 }, { lightness: 10 }] },
+]
+
+function toLatLng(item: SavedItem): { lat: number; lng: number } | null {
+  const lat = typeof item.latitude === 'string' ? parseFloat(item.latitude) : Number(item.latitude)
+  const lng = typeof item.longitude === 'string' ? parseFloat(item.longitude) : Number(item.longitude)
+  if (item.latitude == null || item.longitude == null || !isFinite(lat) || !isFinite(lng)) return null
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null
+  return { lat, lng }
+}
+
+function dayKey(item: SavedItem): string {
+  return item.planned_date ? item.planned_date.slice(0, 10) : UNPLANNED
+}
+
+function dayLabel(key: string): string {
+  if (key === UNPLANNED) return 'Not planned'
+  return new Date(`${key}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function formatRange(start?: string | null, end?: string | null): string | null {
+  if (!start && !end) return null
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
+  const s = start ? new Date(start).toLocaleDateString('en-GB', opts) : null
+  const e = end ? new Date(end).toLocaleDateString('en-GB', { ...opts, year: 'numeric' }) : null
+  if (s && e) return `${s} – ${e}`
+  return s || e
+}
+
+/** Loads the Google Maps script once (same key and loader approach as MapView). */
+function useGoogleMaps(): boolean {
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    if (!apiKey) return
+    const ready = () => !!(window.google?.maps?.Map && window.google?.maps?.Marker && window.google?.maps?.LatLngBounds)
+    if (ready()) {
+      setLoaded(true)
+      return
+    }
+    let script = document.querySelector<HTMLScriptElement>('script[src*="maps.googleapis.com"]')
+    if (!script) {
+      script = document.createElement('script')
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+    const interval = setInterval(() => {
+      if (ready()) {
+        clearInterval(interval)
+        setLoaded(true)
+      }
+    }, 80)
+    const timeout = setTimeout(() => clearInterval(interval), 10000)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [])
+  return loaded
 }
 
 export default function SharedItineraryView({ shareToken }: SharedItineraryViewProps) {
   const [data, setData] = useState<SharedItineraryData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [currentMonth, setCurrentMonth] = useState(new Date())
-  const [viewMode, setViewMode] = useState<'moodboard' | 'map' | 'list' | 'videos'>('moodboard')
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null)
+  const [activeDay, setActiveDay] = useState<string>('all')
+  const [highlightId, setHighlightId] = useState<string | null>(null)
   const [user, setUser] = useState<{ id: string } | null>(null)
   const [addingToAccount, setAddingToAccount] = useState(false)
   const [addToAccountError, setAddToAccountError] = useState<string | null>(null)
   const [addToAccountSuccess, setAddToAccountSuccess] = useState<{ itinerary_id: string; name: string } | null>(null)
   const [joiningCollaborator, setJoiningCollaborator] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   const [joinCollaboratorError, setJoinCollaboratorError] = useState<string | null>(null)
-  const [swipeViewerOpen, setSwipeViewerOpen] = useState(false)
-  const [swipeViewerInitialIndex, setSwipeViewerInitialIndex] = useState(0)
-  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false)
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapInstanceRef = useRef<GoogleMapsMap | null>(null)
-  const markersRef = useRef<{ item: SavedItem; marker: GoogleMapsMarker }[]>([])
+  const [isMobile, setIsMobile] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const supabase = createClient()
 
-  const isCollaborateShare = data?.share_type === 'collaborate'
+  const mapsLoaded = useGoogleMaps()
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<GoogleMapsMap | null>(null)
+  const markersRef = useRef<Map<string, GoogleMapsMarker>>(new Map())
 
-  // Items with valid lat/lng for the map
-  const itemsWithLocations = useMemo(() => {
-    if (!data) return []
-    return data.items.filter((item) => {
-      const lat = item.latitude
-      const lng = item.longitude
-      return lat != null && !isNaN(Number(lat)) && lng != null && !isNaN(Number(lng))
-    })
-  }, [data])
+  const isCollaborateShare = data?.share_type === 'collaborate'
+  const sharePath = `/share/itinerary/${shareToken}`
+  const signupHref = `/signup?redirect=${encodeURIComponent(sharePath)}`
+  const loginHref = `/login?redirect=${encodeURIComponent(sharePath)}`
 
   useEffect(() => {
     loadSharedItinerary()
@@ -98,147 +149,31 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
     return () => subscription.unsubscribe()
   }, [])
 
-  // Load Google Maps script when user switches to map view
-  useEffect(() => {
-    if (viewMode !== 'map') return
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    if (!apiKey) return
-    const checkLoaded = () =>
-      !!(
-        typeof window !== 'undefined' &&
-        window.google?.maps?.Map &&
-        window.google?.maps?.Marker &&
-        window.google?.maps?.LatLng &&
-        window.google?.maps?.LatLngBounds
-      )
-    if (checkLoaded()) {
-      setIsGoogleMapsLoaded(true)
-      return
-    }
-    const existing = document.querySelector('script[src*="maps.googleapis.com"]')
-    if (existing) {
-      const id = setInterval(() => {
-        if (checkLoaded()) {
-          clearInterval(id)
-          setIsGoogleMapsLoaded(true)
-        }
-      }, 50)
-      return () => clearInterval(id)
-    }
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      const id = setInterval(() => {
-        if (checkLoaded()) {
-          clearInterval(id)
-          setIsGoogleMapsLoaded(true)
-        }
-      }, 50)
-    }
-    document.head.appendChild(script)
-  }, [viewMode])
-
-  // Clear map when leaving map tab
-  useEffect(() => {
-    if (viewMode !== 'map') {
-      markersRef.current.forEach(({ marker }) => marker.setMap(null))
-      markersRef.current = []
-      mapInstanceRef.current = null
-    }
-  }, [viewMode])
-
-  // Init map when map tab is active and Google Maps is loaded
-  useEffect(() => {
-    if (viewMode !== 'map' || !isGoogleMapsLoaded || !mapRef.current || mapInstanceRef.current) return
-    if (!window.google?.maps?.Map || !window.google?.maps?.MapTypeId) return
-    const mapStyle: Array<{ featureType?: string; elementType?: string; stylers?: Array<Record<string, unknown>> }> = [
-      { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-      { featureType: 'road', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
-      { featureType: 'water', stylers: [{ saturation: -50 }, { lightness: 20 }] },
-      { featureType: 'landscape', stylers: [{ saturation: -50 }, { lightness: 10 }] },
-    ]
-    const map = new window.google.maps.Map(mapRef.current, {
-      zoom: 2,
-      center: { lat: 20, lng: 0 },
-      mapTypeId: window.google.maps.MapTypeId?.ROADMAP || 'roadmap',
-      styles: mapStyle,
-      disableDefaultUI: false,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-    })
-    mapInstanceRef.current = map
-    return () => {
-      mapInstanceRef.current = null
-    }
-  }, [viewMode, isGoogleMapsLoaded])
-
-  // Update markers when map is ready and items change
-  useEffect(() => {
-    if (viewMode !== 'map' || !mapInstanceRef.current || !isGoogleMapsLoaded) return
-    const map = mapInstanceRef.current
-    markersRef.current.forEach(({ marker }) => marker.setMap(null))
-    markersRef.current = []
-    if (itemsWithLocations.length === 0) return
-    const bounds = new window.google.maps.LatLngBounds()
-    itemsWithLocations.forEach((item) => {
-      const lat = typeof item.latitude === 'string' ? parseFloat(item.latitude) : Number(item.latitude)
-      const lng = typeof item.longitude === 'string' ? parseFloat(item.longitude) : Number(item.longitude)
-      if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return
-      const position = new window.google.maps.LatLng(lat, lng)
-      const marker = new window.google.maps.Marker({
-        position,
-        map,
-        icon: {
-          path: window.google.maps.SymbolPath?.CIRCLE || 0,
-          scale: 8,
-          fillColor: '#2E9EE8',
-          fillOpacity: 0.8,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 2,
-          anchor: new window.google.maps.Point(0, 0),
-        },
-        title: item.title || item.place_name || 'Saved place',
-        animation: window.google.maps.Animation?.DROP || undefined,
-      })
-      marker.addListener('click', () => setSelectedItem(item))
-      markersRef.current.push({ item, marker })
-      bounds.extend(position)
-    })
-    if (markersRef.current.length > 0) {
-      map.fitBounds(bounds)
-      map.padding = { top: 50, right: 50, bottom: 50, left: 50 }
-    }
-  }, [viewMode, isGoogleMapsLoaded, itemsWithLocations])
-
   const loadSharedItinerary = async () => {
     try {
       setLoading(true)
       setError(null)
-
       const response = await fetch(`/api/itinerary/share/${shareToken}`)
-      
       if (!response.ok) {
-        if (response.status === 404) {
-          setError('This trip is no longer available or the link has been revoked.')
-        } else {
-          setError('Failed to load trip. Please try again later.')
-        }
+        setError(response.status === 404
+          ? 'This trip is no longer available or the link has been revoked.'
+          : "Couldn't load this trip. Try again in a moment.")
         return
       }
-
-      const result = await response.json()
-      setData(result)
+      setData(await response.json())
     } catch (err) {
       console.error('Error loading shared trip:', err)
-      setError('Failed to load trip. Please try again later.')
+      setError("Couldn't load this trip. Try again in a moment.")
     } finally {
       setLoading(false)
     }
+  }
+
+  const authHeaders = async (): Promise<HeadersInit> => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const headers: HeadersInit = { 'Content-Type': 'application/json' }
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+    return headers
   }
 
   const handleAddToAccount = async () => {
@@ -246,29 +181,24 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
     setAddingToAccount(true)
     setAddToAccountError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
       const response = await fetch(`/api/itinerary/share/${shareToken}/add-to-account`, {
         method: 'POST',
         credentials: 'include',
-        headers,
+        headers: await authHeaders(),
       })
       const result = await response.json()
       if (response.status === 401) {
-        window.location.href = `/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`
+        window.location.href = loginHref
         return
       }
       if (!response.ok) {
-        setAddToAccountError(result.error || 'Failed to add to your account.')
+        setAddToAccountError(result.error || "Couldn't save this trip. Try again.")
         return
       }
       setAddToAccountSuccess({ itinerary_id: result.itinerary_id, name: result.name })
     } catch (err) {
       console.error('Error adding to account:', err)
-      setAddToAccountError('Failed to add to your account. Please try again.')
+      setAddToAccountError("Couldn't save this trip. Try again.")
     } finally {
       setAddingToAccount(false)
     }
@@ -279,660 +209,355 @@ export default function SharedItineraryView({ shareToken }: SharedItineraryViewP
     setJoiningCollaborator(true)
     setJoinCollaboratorError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const headers: HeadersInit = { 'Content-Type': 'application/json' }
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`
-      }
       const response = await fetch(`/api/itinerary/share/${shareToken}/join-collaborator`, {
         method: 'POST',
         credentials: 'include',
-        headers,
+        headers: await authHeaders(),
       })
       const result = await response.json()
       if (response.status === 401) {
-        window.location.href = `/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`
+        window.location.href = loginHref
         return
       }
       if (!response.ok) {
-        setJoinCollaboratorError(result.error || 'Failed to join as collaborator.')
+        setJoinCollaboratorError(result.error || "Couldn't join this trip. Try again.")
         return
       }
-      if (result.redirect_url) {
-        window.location.href = result.redirect_url
-        return
-      }
+      if (result.redirect_url) window.location.href = result.redirect_url
     } catch (err) {
       console.error('Error joining as collaborator:', err)
-      setJoinCollaboratorError('Failed to join. Please try again.')
+      setJoinCollaboratorError("Couldn't join this trip. Try again.")
     } finally {
       setJoiningCollaborator(false)
     }
   }
 
-  // Filter items (Stage filter removed - liked/visited shown as icons on cards)
-  const filteredItems = useMemo(() => {
-    if (!data) return []
-    return data.items
-  }, [data])
-
-  // Generate calendar days for current month
-  const calendarDays = useMemo(() => {
-    if (!data) return []
-
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    const startDate = new Date(firstDay)
-    startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
-
-    const days: CalendarDay[] = []
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    for (let i = 0; i < 42; i++) {
-      const date = new Date(startDate)
-      date.setDate(startDate.getDate() + i)
-      const dateStr = date.toISOString().split('T')[0]
-      const dateObj = new Date(date)
-      dateObj.setHours(0, 0, 0, 0)
-
-      const dayItems = filteredItems.filter((item) => {
-        if (!item.planned_date) return false
-        const plannedDate = new Date(item.planned_date)
-        plannedDate.setHours(0, 0, 0, 0)
-        return plannedDate.getTime() === dateObj.getTime()
-      })
-
-      days.push({
-        date: dateObj,
-        items: dayItems,
-        isCurrentMonth: date.getMonth() === month,
-        isToday: dateObj.getTime() === today.getTime(),
-      })
-    }
-
-    return days
-  }, [currentMonth, filteredItems, data])
-
-  // Get unplanned items
-  const unplannedItems = useMemo(() => {
-    return filteredItems.filter((item) => !item.planned_date)
-  }, [filteredItems])
-
-  const monthNames = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ]
-
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    setCurrentMonth((prev) => {
-      const newDate = new Date(prev)
-      if (direction === 'prev') {
-        newDate.setMonth(prev.getMonth() - 1)
-      } else {
-        newDate.setMonth(prev.getMonth() + 1)
+  const handleShare = async () => {
+    const url = window.location.href
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: data?.itinerary.name, url })
+        return
       }
-      return newDate
-    })
+      await navigator.clipboard.writeText(url)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      // Share sheet dismissed
+    }
   }
 
-  const goToToday = () => {
-    setCurrentMonth(new Date())
+  // Planned days first (by date, then trip order), unplanned last. Numbers follow this order.
+  const orderedItems = useMemo(() => {
+    if (!data) return []
+    return [...data.items].sort((a, b) => {
+      const ka = dayKey(a)
+      const kb = dayKey(b)
+      if (ka !== kb) {
+        if (ka === UNPLANNED) return 1
+        if (kb === UNPLANNED) return -1
+        return ka < kb ? -1 : 1
+      }
+      return (a.trip_position ?? 0) - (b.trip_position ?? 0)
+    })
+  }, [data])
+
+  const numberById = useMemo(() => new Map(orderedItems.map((item, i) => [item.id, i + 1])), [orderedItems])
+
+  const days = useMemo(() => {
+    const counts = new Map<string, number>()
+    orderedItems.forEach((item) => counts.set(dayKey(item), (counts.get(dayKey(item)) || 0) + 1))
+    return Array.from(counts.entries()).map(([key, count]) => ({ key, count, label: dayLabel(key) }))
+  }, [orderedItems])
+
+  const visibleItems = useMemo(
+    () => (activeDay === 'all' ? orderedItems : orderedItems.filter((item) => dayKey(item) === activeDay)),
+    [orderedItems, activeDay]
+  )
+
+  const hasMappable = orderedItems.some((item) => toLatLng(item))
+  // Without a Maps key or any coordinates, the cover image takes the map's place
+  const canMap = hasMappable && !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+  // Create the map once data and the script are ready
+  useEffect(() => {
+    if (!mapsLoaded || !canMap || !mapRef.current || mapInstanceRef.current) return
+    mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+      zoom: 12,
+      center: { lat: 20, lng: 0 },
+      styles: MAP_STYLE,
+      disableDefaultUI: true,
+      zoomControl: !isMobile,
+      gestureHandling: 'greedy',
+      clickableIcons: false,
+    })
+  }, [mapsLoaded, canMap, isMobile, loading])
+
+  // Numbered pins for every place; the selected day is highlighted and framed
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !window.google?.maps) return
+    markersRef.current.forEach((marker) => marker.setMap(null))
+    markersRef.current.clear()
+
+    const bounds = new window.google.maps.LatLngBounds()
+    let framed = 0
+    orderedItems.forEach((item) => {
+      const pos = toLatLng(item)
+      if (!pos) return
+      const inDay = activeDay === 'all' || dayKey(item) === activeDay
+      const active = highlightId === item.id
+      const marker = new window.google.maps.Marker({
+        position: pos,
+        map,
+        title: item.title || item.place_name || 'Saved place',
+        label: { text: String(numberById.get(item.id)), color: '#FFFFFF', fontSize: '12px', fontWeight: '600' },
+        icon: {
+          path: window.google.maps.SymbolPath?.CIRCLE ?? 0,
+          scale: active ? 15 : 12,
+          fillColor: inDay ? (active ? '#1B80C7' : '#2E9EE8') : '#A3A3A3',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2.5,
+        },
+        zIndex: active ? 3 : inDay ? 2 : 1,
+      })
+      marker.addListener('click', () => {
+        setHighlightId(item.id)
+        document.getElementById(`trip-item-${item.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      })
+      markersRef.current.set(item.id, marker)
+      if (inDay) {
+        bounds.extend(pos)
+        framed++
+      }
+    })
+    if (framed === 1) {
+      map.setCenter(bounds.getCenter())
+      map.setZoom(15)
+    } else if (framed > 1) {
+      map.fitBounds(bounds, { top: 72, bottom: 48, left: 32, right: 32 })
+    }
+  }, [orderedItems, activeDay, highlightId, numberById, mapsLoaded, canMap, loading])
+
+  const focusItem = (item: SavedItem) => {
+    setHighlightId(item.id)
+    const pos = toLatLng(item)
+    if (pos) mapInstanceRef.current?.panTo(pos)
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading trip...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-sky-500 mx-auto mb-4" />
+          <p className="text-sm text-gray-600">Loading trip…</p>
         </div>
       </div>
     )
   }
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <div className="mb-4">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
+      <div className="min-h-screen bg-white flex items-center justify-center p-5">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-brand-soft grid place-items-center text-sky-600">
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+              <circle cx="12" cy="10" r="3" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to load trip</h2>
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Couldn&apos;t open this trip</h1>
           <p className="text-sm text-gray-600 mb-6">{error}</p>
-          <Link
-            href="/"
-            className="inline-block bg-accent text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors"
-          >
-            Go to FIBI
+          <Link href="/" className="inline-flex items-center h-10 px-5 rounded-full bg-sky-500 text-white text-sm font-medium hover:bg-sky-600 transition-colors">
+            Go to Fibi
           </Link>
         </div>
       </div>
     )
   }
 
-  if (!data) {
-    return null
+  const { itinerary } = data
+  const dateRange = formatRange(itinerary.start_date, itinerary.end_date)
+  const coverUrl = itinerary.cover_image_url || orderedItems[0]?.screenshot_url || orderedItems[0]?.thumbnail_url
+  const placeCount = `${orderedItems.length} ${orderedItems.length === 1 ? 'place' : 'places'}`
+
+  const primaryBtn = 'inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full text-sm font-medium bg-sky-500 text-white hover:bg-sky-600 active:scale-[0.985] transition disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap'
+  const secondaryBtn = 'inline-flex items-center justify-center h-9 px-4 rounded-full text-sm font-medium border border-gray-300 text-gray-900 hover:bg-gray-50 transition disabled:opacity-60 whitespace-nowrap'
+  const bookmarkIcon = (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16zM12 7v6M9 10h6" />
+    </svg>
+  )
+
+  const renderCta = () => {
+    if (addToAccountSuccess) {
+      return (
+        <Link href={`/app/calendar?itinerary_id=${encodeURIComponent(addToAccountSuccess.itinerary_id)}`} className={primaryBtn}>
+          Open in Fibi
+        </Link>
+      )
+    }
+    if (isCollaborateShare) {
+      return user ? (
+        <button type="button" onClick={handleJoinCollaborator} disabled={joiningCollaborator} className={primaryBtn}>
+          {joiningCollaborator ? 'Joining…' : 'Join this trip'}
+        </button>
+      ) : (
+        <Link href={signupHref} className={primaryBtn}>Join this trip</Link>
+      )
+    }
+    return user ? (
+      <button type="button" onClick={handleAddToAccount} disabled={addingToAccount} className={primaryBtn}>
+        {bookmarkIcon}
+        {addingToAccount ? 'Saving…' : 'Save trip'}
+      </button>
+    ) : (
+      <Link href={signupHref} className={primaryBtn}>
+        {bookmarkIcon}
+        Save trip
+      </Link>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900">{data.itinerary.name}</h1>
-              <p className="text-xs text-gray-500 mt-1">Shared trip</p>
-              {(data.itinerary.start_date || data.itinerary.end_date) && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {data.itinerary.start_date && new Date(data.itinerary.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  {data.itinerary.start_date && data.itinerary.end_date && ' – '}
-                  {data.itinerary.end_date && new Date(data.itinerary.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              {addToAccountSuccess ? (
-                <Link
-                  href={`/app/calendar?itinerary_id=${encodeURIComponent(addToAccountSuccess.itinerary_id)}`}
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
-                >
-                  View in my account
-                </Link>
-              ) : isCollaborateShare ? (
-                <>
-                  {user ? (
-                    <button
-                      type="button"
-                      onClick={handleJoinCollaborator}
-                      disabled={joiningCollaborator}
-                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {joiningCollaborator ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Joining…
-                        </>
-                      ) : (
-                        'Join as collaborator'
-                      )}
-                    </button>
-                  ) : (
-                    <Link
-                      href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
-                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
-                    >
-                      Join as collaborator
-                    </Link>
-                  )}
-                  {user && (
-                    <button
-                      type="button"
-                      onClick={handleAddToAccount}
-                      disabled={addingToAccount}
-                      className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {addingToAccount ? 'Adding…' : 'Add a copy to my account'}
-                    </button>
-                  )}
-                </>
-              ) : user ? (
-                <button
-                  type="button"
-                  onClick={handleAddToAccount}
-                  disabled={addingToAccount}
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {addingToAccount ? (
-                    <>
-                      <svg className="animate-spin h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Adding…
-                    </>
-                  ) : (
-                    'Add to my account'
-                  )}
-                </button>
-              ) : (
-                <Link
-                  href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium bg-accent text-white hover:bg-accent-hover transition-colors"
-                >
-                  Add to my account
-                </Link>
-              )}
-              <Link
-                href="/"
-                className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
-              >
-                FIBI
-              </Link>
-            </div>
-          </div>
-          {addToAccountError && (
-            <p className="text-sm text-red-600 mt-2">{addToAccountError}</p>
-          )}
-          {joinCollaboratorError && (
-            <p className="text-sm text-red-600 mt-2">{joinCollaboratorError}</p>
-          )}
-          {addToAccountSuccess && (
-            <p className="text-sm text-green-600 mt-2">Added &quot;{addToAccountSuccess.name}&quot; to your account.</p>
-          )}
-        </div>
-      </header>
+    <div className="min-h-screen bg-white md:flex md:h-screen md:overflow-hidden">
+      {/* Map */}
+      <div className="relative h-[52vh] min-h-[320px] md:h-auto md:flex-1 bg-gray-100">
+        {canMap ? (
+          <div ref={mapRef} className="absolute inset-0" />
+        ) : coverUrl ? (
+          <img src={getProxiedImageUrl(coverUrl) || coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-brand-soft" />
+        )}
 
-      {/* Trip cover hero - reduced height, title moved below */}
-      <div className="relative -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-12 overflow-hidden rounded-2xl">
-        <div className="relative aspect-[21/11] min-h-[144px] md:min-h-[160px] bg-gray-100">
-          {(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) ? (
-            <img
-              src={getProxiedImageUrl(data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url) || data.itinerary.cover_image_url || data.items[0]?.screenshot_url || data.items[0]?.thumbnail_url || ''}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300" />
-          )}
-          <div
-            className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
-            aria-hidden
-          />
+        <div className="absolute top-4 left-4 right-4 flex items-center justify-between pt-[env(safe-area-inset-top)]">
+          <Link href="/" className="inline-flex items-center gap-2 h-9 pl-2 pr-3.5 rounded-full bg-white/80 backdrop-blur-xl backdrop-saturate-150 shadow-soft text-sm font-medium text-gray-900">
+            <img src="/fibi-mark.png" alt="" className="h-[22px] w-auto" />
+            Fibi
+          </Link>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-white/80 backdrop-blur-xl backdrop-saturate-150 shadow-soft text-sm font-medium text-gray-900"
+            aria-label="Share this trip"
+          >
+            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13" />
+            </svg>
+            {linkCopied && <span>Link copied</span>}
+          </button>
         </div>
       </div>
 
-      {/* Title + Date below hero */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
-        <h2 className="text-2xl md:text-3xl font-semibold text-[#36454F]">{data.itinerary.name}</h2>
-        {(data.itinerary.start_date || data.itinerary.end_date) && (
-          <p className="mt-1 text-sm text-gray-500">
-            {data.itinerary.start_date && new Date(data.itinerary.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-            {data.itinerary.start_date && data.itinerary.end_date && ' – '}
-            {data.itinerary.end_date && new Date(data.itinerary.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+      {/* Sheet */}
+      <section className="relative -mt-7 md:mt-0 md:w-[420px] md:shrink-0 md:overflow-y-auto bg-white rounded-t-sheet md:rounded-none shadow-soft-xl md:shadow-none md:border-l md:border-gray-200 px-5 pt-2.5 pb-12">
+        <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-gray-300 md:hidden" aria-hidden />
+
+        <div className="flex items-start justify-between gap-3 md:pt-6">
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-[0.11em] text-gray-500">Shared trip</p>
+            <h1 className="mt-1 text-[22px] leading-tight font-semibold text-gray-900">{itinerary.name}</h1>
+            <p className="mt-1 text-sm text-gray-600">{dateRange ? `${dateRange} · ${placeCount}` : placeCount}</p>
+          </div>
+          <div className="shrink-0 pt-5">{renderCta()}</div>
+        </div>
+
+        {!user && !addToAccountSuccess && (
+          <p className="mt-3 text-sm text-gray-600">
+            {isCollaborateShare ? 'Join to add and plan places together.' : 'Save a copy to your own Fibi.'}{' '}
+            Already have an account?{' '}
+            <Link href={loginHref} className="font-medium text-sky-600 hover:text-sky-700">Sign in</Link>
           </p>
         )}
-      </div>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-6 md:pb-8">
-        {/* View Mode Tabs */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewMode('moodboard')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'moodboard'
-                  ? 'bg-accent text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Board
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-accent text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'map'
-                  ? 'bg-accent text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Map
-            </button>
-            <button
-              onClick={() => setViewMode('videos')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                viewMode === 'videos'
-                  ? 'bg-accent text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {isMobile ? 'Video feed' : 'Videos'}
-            </button>
-          </div>
-        </div>
-
-        {/* Stage filter removed - liked/visited shown as icons on cards */}
-
-        {/* Videos View: scrollable feed with in-app preview */}
-        {viewMode === 'videos' && (
-          <VideoFeed
-            items={filteredItems}
-            onSelectItem={setSelectedItem}
-            videoOnly={isMobile}
-            autoOpenFullScreen={isMobile}
-          />
+        {user && isCollaborateShare && !addToAccountSuccess && (
+          <button type="button" onClick={handleAddToAccount} disabled={addingToAccount} className={`${secondaryBtn} mt-3`}>
+            {addingToAccount ? 'Saving…' : 'Save a copy instead'}
+          </button>
+        )}
+        {addToAccountSuccess && (
+          <p className="mt-3 text-sm text-green-700">Saved &ldquo;{addToAccountSuccess.name}&rdquo; to your trips.</p>
+        )}
+        {(addToAccountError || joinCollaboratorError) && (
+          <p className="mt-3 text-sm text-red-700">{addToAccountError || joinCollaboratorError}</p>
         )}
 
-        {/* Moodboard View: uniform square cards, image-first */}
-        {viewMode === 'moodboard' && (
-          <div className="min-h-[200px] rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-            {filteredItems.length === 0 ? (
-              <p className="text-gray-500 text-center py-12 col-span-full">No places in this trip yet.</p>
-            ) : (
-              filteredItems.map((item, index) => {
-                const title = item.title || item.place_name || getHostname(item.url)
-                const locationStr = item.formatted_address ||
-                  (item.location_city && item.location_country ? `${item.location_city}, ${item.location_country}` : item.location_city || item.location_country) || null
-                return (
-                <div key={item.id} className="min-w-0">
+        {/* Day chips */}
+        {days.length > 1 && (
+          <div className="mt-5 -mx-5 px-5 flex gap-2 overflow-x-auto scrollbar-none">
+            {[{ key: 'all', label: 'All', count: orderedItems.length }, ...days].map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                onClick={() => {
+                  setActiveDay(d.key)
+                  setHighlightId(null)
+                }}
+                aria-pressed={activeDay === d.key}
+                className={`shrink-0 h-8 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  activeDay === d.key ? 'bg-night-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {d.label} <span className="opacity-70">{d.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Places */}
+        {visibleItems.length === 0 ? (
+          <p className="mt-10 text-center text-sm text-gray-600">No places in this trip yet.</p>
+        ) : (
+          <ol className="mt-4 grid gap-2.5">
+            {visibleItems.map((item) => {
+              const title = item.title || item.place_name || getHostname(item.url)
+              const place = item.place_name && item.place_name !== title ? item.place_name : item.formatted_address
+              const image = item.screenshot_url || item.thumbnail_url
+              const isActive = highlightId === item.id
+              return (
+                <li key={item.id} id={`trip-item-${item.id}`}>
                   <button
                     type="button"
                     onClick={() => {
-                      setSwipeViewerInitialIndex(index)
-                      setSwipeViewerOpen(true)
+                      focusItem(item)
+                      setSelectedItem(item)
                     }}
-                    className="w-full text-left aspect-[4/5] bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 flex flex-col min-w-0"
+                    onMouseEnter={() => !isMobile && focusItem(item)}
+                    className={`w-full grid grid-cols-[24px_72px_minmax(0,1fr)] gap-3 items-center p-2 pr-3 rounded-2xl border text-left transition-colors ${
+                      isActive ? 'border-sky-300 bg-sky-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
                   >
-                    <div className="flex-1 min-h-0 relative bg-gray-100 overflow-hidden">
-                      {isVideoTypeItem(item) ? (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <VideoEmbedBlock
-                            url={item.url}
-                            platform={item.platform}
-                            minHeight={260}
-                          />
-                        </div>
-                      ) : item.screenshot_url || item.thumbnail_url ? (
-                        <img
-                          src={getProxiedImageUrl(item.screenshot_url || item.thumbnail_url) || ''}
-                          alt={title}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
+                    <span className={`w-6 h-6 rounded-full text-xs font-semibold leading-6 text-center text-white ${toLatLng(item) ? 'bg-sky-500' : 'bg-gray-400'}`}>
+                      {numberById.get(item.id)}
+                    </span>
+                    <span className="relative w-[72px] h-[72px] rounded-xl overflow-hidden bg-brand-soft">
+                      {image ? (
+                        <img src={getProxiedImageUrl(image) || image} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                       ) : (
-                        <div className="absolute inset-0">
-                          <EmbedPreview
-                            url={item.url}
-                            thumbnailUrl={item.thumbnail_url}
-                            platform={item.platform || detectPlatform(item.url)}
-                            displayTitle={title}
-                            description={item.description}
-                          />
-                        </div>
+                        <span className="absolute inset-0">
+                          <LinkPreview url={item.url} ogImage={item.thumbnail_url} screenshotUrl={item.screenshot_url} description={item.description} platform={item.platform} hideLabel />
+                        </span>
                       )}
-                      {/* Liked / Planned overlay icons - top-right (24px, only when active) */}
-                      {(item.liked || item.planned) && (
-                        <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
-                          {item.planned && (
-                            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-black/50 text-white" aria-label="Planned">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            </span>
-                          )}
-                          {item.liked && (
-                            <span className={`flex items-center justify-center rounded-full bg-black/50 text-white ${item.planned ? 'w-5 h-5' : 'w-6 h-6'}`} aria-label="Liked">
-                              <svg className={item.planned ? 'w-3.5 h-3.5' : 'w-5 h-5'} fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                              </svg>
-                            </span>
-                          )}
-                        </div>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-medium text-gray-900 truncate">{title}</span>
+                      {place && <span className="block text-[13px] text-gray-600 truncate">{place}</span>}
+                      {activeDay === 'all' && (
+                        <span className="block mt-0.5 text-xs text-gray-500">{dayLabel(dayKey(item))}</span>
                       )}
-                    </div>
-                    <div className="px-3 py-2 flex-shrink-0 border-t border-gray-100 space-y-0.5">
-                      <p className="text-sm font-medium text-gray-900 truncate">{title}</p>
-                      {isVideoTypeItem(item) ? (
-                        <span className="text-xs text-gray-500">{item.platform}</span>
-                      ) : locationStr ? (
-                        <p className="text-xs text-gray-500 truncate">{locationStr}</p>
-                      ) : null}
-                    </div>
+                    </span>
                   </button>
-                </div>
-              )})
-            )}
-          </div>
+                </li>
+              )
+            })}
+          </ol>
         )}
+      </section>
 
-        {/* List View */}
-        {viewMode === 'list' && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {filteredItems.length} {filteredItems.length === 1 ? 'place' : 'places'}
-              </h2>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {filteredItems.map((item, index) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    setSwipeViewerInitialIndex(index)
-                    setSwipeViewerOpen(true)
-                  }}
-                  className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  <div className="flex gap-4">
-                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                      {item.screenshot_url ? (
-                        <img
-                          src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
-                          alt={item.title || getHostname(item.url)}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <EmbedPreview
-                          url={item.url}
-                          thumbnailUrl={item.thumbnail_url}
-                          platform={item.platform || detectPlatform(item.url)}
-                          displayTitle={item.title || getHostname(item.url)}
-                          description={item.description}
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-medium text-gray-900 mb-1">
-                        {item.title || getHostname(item.url)}
-                      </h3>
-                      {(item.place_name || item.formatted_address) && (
-                        <p className="text-xs text-gray-500">
-                          {item.place_name || item.formatted_address}
-                        </p>
-                      )}
-                      {item.planned_date && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {new Date(item.planned_date).toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Map View */}
-        {viewMode === 'map' && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="aspect-video w-full min-h-[280px] relative bg-gray-100">
-              {!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-sm text-gray-500">Map unavailable (no API key)</p>
-                </div>
-              ) : itemsWithLocations.length === 0 ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center px-4">
-                    <svg
-                      className="mx-auto h-10 w-10 text-gray-400 mb-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                    <p className="text-sm text-gray-600">No places with locations to show on the map</p>
-                  </div>
-                </div>
-              ) : (
-                <div ref={mapRef} className="absolute inset-0 w-full h-full" />
-              )}
-              {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && itemsWithLocations.length > 0 && !isGoogleMapsLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                  <p className="text-sm text-gray-500">Loading map…</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* CTA Section */}
-        <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6 text-center">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Save a copy to your FIBI
-          </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Create your own travel plans and keep track of places you want to visit.
-          </p>
-          <Link
-            href={`/login?redirect=${encodeURIComponent(`/share/itinerary/${shareToken}`)}`}
-            className="inline-block bg-accent text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-accent-hover transition-colors"
-          >
-            Get started
-          </Link>
-        </div>
-      </main>
-
-      {/* Place Detail Drawer (read-only for shared view) */}
-      {swipeViewerOpen && data && (
-        <TripSwipeViewer
-          items={filteredItems}
-          initialIndex={swipeViewerInitialIndex}
-          onClose={() => setSwipeViewerOpen(false)}
-          onOpenDetails={(item) => setSelectedItem(item)}
-        />
-      )}
       {selectedItem && (
-        <PlaceDetailDrawer
-          item={selectedItem}
-          onClose={() => setSelectedItem(null)}
-          isMobile={isMobile}
-          readOnly
-        />
+        <PlaceDetailDrawer item={selectedItem} onClose={() => setSelectedItem(null)} isMobile={isMobile} readOnly />
       )}
     </div>
   )
 }
-
-// Place Card Component
-interface PlaceCardProps {
-  item: SavedItem
-  compact?: boolean
-  onSelect?: () => void
-}
-
-function PlaceCard({ item, compact = false, onSelect }: PlaceCardProps) {
-  const displayTitle = item.title || getHostname(item.url)
-
-  if (compact) {
-    return (
-      <div
-        onClick={onSelect}
-        className="bg-white rounded border border-gray-200 p-1.5 cursor-pointer hover:shadow-sm transition-shadow"
-      >
-        <div className="aspect-video rounded mb-1 overflow-hidden bg-gray-100">
-          {item.screenshot_url ? (
-            <img
-              src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
-              alt={displayTitle}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <EmbedPreview
-              url={item.url}
-              thumbnailUrl={item.thumbnail_url}
-              platform={item.platform || detectPlatform(item.url)}
-              displayTitle={displayTitle}
-              description={item.description}
-            />
-          )}
-        </div>
-        <p className="text-xs font-medium text-gray-900 line-clamp-1">{displayTitle}</p>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      onClick={onSelect}
-      className="bg-white rounded-lg border border-gray-200 p-2 w-32 md:w-40 cursor-pointer hover:shadow-md transition-shadow"
-    >
-      <div className="aspect-video rounded mb-2 overflow-hidden bg-gray-100">
-        {item.screenshot_url ? (
-          <img
-            src={getProxiedImageUrl(item.screenshot_url) || item.screenshot_url}
-            alt={displayTitle}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <EmbedPreview
-            url={item.url}
-            thumbnailUrl={item.thumbnail_url}
-            platform={item.platform || detectPlatform(item.url)}
-            displayTitle={displayTitle}
-          />
-        )}
-      </div>
-      <p className="text-xs md:text-sm font-medium text-gray-900 line-clamp-2">
-        {displayTitle}
-      </p>
-    </div>
-  )
-}
-
-

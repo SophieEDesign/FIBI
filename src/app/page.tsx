@@ -1,7 +1,6 @@
 import LandingPage from '@/components/LandingPage'
 import { isAnonymousUser } from '@/lib/anonymous-auth'
 import { createClient } from '@/lib/supabase/server'
-import { listPublishedGuides } from '@/lib/travel-guides'
 import { redirect } from 'next/navigation'
 
 // Force dynamic rendering
@@ -25,14 +24,9 @@ export default async function HomePage() {
       redirect('/app')
     }
 
-    let teaserGuides = await listPublishedGuides({ featuredOnly: true, limit: 4 })
-    if (teaserGuides.length === 0) {
-      teaserGuides = await listPublishedGuides({ limit: 4 })
-    }
-
-    return <LandingPage teaserGuides={teaserGuides} />
+    return <LandingPage />
   } catch (error) {
     console.error('Home page error:', error)
-    return <LandingPage teaserGuides={[]} />
+    return <LandingPage />
   }
 }

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+import "./dark.css";
 import CookieConsentBar from '@/components/CookieConsentBar';
 import GoogleAnalytics from '@/components/GoogleAnalytics';
 
@@ -67,7 +68,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#171717",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#171717" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A0A1C" },
+  ],
 };
 
 const structuredData = [
@@ -99,7 +103,6 @@ export default function RootLayout({
         <link rel="manifest" href="/api/manifest" />
         <link rel="icon" href="/FIBI Logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/FIBI Logo.png" />
-        <meta name="theme-color" content="#171717" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta

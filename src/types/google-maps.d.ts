@@ -9,7 +9,9 @@ declare namespace google {
       getZoom(): number | null
       getBounds(): LatLngBounds | null
       getProjection(): Projection | null
-      fitBounds(bounds: LatLngBounds): void
+      setCenter(latLng: LatLng | LatLngLiteral): void
+      setZoom(zoom: number): void
+      fitBounds(bounds: LatLngBounds, padding?: number | { top?: number; right?: number; bottom?: number; left?: number }): void
       addListener(eventName: string, handler: () => void): MapsEventListener
       padding?: {
         top: number
@@ -24,8 +26,14 @@ declare namespace google {
       addListener(eventName: string, handler: () => void): MapsEventListener
     }
 
+    interface LatLngLiteral {
+      lat: number
+      lng: number
+    }
+
     interface LatLngBounds {
-      extend(latLng: LatLng): void
+      extend(latLng: LatLng | LatLngLiteral): void
+      getCenter(): LatLng
       getNorthEast(): LatLng
     }
 
@@ -55,14 +63,25 @@ declare namespace google {
       mapTypeControl?: boolean
       streetViewControl?: boolean
       fullscreenControl?: boolean
+      gestureHandling?: 'cooperative' | 'greedy' | 'none' | 'auto'
+      clickableIcons?: boolean
+    }
+
+    interface MarkerLabel {
+      text: string
+      color?: string
+      fontSize?: string
+      fontWeight?: string
     }
 
     interface MarkerOptions {
-      position?: LatLng
+      position?: LatLng | LatLngLiteral
       map?: Map
       icon?: any
       title?: string
       animation?: any
+      label?: string | MarkerLabel
+      zIndex?: number
     }
 
     interface InfoWindowOptions {

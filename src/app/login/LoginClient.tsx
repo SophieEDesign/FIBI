@@ -269,7 +269,10 @@ export default function LoginClient() {
             ) : (
               <p className="text-sm text-gray-600">
                 Don&apos;t have an account?{' '}
-                <Link href="/signup" className="text-gray-900 font-medium hover:underline">
+                <Link
+                  href={redirectParam ? `/signup?redirect=${encodeURIComponent(redirectParam)}` : '/signup'}
+                  className="text-gray-900 font-medium hover:underline"
+                >
                   Sign up
                 </Link>
               </p>

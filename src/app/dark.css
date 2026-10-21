@@ -1,0 +1,83 @@
+/*
+ * Indigo dark mode (FIBI design system), following the phone's setting.
+ *
+ * Stopgap: most components hard-code light classes (bg-white, text-gray-900…), so this file
+ * remaps the common ones in one place. It is imported after globals.css so these rules win.
+ * As components are touched, move them to `dark:` variants and delete the matching rules here.
+ * To turn dark mode off, remove the import from src/app/layout.tsx.
+ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0A0A1C;
+    --foreground: #F2F3F8;
+    color-scheme: dark;
+
+    /* Match [data-theme="dark"] semantic tokens so CSS-var components follow the phone */
+    --bg-page: var(--indigo-950);
+    --bg-subtle: var(--indigo-900);
+    --bg-inset: var(--indigo-800);
+    --bg-surface: var(--indigo-900);
+    --bg-raised: var(--indigo-800);
+    --bg-scrim: rgba(5, 5, 14, .62);
+    --surface-card: var(--indigo-800);
+    --surface-card-hover: var(--indigo-700);
+    --surface-glass: rgba(26, 26, 56, .72);
+    --text-primary: #F2F3F8;
+    --text-secondary: #A9ADC4;
+    --text-tertiary: #6E7294;
+    --text-inverse: var(--indigo-950);
+    --text-brand: var(--sky-300);
+    --text-link: var(--sky-300);
+    --text-link-hover: var(--sky-200);
+    --border-subtle: var(--indigo-700);
+    --border-default: var(--indigo-600);
+    --border-strong: #4B4B7A;
+    --border-brand: var(--sky-400);
+    --accent: var(--sky-400);
+    --accent-hover: var(--sky-300);
+    --accent-active: var(--sky-200);
+    --accent-soft: rgba(88, 184, 248, .16);
+    --accent-fg: var(--indigo-950);
+
+    /* Scrollbars on indigo */
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: rgba(169, 173, 196, 0.28);
+    --scrollbar-thumb-hover: rgba(169, 173, 196, 0.48);
+  }
+
+  /* Surfaces */
+  .bg-white { background-color: #101028; }
+  .bg-gray-50 { background-color: #0A0A1C; }
+  .bg-gray-100 { background-color: #1A1A38; }
+  .bg-gray-200 { background-color: #26264C; }
+  .hover\:bg-gray-50:hover { background-color: #1A1A38; }
+  .hover\:bg-gray-100:hover { background-color: #26264C; }
+  .hover\:bg-gray-200:hover { background-color: #393964; }
+  .bg-white\/80, .bg-white\/90, .bg-white\/95 { background-color: rgba(26, 26, 56, .72); }
+
+  /* Text */
+  .text-charcoal, .text-gray-900, .text-gray-800 { color: #F2F3F8; }
+  .text-gray-700, .text-secondary, .text-gray-600 { color: #A9ADC4; }
+  .text-gray-500, .text-gray-400 { color: #6E7294; }
+  .hover\:text-charcoal:hover, .hover\:text-gray-900:hover { color: #F2F3F8; }
+
+  /* Borders */
+  .border-gray-100, .border-gray-200 { border-color: #26264C; }
+  .border-gray-300, .border-gray-400 { border-color: #393964; }
+  .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+  .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #26264C; }
+
+  /* Filled buttons: charcoal/black becomes the light sky accent with indigo text */
+  .bg-charcoal, .bg-gray-900 { background-color: #58B8F8; color: #0A0A1C; }
+  .hover\:bg-gray-800:hover { background-color: #8FD5FB; }
+
+  /* Shadows read as depth on indigo, not as grey haze */
+  .shadow-soft, .shadow-sm { box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+  .shadow-soft-md, .shadow-md { box-shadow: 0 4px 16px -4px rgba(0, 0, 0, .45); }
+
+  /* Image placeholders */
+  .bg-brand-soft { background-image: linear-gradient(135deg, #1A1A38 0%, #26264C 55%, #393964 100%); }
+
+  input, textarea, select { color-scheme: dark; }
+  ::placeholder { color: #6E7294; }
+}

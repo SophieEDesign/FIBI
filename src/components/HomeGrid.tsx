@@ -11,6 +11,7 @@ import LibraryMapPreview from '@/components/LibraryMapPreview'
 import SavedPlaceCard from '@/components/SavedPlaceCard'
 import TripBoardCard from '@/components/TripBoardCard'
 import { Button } from '@/components/ui/Button'
+import FirstRunCard from '@/components/FirstRunCard'
 import { pickFeaturedTrip } from '@/lib/trip-board-meta'
 import { useIsIos } from '@/lib/useIsIos'
 
@@ -582,13 +583,13 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
           </div>
         )}
 
-        {showShareTip && !loading && (
+        {showShareTip && !loading && items.length > 0 && (
           <div className="mb-7 flex items-center gap-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-4 md:px-5">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-charcoal">Tip: save straight from TikTok or Instagram</p>
               <p className="mt-0.5 text-sm text-secondary">
                 {isIos
-                  ? 'On iPhone, copy the link, open Fibi, and paste it with Save a place. On a computer, paste a link the same way. '
+                  ? 'Copy the link in TikTok or Instagram, then tap Save a place and Paste. '
                   : 'On your phone, tap Share on any post, then Fibi. On a computer, paste a link with Save a place. '}
                 <Link href="/app/how-to" className="font-medium text-sky-700 underline underline-offset-2">
                   Show me how
@@ -801,7 +802,7 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 <rect width="100%" height="100%" fill="url(#map-dots)" />
               </svg>
             </div>
-            {items.length > 0 && activeFiltersCount > 0 ? (
+            {items.length > 0 ? (
               <div className="text-center py-14 md:py-20 relative">
                 <h2 className="text-xl md:text-2xl font-medium text-charcoal mb-2">
                   No places match your filters
@@ -814,22 +815,8 @@ export default function HomeGrid({ user, confirmed }: HomeGridProps) {
                 </Button>
               </div>
             ) : (
-              <div className="text-center py-14 md:py-20 relative">
-                <h2 className="text-2xl md:text-3xl font-medium text-charcoal mb-3 leading-tight">
-                  Nothing saved yet
-                </h2>
-                <p className="text-base md:text-lg text-secondary mb-8 leading-relaxed max-w-md mx-auto">
-                  Paste a link and it turns into a place — named, pinned, filed under the city.
-                </p>
-                <Button href="/add" size="lg" className="mb-4">
-                  Save one
-                </Button>
-                <Link
-                  href="/app/guides"
-                  className="block text-sm text-secondary hover:text-charcoal transition-colors"
-                >
-                  Browse guides for inspiration
-                </Link>
+              <div className="relative">
+                <FirstRunCard hasTrip={itineraries.length > 0} />
               </div>
             )}
           </div>

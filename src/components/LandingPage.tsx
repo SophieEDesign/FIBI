@@ -1,292 +1,310 @@
 'use client'
 
-/**
- * Capture-first homepage — calm composition around paste-to-save and public guides.
- */
-
-import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { usePWAInstall } from '@/hooks/usePWAInstall'
-import { useIsIos } from '@/lib/useIsIos'
-import SiteFooter from '@/components/SiteFooter'
-import GuideCardLink from '@/components/guides/GuideCardLink'
-import { Button } from '@/components/ui/Button'
-import type { GuideCard } from '@/lib/travel-guides-shared'
+import { useState } from 'react'
 
-function HeroPasteSave() {
-  const [url, setUrl] = useState('')
-  const router = useRouter()
+type PhotoCredit = {
+  photographer: string
+  license: 'CC BY-SA 4.0' | 'CC BY-SA 2.0' | 'Public domain'
+  licenseUrl?: string
+  /** CC works that were cropped or otherwise altered for the card */
+  altered?: 'cropped' | 'edited'
+}
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = url.trim()
-    if (!trimmed) {
-      router.push('/add')
-      return
-    }
-    router.push(`/add?url=${encodeURIComponent(trimmed)}`)
+type ExamplePlace = {
+  name: string
+  location: string
+  note: string
+  source: string
+  image: string | null
+  credit?: PhotoCredit
+}
+
+const EXAMPLES: ExamplePlace[] = [
+  {
+    name: 'Time Out Market',
+    location: 'Cais do Sodré, Lisbon',
+    note: 'Go early — the seafood counter gets busy.',
+    source: 'TikTok',
+    image: '/landing/time-out-market.jpg',
+    credit: {
+      photographer: 'Neitram',
+      license: 'CC BY-SA 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      altered: 'cropped',
+    },
+  },
+  {
+    name: 'Praia da Ursa',
+    location: 'Sintra',
+    note: 'Steep path down. Worth it at sunset.',
+    source: 'Instagram',
+    image: '/landing/praia-da-ursa.jpg',
+    credit: {
+      photographer: 'Filipemigu',
+      license: 'CC BY-SA 4.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/',
+      altered: 'cropped',
+    },
+  },
+  {
+    name: 'Park Bar',
+    location: 'Bairro Alto, Lisbon',
+    note: 'Rooftop on a car park. Go for sunset.',
+    source: 'Instagram',
+    image: '/landing/park-bar.jpg',
+    credit: {
+      photographer: 'Vitor Oliveira',
+      license: 'CC BY-SA 2.0',
+      licenseUrl: 'https://creativecommons.org/licenses/by-sa/2.0/',
+      altered: 'cropped',
+    },
+  },
+  {
+    name: 'Miradouro da Senhora do Monte',
+    location: 'Graça, Lisbon',
+    note: 'Best view over the city, free.',
+    source: 'YouTube',
+    image: '/landing/senhora-do-monte.jpg',
+    credit: {
+      photographer: 'Reino Baptista',
+      license: 'Public domain',
+    },
+  },
+]
+
+const STEPS = [
+  { n: '01', title: 'Save it', body: 'Share a link to Fibi directly from any app or website.' },
+  { n: '02', title: 'Make it yours', body: 'Add a screenshot, name, and location to remember why you saved it.' },
+  { n: '03', title: 'Find it later', body: 'Everything is organised in one calm, algorithm-free place for easy access.' },
+]
+
+// Pin positions on the map band (percent of width/height)
+const PINS = [
+  { x: 24, y: 58, tone: 'gold' }, { x: 62, y: 36, tone: 'gold' }, { x: 46, y: 50, tone: 'orchid' },
+  { x: 12, y: 32, tone: 'gold' }, { x: 78, y: 62, tone: 'orchid' },
+]
+
+function formatCredit(credit: PhotoCredit): string {
+  const alter =
+    credit.altered === 'cropped'
+      ? ' Cropped from original.'
+      : credit.altered === 'edited'
+        ? ' Edited from original.'
+        : ''
+  if (credit.license === 'Public domain') {
+    return `Photo by ${credit.photographer} / Wikimedia Commons / Public domain.${alter}`
   }
+  return `Photo by ${credit.photographer} / Wikimedia Commons / ${credit.license}.${alter}`
+}
 
+function PinIcon({ className = 'w-7 h-7' }: { className?: string }) {
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto lg:mx-0 space-y-3">
-      <label htmlFor="hero-url" className="sr-only">
-        Paste a travel link
-      </label>
-      <div className="flex flex-col sm:flex-row gap-2">
-        <input
-          id="hero-url"
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste a TikTok, Instagram or web link"
-          className="flex-1 px-4 py-3.5 rounded-full border border-[color:var(--border-subtle)] bg-white text-sm focus:outline-none focus:border-[color:var(--border-brand)] focus:shadow-[var(--focus-ring)]"
-        />
-        <button
-          type="submit"
-          className="bg-accent text-white px-6 py-3.5 rounded-full font-medium hover:bg-accent-hover transition-colors duration-fast shadow-soft whitespace-nowrap"
-        >
-          Save it
-        </button>
-      </div>
-      <p className="text-xs text-fibi-muted text-center lg:text-left">
-        No account for the first ten saves.
-      </p>
-    </form>
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
   )
 }
 
-function FilledPlacePayoff() {
+/** Filled map pin for the landing map band */
+function MapPin({ tone }: { tone: 'gold' | 'orchid' }) {
+  const fill = tone === 'gold' ? '#E0A800' : '#C888D8'
   return (
-    <div className="w-full max-w-sm mx-auto rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-soft">
-      <div className="relative aspect-[4/3]">
-        <img
-          src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      </div>
-      <div className="p-4">
-        <p className="text-xs font-medium text-fibi-muted uppercase tracking-wide">Food hall · Lisbon</p>
-        <h3 className="text-lg font-semibold text-fibi-text-primary mt-1">Time Out Market</h3>
-        <p className="text-sm text-fibi-muted mt-1">Copied from TikTok, saved in one paste</p>
-      </div>
-    </div>
+    <svg className="w-8 h-8 drop-shadow-[0_6px_14px_rgba(46,158,232,0.45)]" viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill={fill}
+        stroke="#FFFFFF"
+        strokeWidth={1.75}
+        d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"
+      />
+      <circle cx="12" cy="10" r="2.5" fill="#FFFFFF" />
+    </svg>
   )
 }
 
-export default function LandingPage({
-  teaserGuides = [],
-}: {
-  teaserGuides?: GuideCard[]
-}) {
-  const { isInstallable, promptInstall } = usePWAInstall()
-  const isIos = useIsIos()
-  const [showShareTip, setShowShareTip] = useState(false)
+function Logo() {
+  return (
+    <Link href="/" className="flex items-center gap-2.5" aria-label="FIBI home">
+      <img src="/fibi-mark.png" alt="" className="h-7 w-auto" />
+      <span className="text-[16px] font-semibold tracking-[0.11em] text-mist">FIBI</span>
+    </Link>
+  )
+}
 
-  const handleInstallClick = async (e: React.MouseEvent) => {
-    e.preventDefault()
-    if (isInstallable) {
-      await promptInstall()
-    } else {
-      window.location.href = '/how-to'
-    }
-  }
+export default function LandingPage() {
+  const [mapImageFailed, setMapImageFailed] = useState(false)
+  const creditedExamples = EXAMPLES.filter((p) => p.credit)
 
   return (
-    <div className="min-h-screen bg-fibi-bg-light text-fibi-text-primary">
-      <header className="border-b border-[color:var(--border-subtle)] sticky top-0 z-30 bg-[color:var(--surface-glass)] backdrop-blur-[18px] backdrop-saturate-150">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/FIBI Logo.png" alt="FIBI" className="h-8 w-auto" />
-          </Link>
-          <div className="flex items-center gap-5">
-            <Link
-              href="/travel-guides"
-              className="text-sm font-medium text-fibi-muted hover:text-fibi-text-primary transition-colors"
-            >
-              Guides
-            </Link>
-            <Link
-              href="#how"
-              className="text-sm font-medium text-fibi-muted hover:text-fibi-text-primary transition-colors hidden sm:inline"
-            >
-              How it works
-            </Link>
-            <Link
-              href="/login"
-              className="text-sm font-medium text-fibi-muted hover:text-fibi-text-primary transition-colors"
-            >
+    <div className="min-h-screen bg-night-950 text-mist">
+      <header className="sticky top-0 z-20 bg-night-950/70 backdrop-blur-xl backdrop-saturate-150">
+        <div className="max-w-[1120px] mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
+          <Logo />
+          <nav className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Link href="/login" className="px-3 sm:px-4 h-10 inline-flex items-center rounded-full text-sm font-medium text-mist hover:bg-night-800 transition-colors">
               Sign in
             </Link>
-          </div>
+            {/* Hero already has Get started; keep header CTA from sm up so the bar stays tidy on phones */}
+            <Link href="/signup" className="hidden sm:inline-flex px-4 h-10 items-center rounded-full text-sm font-medium bg-sky-400 text-night-950 hover:bg-sky-300 transition-colors">
+              Get started
+            </Link>
+          </nav>
         </div>
       </header>
 
       <main>
         {/* Hero */}
-        <section className="border-b border-gray-100/80 bg-white">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-16 lg:pt-16 lg:pb-20">
-            <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-              <div className="space-y-6 text-center lg:text-left">
-                <div className="flex items-center justify-center lg:justify-start gap-3">
-                  <img src="/FIBI Logo.png" alt="" className="h-10 w-auto sm:h-12" />
-                  <span className="text-3xl sm:text-4xl font-semibold font-heading tracking-tight text-fibi-text-primary">
-                    FIBI
-                  </span>
-                </div>
-                <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-semibold text-fibi-text-primary leading-[1.15] text-balance">
-                  See it. Save it. Go there.
-                </h1>
-                <p className="text-base sm:text-lg text-fibi-muted leading-relaxed max-w-md mx-auto lg:mx-0">
-                  The restaurant you saw on TikTok, findable in September. Save a post to Fibi and
-                  it becomes a place — named, pinned, filed under the city.
-                </p>
-                <HeroPasteSave />
-                <p className="text-sm text-fibi-muted">
-                  <Link href="/travel-guides" className="text-fibi-primary hover:underline">
-                    Read a guide first
-                  </Link>
-                  {' · '}
-                  Works on iPhone and Android
-                </p>
-              </div>
-              <div className="flex justify-center">
-                <FilledPlacePayoff />
-              </div>
+        <section className="bg-aurora">
+          <div className="max-w-[1120px] mx-auto px-5 sm:px-8 pt-16 sm:pt-24 text-center">
+            <h1 className="mx-auto max-w-[940px] text-[40px] sm:text-[56px] lg:text-[64px] leading-[1.06] font-semibold tracking-[-0.032em]">
+              That restaurant you saw on Instagram? That beach from TikTok?
+            </h1>
+            <p className="mt-6 text-lg sm:text-xl text-mist-muted">
+              Save it before it disappears from your feed.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <Link
+                href="/signup"
+                className="inline-flex items-center h-12 px-7 rounded-full bg-brand text-white text-base font-medium shadow-soft-lg hover:brightness-105 active:scale-[0.985] transition"
+              >
+                Get started
+              </Link>
+            </div>
+
+            {/* Example saved places */}
+            <div className="mt-16 -mx-5 sm:mx-0 px-5 sm:px-0 flex gap-5 overflow-x-auto sm:overflow-visible sm:justify-center snap-x snap-mandatory scrollbar-thin pb-3">
+              {EXAMPLES.map((p, i) => (
+                <article
+                  key={p.name}
+                  className={`snap-center shrink-0 w-[248px] text-left rounded-2xl overflow-hidden bg-night-800 border border-night-700 shadow-soft-lg ${i % 2 ? 'sm:translate-y-7' : ''}`}
+                >
+                  <div className="relative aspect-[4/3] bg-brand-night grid place-items-center text-sky-300">
+                    {p.image ? (
+                      <img
+                        src={p.image}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : (
+                      <PinIcon />
+                    )}
+                    <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full bg-night-900/70 backdrop-blur text-xs font-medium text-mist">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gold-400" />
+                      {p.source}
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-[15px] font-medium leading-snug">{p.name}</h3>
+                    <p className="mt-0.5 text-[13px] text-mist-muted">{p.location}</p>
+                    <p className="mt-2 text-[13px] text-mist-muted">{p.note}</p>
+                  </div>
+                </article>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Public guides */}
-        <section className="py-16 lg:py-20 bg-fibi-bg-light">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="max-w-xl mb-10 space-y-3">
-              <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-                Guides people made from their own saves
-              </h2>
-              <p className="text-fibi-muted leading-relaxed">
-                Open any of them without an account. Keep one and it lands in your places.
-              </p>
+        {/* Map band */}
+        <section className="max-w-[1120px] mx-auto px-5 sm:px-8 pt-16 sm:pt-24">
+          <div className="relative h-[300px] sm:h-[380px] rounded-2xl overflow-hidden border border-night-700 bg-night-800">
+            {!mapImageFailed ? (
+              <img
+                src="/landing/map.jpg"
+                alt="Saved places shown as pins on a map of Lisbon"
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={() => setMapImageFailed(true)}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-brand-night opacity-60" aria-hidden />
+            )}
+            {/* Pins sit on top of the map (or the indigo fallback) */}
+            {PINS.map((pin, i) => (
+              <span
+                key={i}
+                className="absolute -translate-x-1/2 -translate-y-full pointer-events-none"
+                style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
+                aria-hidden
+              >
+                <MapPin tone={pin.tone as 'gold' | 'orchid'} />
+              </span>
+            ))}
+            <div className="absolute left-4 bottom-4 sm:left-6 sm:bottom-6 right-4 sm:right-auto px-5 py-3.5 rounded-2xl bg-night-800/75 backdrop-blur-xl backdrop-saturate-150">
+              <p className="text-lg font-medium">Every place you save, on one map</p>
+              <p className="text-sm text-mist-muted">Pins for places to visit and places you&apos;ve been.</p>
             </div>
-
-            {teaserGuides.length > 0 ? (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-                {teaserGuides.slice(0, 3).map((g) => (
-                  <GuideCardLink key={g.id} guide={g} />
-                ))}
-              </div>
-            ) : null}
-
-            <Link
-              href="/travel-guides"
-              className="text-sm font-medium text-fibi-primary hover:underline"
-            >
-              All guides →
-            </Link>
           </div>
         </section>
 
         {/* How it works */}
-        <section id="how" className="scroll-mt-24 py-16 lg:py-20 border-t border-gray-100 bg-white">
-          <div className="max-w-3xl mx-auto px-4 sm:px-6">
-            <h2 className="text-2xl lg:text-3xl text-fibi-text-primary text-center mb-10">
-              Three taps, then never again
-            </h2>
-            <ol className="space-y-8">
-              {[
-                {
-                  title: isIos ? 'Copy the link' : 'Share the post',
-                  body: isIos
-                    ? 'On iPhone, copy the link, open Fibi, and paste it. You can do that from TikTok, Instagram, or anywhere else.'
-                    : 'Tap Share in TikTok, Instagram or anywhere else and pick Fibi. You stay where you were.',
-                },
-                {
-                  title: 'We work out the place',
-                  body: 'Name, category, city and map pin come from the post. Add a note only if you want one.',
-                },
-                {
-                  title: 'Find it by city',
-                  body: 'Your saves group themselves into cities on a map, so the Lisbon list is waiting when you land.',
-                },
-              ].map((step, i) => (
-                <li key={step.title} className="flex gap-4">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-fibi-blue-light text-sm font-semibold text-fibi-primary">
-                    {i + 1}
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-semibold text-fibi-text-primary">{step.title}</h3>
-                    <p className="text-fibi-muted mt-1 leading-relaxed">{step.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-
-            <div className="mt-10 text-center">
-              <button
-                type="button"
-                onClick={() => setShowShareTip((v) => !v)}
-                className="text-sm font-medium text-fibi-primary hover:underline"
-                aria-expanded={showShareTip}
-              >
-                How to save from Instagram &amp; TikTok
-              </button>
-              {showShareTip && (
-                <div className="mt-4 max-w-md mx-auto text-left text-sm text-fibi-muted leading-relaxed bg-fibi-bg-light border border-gray-100 rounded-xl p-4 space-y-2">
-                  <p>
-                    {isIos
-                      ? 'On iPhone, copy the link, open Fibi, and paste it.'
-                      : 'Install Fibi on your home screen. Next time you find a place, tap Share and choose Fibi.'}
-                  </p>
-                  <p>Or paste a URL above. Same result, either way.</p>
-                  <button
-                    type="button"
-                    onClick={handleInstallClick}
-                    className="text-fibi-primary font-medium hover:underline"
-                  >
-                    How to install
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Publish tease */}
-        <section className="py-16 lg:py-20 border-t border-gray-100 bg-fibi-bg-light">
-          <div className="max-w-xl mx-auto px-4 sm:px-6 text-center space-y-4">
-            <h2 className="text-2xl lg:text-3xl text-fibi-text-primary">
-              Turn a city&apos;s worth of saves into a guide worth sending
-            </h2>
-            <p className="text-fibi-muted leading-relaxed">
-              One switch makes a collection public: a clean page with a map, your notes and your
-              name on it. Friends open it without an account.
-            </p>
-            <Button href="/signup" size="sm">
-              Start saving
-            </Button>
-          </div>
+        <section className="max-w-[1120px] mx-auto px-5 sm:px-8 py-16 sm:py-24" aria-labelledby="how-it-works">
+          <h2 id="how-it-works" className="sr-only">How it works</h2>
+          <ol className="grid gap-10 md:grid-cols-3">
+            {STEPS.map((s) => (
+              <li key={s.n} className="pt-5 border-t border-night-700">
+                <span className="font-mono text-sm text-sky-300">{s.n}</span>
+                <h3 className="mt-2 text-[22px] font-medium">{s.title}</h3>
+                <p className="mt-2 text-[15px] text-mist-muted">{s.body}</p>
+              </li>
+            ))}
+          </ol>
         </section>
 
         {/* Final CTA */}
-        <section className="py-16 lg:py-20 border-t border-gray-100 bg-white">
-          <div className="max-w-xl mx-auto px-4 sm:px-6 text-center space-y-6">
-            <h2 className="text-2xl lg:text-3xl text-fibi-text-primary text-balance">
-              Start with one place. Bring the other 199 later.
-            </h2>
-            <p className="text-fibi-muted">
-              {isIos
-                ? 'Paste a link and see it turn into a place. On iPhone, copy the link, open Fibi, and paste it.'
-                : 'Paste a link and see it turn into a place. Add Fibi to your home screen so it shows up in the share sheet.'}
-            </p>
-            <Button href="/add" size="lg" variant="gradient">
-              Save a place
-            </Button>
+        <section className="max-w-[1120px] mx-auto px-5 sm:px-8 pb-24 sm:pb-28 text-center">
+          <h2 className="text-[32px] sm:text-[40px] leading-[1.1] font-semibold tracking-[-0.018em]">Ready to start saving?</h2>
+          <p className="mt-4 text-[15px] text-mist-muted">
+            On iPhone, copy the link and tap Paste. On Android, share straight to Fibi.
+          </p>
+          <div className="mt-7 flex justify-center">
+            <Link href="/signup" className="inline-flex items-center h-12 px-7 rounded-full bg-sky-400 text-night-950 text-base font-medium hover:bg-sky-300 active:scale-[0.985] transition">
+              Get started
+            </Link>
           </div>
         </section>
       </main>
 
-      <SiteFooter showSignIn />
+      <footer className="border-t border-night-700">
+        <div className="max-w-[1120px] mx-auto px-5 sm:px-8 py-6 flex flex-col gap-5 text-xs text-mist-faint">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p>© {new Date().getFullYear()} Fibi. Save places before you lose them.</p>
+            <div className="flex items-center gap-6">
+              <Link href="/signup" className="text-sky-300 hover:text-sky-200">Sign up</Link>
+              <Link href="/login" className="text-sky-300 hover:text-sky-200">Sign in</Link>
+            </div>
+          </div>
+          {creditedExamples.length > 0 && (
+            <ul className="space-y-1.5 text-left max-w-3xl" aria-label="Photo credits">
+              {creditedExamples.map((p) => (
+                <li key={p.name}>
+                  <span className="text-mist-muted">{p.name}: </span>
+                  {p.credit!.licenseUrl ? (
+                    <>
+                      Photo by {p.credit!.photographer} / Wikimedia Commons /{' '}
+                      <a
+                        href={p.credit!.licenseUrl}
+                        className="text-sky-300/80 hover:text-sky-200 underline-offset-2 hover:underline"
+                        rel="license noopener noreferrer"
+                        target="_blank"
+                      >
+                        {p.credit!.license}
+                      </a>
+                      .
+                      {p.credit!.altered === 'cropped'
+                        ? ' Cropped from original.'
+                        : p.credit!.altered === 'edited'
+                          ? ' Edited from original.'
+                          : null}
+                    </>
+                  ) : (
+                    formatCredit(p.credit!)
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </footer>
     </div>
   )
 }
