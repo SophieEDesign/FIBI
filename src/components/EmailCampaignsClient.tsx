@@ -56,6 +56,16 @@ function pct(n: number, d: number): string {
   return `${((n / d) * 100).toFixed(1)}%`
 }
 
+function formatCampaignDate(c: Campaign): string {
+  const raw = c.completed_at || c.started_at || c.scheduled_at || null
+  if (!raw) return '—'
+  try {
+    return new Date(raw).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+  } catch {
+    return raw
+  }
+}
+
 function statusBadgeClass(status: string): string {
   switch (status) {
     case 'sent':
@@ -839,23 +849,36 @@ export default function EmailCampaignsClient() {
         </div>
       )}
 
+      <p className="mb-4 text-sm text-[#5C574C]">
+        Campaign sends show here with dates and open/click rates. One-off sends from{' '}
+        <Link href="/app/admin/emails/templates" className="underline">
+          Templates
+        </Link>{' '}
+        appear in the{' '}
+        <Link href="/app/admin/emails/log" className="underline">
+          Email log
+        </Link>{' '}
+        instead.
+      </p>
+
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campaign</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Segment</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Audience</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sent</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivered</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Opened</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Clicked</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {campaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500 text-sm">
                     No campaigns yet. Create one to start.
                   </td>
                 </tr>
@@ -878,11 +901,8 @@ export default function EmailCampaignsClient() {
                       </Link>
                       <div className="text-xs text-gray-400 font-normal font-mono">{c.template_slug}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {segments.find((s) => s.id === c.segment_id)?.name || (c.segment_id ? 'Segment' : 'Custom filters')}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {c.audience_count > 0 ? c.audience_count : c.status === 'draft' ? 'Preview before send' : '—'}
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                      {formatCampaignDate(c)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span
@@ -892,7 +912,23 @@ export default function EmailCampaignsClient() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {c.sent_count > 0 ? pct(c.opened_count, c.sent_count) : '—'}
+                      {c.sent_count > 0
+                        ? c.sent_count
+                        : c.status === 'draft'
+                          ? c.audience_count > 0
+                            ? `~${c.audience_count} ready`
+                            : 'Not sent'
+                          : '0'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {c.sent_count > 0
+                        ? `${c.opened_count} (${pct(c.opened_count, c.sent_count)})`
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">
+                      {c.sent_count > 0
+                        ? `${c.clicked_count} (${pct(c.clicked_count, c.sent_count)})`
+                        : '—'}
                     </td>
                     <td
                       className="px-4 py-3 text-sm text-right space-x-2"

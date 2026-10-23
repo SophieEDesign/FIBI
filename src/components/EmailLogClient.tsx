@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { getAdminAuthHeaders } from '@/lib/admin-auth-headers'
 
 interface LogEntry {
@@ -58,6 +59,7 @@ function outcomeLabel(row: LogEntry): string {
 }
 
 export default function EmailLogClient() {
+  const searchParams = useSearchParams()
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState<Stats | null>(null)
@@ -67,6 +69,11 @@ export default function EmailLogClient() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'sent' | 'failed'>('all')
   const [page, setPage] = useState(0)
   const limit = 50
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('template_slug')
+    if (fromUrl) setTemplateFilter(fromUrl)
+  }, [searchParams])
 
   const fetchLog = useCallback(async () => {
     setLoading(true)
@@ -114,7 +121,8 @@ export default function EmailLogClient() {
     <div>
       <h1 className="mb-2 text-2xl font-semibold text-[#17181A]">Email log</h1>
       <p className="mb-6 text-sm text-[#5C574C]">
-        Opens, clicks, bounces and failures — with the provider error when a send fails.
+        Every send lands here — campaigns and one-offs. Filter by template to see who received,
+        opened, or clicked.
       </p>
 
       {stats && (
